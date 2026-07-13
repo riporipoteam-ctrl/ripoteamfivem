@@ -9,9 +9,9 @@ Layout.GroundY = Config.GroundY
 
 local HALF = Config.PlotSize / 2
 
--- Zone grid: 4 columns x 3 rows of 40-stud zones separated by 12-stud roads.
+-- Zone grid: 4 columns x 4 rows of 40-stud zones separated by 12-stud roads.
 local COL_X = { -78, -26, 26, 78 }
-local ROW_Z = { 78, 26, -26 }
+local ROW_Z = { 104, 52, 0, -52 }
 
 Layout.NukeIslandCenter = Vector3.new(0, 0, -880)
 Layout.NukeIslandSize = 150
@@ -42,12 +42,12 @@ end
 
 function Layout.siloPos(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY, c.Z - 84)
+	return Vector3.new(c.X, Config.GroundY, c.Z - 110)
 end
 
 function Layout.plotSpawn(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 103)
+	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 128)
 end
 
 function Layout.plotBounds(plotIndex)
@@ -67,7 +67,7 @@ end
 -- Top-down camera used by the attack ("BLOW UP") view.
 function Layout.attackCameraCFrame(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	local eye = Vector3.new(c.X, 330, c.Z + 40)
+	local eye = Vector3.new(c.X, 390, c.Z + 50)
 	return CFrame.lookAt(eye, Vector3.new(c.X, Layout.GroundY, c.Z))
 end
 

@@ -7,7 +7,7 @@ Config.MaxPlayers = 5
 
 -- World layout
 Config.PlotCount = 5
-Config.PlotSize = 220
+Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip
 Config.PlotDistance = 420
 Config.ZoneSize = 40
 Config.GroundY = 4
@@ -45,12 +45,47 @@ Config.MissileRepairTime = 120 -- seconds for a missile-destroyed building to re
 Config.HpRegenDelay = 60 -- damaged (not destroyed) buildings heal after this long without hits
 Config.JoinImmunity = 120 -- new joiners can't be attacked for this long
 
+-- Rebirth: reset your buildings for a permanent income multiplier.
+-- Cost scales forever, so the game never runs out of goals.
+Config.Rebirth = {
+	BaseCost = 25e9,
+	CostGrowth = 120, -- each rebirth costs 120x the previous
+	IncomePerRebirth = 1, -- +100% income per rebirth
+}
+
+-- Random world events.
+Config.Events = {
+	MinInterval = 200,
+	MaxInterval = 340,
+	FrenzyDuration = 60,
+	FrenzyMult = 2,
+	GemRainAmount = 15,
+	MeteorCount = 8,
+	MeteorDamage = 2500,
+	SupplyCashMinutes = 10,
+	SupplyGems = 20,
+}
+
 -- Gem shop
 Config.Shop = {
 	RepairAllGems = 25,
 	SkipCooldownGems = 10,
 	ShieldGems = 40,
 	BarrageGems = 40,
+}
+
+-- Character shop (Tilly). Tiered items cost Costs[tier+1] gems.
+Config.Character = {
+	SpeedCosts = { 30, 60, 120 },
+	SpeedPerTier = 4, -- +WalkSpeed per tier
+	JumpCosts = { 25, 50, 100 },
+	JumpPerTier = 12, -- +JumpPower per tier
+	TrailCost = 150,
+	Titles = {
+		{ id = "tycoon", label = "\u{1F4B0} Tycoon", cost = 100 },
+		{ id = "warlord", label = "\u{2622}\u{FE0F} WARLORD", cost = 250 },
+		{ id = "legend", label = "\u{1F31F} LEGEND", cost = 500 },
+	},
 }
 Config.GiftInterval = 15 * 60 -- free gift every 15 minutes of playtime
 Config.GiftGems = 15

@@ -131,6 +131,13 @@ function UILib.panel(name, title, size, displayOrder)
 	local gui = UILib.screen(name, displayOrder or 10)
 	gui.Enabled = false
 
+	-- Whoosh whenever any panel opens.
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if gui.Enabled then
+			SoundBook.play("PanelOpen", UILib.playerGui())
+		end
+	end)
+
 	local frame = UILib.frame({
 		Name = "Panel",
 		Size = size,

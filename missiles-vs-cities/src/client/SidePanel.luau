@@ -15,6 +15,11 @@ local ctx
 local giftButton
 local shopGui
 
+-- Exposed so NPC dialogue ("Open Shop") can toggle the same panel.
+function SidePanel.toggleShop()
+	shopGui.Enabled = not shopGui.Enabled
+end
+
 local function makeShop()
 	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} Shop", UDim2.new(0, 380, 0, 380), 12)
 	shopGui = panelGui
@@ -91,6 +96,9 @@ function SidePanel.init(context)
 	sideButton(holder, 4, "\u{1F4A3}", "Attack", UILib.Colors.Purple, function()
 		ctx.AttackView.open(false)
 	end)
+	sideButton(holder, 5, "\u{1F4DC}", "Quests", UILib.Colors.Gold, function()
+		ctx.QuestUI.toggle()
+	end)
 
 	-- Compact 2X gamepass buttons under the main column.
 	local passCash = UILib.button({
@@ -100,7 +108,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_cash")
 	end)
-	passCash.LayoutOrder = 5
+	passCash.LayoutOrder = 6
 	passCash.Parent = holder
 
 	local passDmg = UILib.button({
@@ -110,7 +118,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_damage")
 	end)
-	passDmg.LayoutOrder = 6
+	passDmg.LayoutOrder = 7
 	passDmg.Parent = holder
 
 	-- Gift button countdown.

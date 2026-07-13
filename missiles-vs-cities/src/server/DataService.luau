@@ -35,6 +35,9 @@ local function defaultProfile()
 		nukeIsland = false,
 		nukeCharges = 0,
 		lastNukeAt = 0,
+		rebirths = 0,
+		cosmetics = { speed = 0, jump = 0, trail = false, title = "" },
+		quests = {},
 		daily = { streak = 0, lastClaimAt = 0 },
 		stats = { nukesFired = 0, missilesFired = 0, stolen = 0 },
 	}

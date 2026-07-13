@@ -16,10 +16,17 @@ SoundBook.Defs = {
 	Victory = { id = "rbxasset://sounds/victory.wav", volume = 0.8 },
 	Flash = { id = "rbxasset://sounds/flashbulb.wav", volume = 0.9 },
 	Siren = { id = "rbxasset://sounds/bass.wav", volume = 0.9 }, -- pitch-modulated into a wail by AlarmUI
+	PanelOpen = { id = "rbxasset://sounds/swoosh.wav", volume = 0.5 },
+	Blip = { id = "rbxasset://sounds/button.wav", volume = 0.25 }, -- dialogue typewriter
+	Horn = { id = "rbxasset://sounds/bass.wav", volume = 0.9 }, -- world event fanfare (pitched up)
+	Ding = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.9 },
+	Splat = { id = "rbxasset://sounds/splat.wav", volume = 0.8 },
+	Hit = { id = "rbxasset://sounds/hit.wav", volume = 0.8 },
 }
 
--- Background music playlist (Roblox library asset ids). Edit freely.
-SoundBook.Music = { 142376088 }
+-- Background music playlist (Roblox library asset ids). The player skips any
+-- id that fails to load, so add your favorites from the Creator Marketplace.
+SoundBook.Music = { 142376088, 1841647093, 1837324424 }
 
 function SoundBook.make(key, props)
 	local def = SoundBook.Defs[key]

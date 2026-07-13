@@ -147,7 +147,8 @@ local function buildRoads(center, folder)
 			Parent = folder,
 		})
 	end
-	local hZs = { 104, 52, 0, -52 }
+	local hZs = { 130, 78, 26, -26, -78 }
+	local dashLimit = Config.PlotSize / 2 - 16
 	for _, z in ipairs(hZs) do
 		part({
 			Name = "RoadH",
@@ -157,8 +158,8 @@ local function buildRoads(center, folder)
 			Parent = folder,
 		})
 		-- Yellow dashes along horizontal roads.
-		local x = -96
-		while x <= 96 do
+		local x = -dashLimit
+		while x <= dashLimit do
 			part({
 				Name = "Dash",
 				Size = Vector3.new(6, 0.05, 1.6),
@@ -174,6 +175,9 @@ end
 local function buildFence(center, folder)
 	local h = 3
 	local half = Config.PlotSize / 2
+	local gate = 20 -- half-width of the front gate opening
+	local segLen = half - gate
+	local segOff = gate + segLen / 2
 	local segs = {
 		-- back wall
 		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z - half), Vector3.new(Config.PlotSize, h, 1) },
@@ -181,8 +185,8 @@ local function buildFence(center, folder)
 		{ Vector3.new(center.X - half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
 		{ Vector3.new(center.X + half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
 		-- front wall, split to leave a gate for the bridge
-		{ Vector3.new(center.X - 65, Config.GroundY + h / 2, center.Z + half), Vector3.new(90, h, 1) },
-		{ Vector3.new(center.X + 65, Config.GroundY + h / 2, center.Z + half), Vector3.new(90, h, 1) },
+		{ Vector3.new(center.X - segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
+		{ Vector3.new(center.X + segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
 	}
 	for _, seg in ipairs(segs) do
 		part({
@@ -474,6 +478,12 @@ function WorldBuilder.build()
 	atmosphere.Density = 0.25
 	atmosphere.Haze = 1
 	atmosphere.Parent = Lighting
+
+	-- Volumetric clouds.
+	local clouds = Instance.new("Clouds")
+	clouds.Cover = 0.48
+	clouds.Density = 0.72
+	clouds.Parent = workspace.Terrain
 
 	return {
 		root = root,

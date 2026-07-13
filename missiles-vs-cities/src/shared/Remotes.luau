@@ -14,8 +14,10 @@ local EVENTS = {
 	"RequestLaunch", -- client -> server: fire rocket/nuke
 	"UpgradeRocket", -- client -> server
 	"ClaimDaily", -- client -> server
-	"ShopBuy", -- client -> server: gem shop / gamepass buttons
+	"ShopBuy", -- client -> server: gem shop / gamepass / character shop
 	"ClaimGift", -- client -> server
+	"GameEvent", -- server -> all: random world events (frenzy, meteors, ...)
+	"RequestRebirth", -- client -> server
 }
 local FUNCTIONS = {
 	"GetSnapshot", -- client asks for initial state

@@ -26,7 +26,20 @@ tablet and console.
 - **Leaderstats** (Cash / City Worth), chunky cartoon UI, sound effects, music,
   camera shake, explosions, debris — the works
 - **Data saving** via DataStores (cash, gems, buildings, rocket level, nuke
-  access, streaks)
+  access, streaks, rebirths, cosmetics, quest progress)
+- **Lobby NPCs with dialogue**: Benny the Shopkeeper (shop stand), Tilly the
+  Tailor (character shop: speed/jump boosts, titles, rainbow trail), plus
+  **quest givers** Mayor Penny (building quests) and General Boom (combat
+  quests) — with endless repeatable end-quests
+- **16 building types** now (up to the Golden Tower at $28Qa) and a
+  **🌟 Rebirth Shrine**: reset your city for a permanent, stacking income
+  multiplier — the game literally never ends
+- **Random world events**: Cash Frenzy, Gem Rain, Meteor Showers, Supply Drops
+- **Global leaderboard** in the lobby: Richest Cities of All Time (saved
+  across all servers)
+- **Little citizens** wandering around every active city, volumetric clouds,
+  and SFX on every interaction (buttons, panels, dialogue typewriter, quests,
+  events, purchases, explosions...)
 
 ## 🕹️ How to publish (10 minutes, free)
 

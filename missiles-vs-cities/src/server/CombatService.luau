@@ -67,6 +67,9 @@ local function impactRocket(attackerUserId, targetUserId, pos, damage)
 		if aProfile then
 			aProfile.stats.stolen += worth
 		end
+		if ctx.Quests then
+			ctx.Quests.onEvent(attacker, "destroy", count)
+		end
 		notify(attacker, "\u{1F4A5} Destroyed " .. count .. " buildings! +\u{1F4B5} "
 			.. NumberFormat.abbrev(worth), "victory")
 		notify(target, "\u{1F4A5} " .. attacker.DisplayName .. "'s missile destroyed "
@@ -165,6 +168,9 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 		notifyAll("\u{2622}\u{FE0F} " .. player.DisplayName .. " has launched a NUKE at "
 			.. target.DisplayName .. "'s city!", "bad")
 		task.delay(flight, impactNuke, player.UserId, target.UserId)
+		if ctx.Quests then
+			ctx.Quests.onEvent(player, "nuke", 1)
+		end
 	else
 		if now() < (session.rocketReadyAt or 0) then
 			notify(player, "\u{1F680} Rocket reloading! "
@@ -193,6 +199,9 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 			task.delay(flight, impactRocket, player.UserId, target.UserId, hitPos, damage)
 		end
 		profile.stats.missilesFired += salvo
+		if ctx.Quests then
+			ctx.Quests.onEvent(player, "missile_launch", 1)
+		end
 		Remotes.Events.Alarm:FireClient(target, { kind = "rocket", pos = pos, eta = Config.Rocket.FlightTime })
 		notify(target, "\u{1F6A8} " .. player.DisplayName .. " launched "
 			.. (salvo > 1 and salvo .. " missiles" or "a missile") .. " at your city!", "bad")

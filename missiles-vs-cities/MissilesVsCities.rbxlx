@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX32"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX33"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX45"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX46"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX9"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
 
 local Config = require(script.Parent.Config)
 
@@ -17,6 +17,10 @@ BuildingDefs.List = {
 	{ id = "military", name = "Military Base", emoji = "\u{1FA96}", color = Color3.fromRGB(110, 140, 90), baseCost = 40e9, baseIncome = 1.9e6, hp = 16000, style = "towers" },
 	{ id = "wind", name = "Wind Farm", emoji = "\u{1F300}", color = Color3.fromRGB(200, 240, 250), baseCost = 380e9, baseIncome = 8.8e6, hp = 9000, style = "turbines" },
 	{ id = "space", name = "Space Center", emoji = "\u{1F6F0}\u{FE0F}", color = Color3.fromRGB(255, 255, 255), baseCost = 3.6e12, baseIncome = 42e6, hp = 30000, style = "towers" },
+	{ id = "techhub", name = "Tech Hub", emoji = "\u{1F4BB}", color = Color3.fromRGB(90, 230, 220), baseCost = 34e12, baseIncome = 380e6, hp = 45000, style = "towers" },
+	{ id = "casino", name = "Casino", emoji = "\u{1F3B0}", color = Color3.fromRGB(250, 180, 60), baseCost = 320e12, baseIncome = 3.4e9, hp = 60000, style = "towers" },
+	{ id = "port", name = "Mega Port", emoji = "\u{2693}", color = Color3.fromRGB(120, 150, 190), baseCost = 3e15, baseIncome = 30e9, hp = 90000, style = "panels" },
+	{ id = "goldtower", name = "Golden Tower", emoji = "\u{1F3C6}", color = Color3.fromRGB(255, 215, 80), baseCost = 28e15, baseIncome = 260e9, hp = 150000, style = "towers" },
 }
 
 BuildingDefs.ById = {}
@@ -60,7 +64,7 @@ Config.MaxPlayers = 5
 
 -- World layout
 Config.PlotCount = 5
-Config.PlotSize = 220
+Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip
 Config.PlotDistance = 420
 Config.ZoneSize = 40
 Config.GroundY = 4
@@ -98,12 +102,47 @@ Config.MissileRepairTime = 120 -- seconds for a missile-destroyed building to re
 Config.HpRegenDelay = 60 -- damaged (not destroyed) buildings heal after this long without hits
 Config.JoinImmunity = 120 -- new joiners can't be attacked for this long
 
+-- Rebirth: reset your buildings for a permanent income multiplier.
+-- Cost scales forever, so the game never runs out of goals.
+Config.Rebirth = {
+	BaseCost = 25e9,
+	CostGrowth = 120, -- each rebirth costs 120x the previous
+	IncomePerRebirth = 1, -- +100% income per rebirth
+}
+
+-- Random world events.
+Config.Events = {
+	MinInterval = 200,
+	MaxInterval = 340,
+	FrenzyDuration = 60,
+	FrenzyMult = 2,
+	GemRainAmount = 15,
+	MeteorCount = 8,
+	MeteorDamage = 2500,
+	SupplyCashMinutes = 10,
+	SupplyGems = 20,
+}
+
 -- Gem shop
 Config.Shop = {
 	RepairAllGems = 25,
 	SkipCooldownGems = 10,
 	ShieldGems = 40,
 	BarrageGems = 40,
+}
+
+-- Character shop (Tilly). Tiered items cost Costs[tier+1] gems.
+Config.Character = {
+	SpeedCosts = { 30, 60, 120 },
+	SpeedPerTier = 4, -- +WalkSpeed per tier
+	JumpCosts = { 25, 50, 100 },
+	JumpPerTier = 12, -- +JumpPower per tier
+	TrailCost = 150,
+	Titles = {
+		{ id = "tycoon", label = "\u{1F4B0} Tycoon", cost = 100 },
+		{ id = "warlord", label = "\u{2622}\u{FE0F} WARLORD", cost = 250 },
+		{ id = "legend", label = "\u{1F31F} LEGEND", cost = 500 },
+	},
 }
 Config.GiftInterval = 15 * 60 -- free gift every 15 minutes of playtime
 Config.GiftGems = 15
@@ -138,9 +177,9 @@ Layout.GroundY = Config.GroundY
 
 local HALF = Config.PlotSize / 2
 
--- Zone grid: 4 columns x 3 rows of 40-stud zones separated by 12-stud roads.
+-- Zone grid: 4 columns x 4 rows of 40-stud zones separated by 12-stud roads.
 local COL_X = { -78, -26, 26, 78 }
-local ROW_Z = { 78, 26, -26 }
+local ROW_Z = { 104, 52, 0, -52 }
 
 Layout.NukeIslandCenter = Vector3.new(0, 0, -880)
 Layout.NukeIslandSize = 150
@@ -171,12 +210,12 @@ end
 
 function Layout.siloPos(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY, c.Z - 84)
+	return Vector3.new(c.X, Config.GroundY, c.Z - 110)
 end
 
 function Layout.plotSpawn(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 103)
+	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 128)
 end
 
 function Layout.plotBounds(plotIndex)
@@ -196,12 +235,96 @@ end
 -- Top-down camera used by the attack ("BLOW UP") view.
 function Layout.attackCameraCFrame(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	local eye = Vector3.new(c.X, 330, c.Z + 40)
+	local eye = Vector3.new(c.X, 390, c.Z + 50)
 	return CFrame.lookAt(eye, Vector3.new(c.X, Layout.GroundY, c.Z))
 end
 
 return Layout
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">NumberFormat</string><ProtectedString name="Source">-- Big-number formatting: 1.28M / 846T / 71.3Sx style plus full comma strings.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">NPCDefs</string><ProtectedString name="Source">-- Lobby NPCs: looks, positions, dialogue lines and what they do.
+-- Positions are offsets from the lobby center.
+
+local NPCDefs = {}
+
+NPCDefs.List = {
+	{
+		id = "shopkeeper",
+		name = "Benny the Shopkeeper",
+		emoji = "\u{1F6D2}",
+		shirt = Color3.fromRGB(60, 150, 240),
+		pants = Color3.fromRGB(60, 60, 70),
+		hat = Color3.fromRGB(240, 200, 40),
+		pos = Vector3.new(32, 0, 14),
+		facing = -90,
+		action = "shop",
+		actionLabel = "\u{1F6D2} Open Shop",
+		lines = {
+			"Welcome to Benny's Battle Bazaar! \u{1F6D2}",
+			"Shields, barrages, instant repairs... everything a city at war could need!",
+			"All prices in gems \u{1F48E} — grab your free gift every 15 minutes to stock up!",
+		},
+	},
+	{
+		id = "tailor",
+		name = "Tilly the Tailor",
+		emoji = "\u{1FA84}",
+		shirt = Color3.fromRGB(220, 130, 240),
+		pants = Color3.fromRGB(120, 80, 160),
+		hat = Color3.fromRGB(255, 120, 180),
+		pos = Vector3.new(-32, 0, 14),
+		facing = 90,
+		action = "charshop",
+		actionLabel = "\u{2728} Character Shop",
+		lines = {
+			"Darling! You simply cannot conquer the world dressed like THAT. \u{1FA84}",
+			"I've got speed boosts, mega jumps, glorious titles and a rainbow trail!",
+			"A true warlord should LOOK the part, don't you think?",
+		},
+	},
+	{
+		id = "mayor",
+		name = "Mayor Penny",
+		emoji = "\u{1F3DB}\u{FE0F}",
+		shirt = Color3.fromRGB(90, 200, 120),
+		pants = Color3.fromRGB(50, 90, 60),
+		hat = Color3.fromRGB(240, 240, 245),
+		pos = Vector3.new(20, 0, -30),
+		facing = 160,
+		action = "quest",
+		chain = "mayor",
+		actionLabel = "\u{1F4DC} View Quests",
+		lines = {
+			"Ah, a new city builder! Welcome, welcome! \u{1F3DB}\u{FE0F}",
+			"This town won't grow itself — I have building contracts with YOUR name on them.",
+			"Complete my quests and the city treasury will reward you handsomely!",
+		},
+	},
+	{
+		id = "general",
+		name = "General Boom",
+		emoji = "\u{1F4A5}",
+		shirt = Color3.fromRGB(110, 140, 90),
+		pants = Color3.fromRGB(60, 75, 50),
+		hat = Color3.fromRGB(60, 75, 50),
+		pos = Vector3.new(-20, 0, -30),
+		facing = -160,
+		action = "quest",
+		chain = "general",
+		actionLabel = "\u{1F4DC} View Quests",
+		lines = {
+			"SOLDIER! You call that a rocket silo?! \u{1F4A5}",
+			"Out there five cities compete for glory, and only firepower decides who eats!",
+			"Complete my combat missions and I'll make it worth your while. DISMISSED!",
+		},
+	},
+}
+
+NPCDefs.ById = {}
+for _, def in ipairs(NPCDefs.List) do
+	NPCDefs.ById[def.id] = def
+end
+
+return NPCDefs
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">NumberFormat</string><ProtectedString name="Source">-- Big-number formatting: 1.28M / 846T / 71.3Sx style plus full comma strings.
 
 local NumberFormat = {}
 
@@ -252,7 +375,48 @@ function NumberFormat.clock(sec)
 end
 
 return NumberFormat
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Remotes</string><ProtectedString name="Source">-- Creates (server) or fetches (client) all RemoteEvents/RemoteFunctions.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">QuestDefs</string><ProtectedString name="Source">-- Quest chains. Kinds:
+--   counters (increment on events): upgrade, destroy, missile_launch, nuke
+--   stats (evaluated against live values): cash, worth, rocket_level, buildings
+-- The last quest of a chain can be repeatable = the game never runs out.
+-- Rewards: cash, gems, shield, barrage, cashMinutes (income-scaled cash).
+
+local QuestDefs = {}
+
+QuestDefs.Chains = {
+	mayor = {
+		npc = "mayor",
+		title = "\u{1F3DB}\u{FE0F} Mayor Penny",
+		quests = {
+			{ name = "First Bricks", desc = "Buy or upgrade buildings 3 times", kind = "upgrade", goal = 3, reward = { cash = 2500 } },
+			{ name = "Growing Town", desc = "Own 5 different building types", kind = "buildings", goal = 5, reward = { cash = 20000, gems = 15 } },
+			{ name = "Millionaire", desc = "Hold $1M cash at once", kind = "cash", goal = 1e6, reward = { gems = 40 } },
+			{ name = "Skyline", desc = "Own 10 different building types", kind = "buildings", goal = 10, reward = { cashMinutes = 10, gems = 25 } },
+			{ name = "Billion Dollar City", desc = "Reach $1B city worth", kind = "worth", goal = 1e9, reward = { gems = 75 } },
+			{ name = "Full House", desc = "Own all 16 building types", kind = "buildings", goal = 16, reward = { gems = 120, shield = 1 } },
+			{ name = "Trillion Club", desc = "Hold $1T cash at once", kind = "cash", goal = 1e12, reward = { gems = 250 } },
+			{ name = "Quadrillionaire", desc = "Reach $1Qa city worth", kind = "worth", goal = 1e15, reward = { gems = 500 } },
+			{ name = "Keep Building!", desc = "Buy or upgrade buildings 25 times", kind = "upgrade", goal = 25, reward = { cashMinutes = 20, gems = 30 }, repeatable = true },
+		},
+	},
+	general = {
+		npc = "general",
+		title = "\u{1F4A5} General Boom",
+		quests = {
+			{ name = "First Strike", desc = "Launch a missile at another city", kind = "missile_launch", goal = 1, reward = { cash = 5000 } },
+			{ name = "Demolition Job", desc = "Destroy 5 enemy buildings", kind = "destroy", goal = 5, reward = { gems = 30 } },
+			{ name = "Rocket Scientist", desc = "Upgrade your rocket to Lv10", kind = "rocket_level", goal = 10, reward = { cashMinutes = 10, gems = 20 } },
+			{ name = "Carpet Bomber", desc = "Launch 15 missiles", kind = "missile_launch", goal = 15, reward = { barrage = 1, gems = 25 } },
+			{ name = "Warlord", desc = "Destroy 25 enemy buildings", kind = "destroy", goal = 25, reward = { gems = 100 } },
+			{ name = "Big Red Button", desc = "Fire a NUKE", kind = "nuke", goal = 1, reward = { gems = 300 } },
+			{ name = "Doomsday Engine", desc = "Upgrade your rocket to Lv40", kind = "rocket_level", goal = 40, reward = { gems = 400, shield = 1 } },
+			{ name = "War Never Ends", desc = "Destroy 10 enemy buildings", kind = "destroy", goal = 10, reward = { gems = 35 }, repeatable = true },
+		},
+	},
+}
+
+return QuestDefs
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Remotes</string><ProtectedString name="Source">-- Creates (server) or fetches (client) all RemoteEvents/RemoteFunctions.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -268,8 +432,10 @@ local EVENTS = {
 	"RequestLaunch", -- client -&gt; server: fire rocket/nuke
 	"UpgradeRocket", -- client -&gt; server
 	"ClaimDaily", -- client -&gt; server
-	"ShopBuy", -- client -&gt; server: gem shop / gamepass buttons
+	"ShopBuy", -- client -&gt; server: gem shop / gamepass / character shop
 	"ClaimGift", -- client -&gt; server
+	"GameEvent", -- server -&gt; all: random world events (frenzy, meteors, ...)
+	"RequestRebirth", -- client -&gt; server
 }
 local FUNCTIONS = {
 	"GetSnapshot", -- client asks for initial state
@@ -305,7 +471,7 @@ else
 end
 
 return Remotes
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">SoundBook</string><ProtectedString name="Source">-- All game audio in one place. The rbxasset:// entries are built into every
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">SoundBook</string><ProtectedString name="Source">-- All game audio in one place. The rbxasset:// entries are built into every
 -- Roblox install so they always play; swap any of them for marketplace ids
 -- ("rbxassetid://12345") if you want richer audio later.
 
@@ -323,10 +489,17 @@ SoundBook.Defs = {
 	Victory = { id = "rbxasset://sounds/victory.wav", volume = 0.8 },
 	Flash = { id = "rbxasset://sounds/flashbulb.wav", volume = 0.9 },
 	Siren = { id = "rbxasset://sounds/bass.wav", volume = 0.9 }, -- pitch-modulated into a wail by AlarmUI
+	PanelOpen = { id = "rbxasset://sounds/swoosh.wav", volume = 0.5 },
+	Blip = { id = "rbxasset://sounds/button.wav", volume = 0.25 }, -- dialogue typewriter
+	Horn = { id = "rbxasset://sounds/bass.wav", volume = 0.9 }, -- world event fanfare (pitched up)
+	Ding = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.9 },
+	Splat = { id = "rbxasset://sounds/splat.wav", volume = 0.8 },
+	Hit = { id = "rbxasset://sounds/hit.wav", volume = 0.8 },
 }
 
--- Background music playlist (Roblox library asset ids). Edit freely.
-SoundBook.Music = { 142376088 }
+-- Background music playlist (Roblox library asset ids). The player skips any
+-- id that fails to load, so add your favorites from the Creator Marketplace.
+SoundBook.Music = { 142376088, 1841647093, 1837324424 }
 
 function SoundBook.make(key, props)
 	local def = SoundBook.Defs[key]
@@ -381,7 +554,7 @@ function SoundBook.playAt(key, position, props)
 end
 
 return SoundBook
-</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX34"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX16"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's building cluster for its level, plus the rubble state.
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX47"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX23"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's building cluster for its level, plus the rubble state.
 -- Everything is deterministic per (plot, zone) so cities look stable.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -574,7 +747,7 @@ function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, cen
 end
 
 return BuildingVisuals
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
 -- Clients only render FX; every gameplay decision happens here.
 
 local Players = game:GetService("Players")
@@ -642,6 +815,9 @@ local function impactRocket(attackerUserId, targetUserId, pos, damage)
 		local aProfile = ctx.Data.get(attacker)
 		if aProfile then
 			aProfile.stats.stolen += worth
+		end
+		if ctx.Quests then
+			ctx.Quests.onEvent(attacker, "destroy", count)
 		end
 		notify(attacker, "\u{1F4A5} Destroyed " .. count .. " buildings! +\u{1F4B5} "
 			.. NumberFormat.abbrev(worth), "victory")
@@ -741,6 +917,9 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 		notifyAll("\u{2622}\u{FE0F} " .. player.DisplayName .. " has launched a NUKE at "
 			.. target.DisplayName .. "'s city!", "bad")
 		task.delay(flight, impactNuke, player.UserId, target.UserId)
+		if ctx.Quests then
+			ctx.Quests.onEvent(player, "nuke", 1)
+		end
 	else
 		if now() &lt; (session.rocketReadyAt or 0) then
 			notify(player, "\u{1F680} Rocket reloading! "
@@ -769,6 +948,9 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 			task.delay(flight, impactRocket, player.UserId, target.UserId, hitPos, damage)
 		end
 		profile.stats.missilesFired += salvo
+		if ctx.Quests then
+			ctx.Quests.onEvent(player, "missile_launch", 1)
+		end
 		Remotes.Events.Alarm:FireClient(target, { kind = "rocket", pos = pos, eta = Config.Rocket.FlightTime })
 		notify(target, "\u{1F6A8} " .. player.DisplayName .. " launched "
 			.. (salvo &gt; 1 and salvo .. " missiles" or "a missile") .. " at your city!", "bad")
@@ -819,7 +1001,191 @@ function CombatService.init(context)
 end
 
 return CombatService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
+-- Purchases come through the ShopBuy remote (handled by EconomyService,
+-- which calls buy() here); effects are applied on every character spawn.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Remotes = require(Shared.Remotes)
+
+local CosmeticsService = {}
+
+local ctx
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function titleById(id)
+	for _, t in ipairs(Config.Character.Titles) do
+		if t.id == id then
+			return t
+		end
+	end
+	return nil
+end
+
+function CosmeticsService.apply(player, character)
+	local profile = ctx.Data.get(player)
+	if not profile or not character then
+		return
+	end
+	local cos = profile.cosmetics or {}
+	local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+	if not humanoid then
+		return
+	end
+
+	humanoid.WalkSpeed = 16 + (cos.speed or 0) * Config.Character.SpeedPerTier
+	humanoid.UseJumpPower = true
+	humanoid.JumpPower = 50 + (cos.jump or 0) * Config.Character.JumpPerTier
+
+	-- Overhead title.
+	local head = character:FindFirstChild("Head")
+	if head and cos.title and cos.title ~= "" then
+		local old = head:FindFirstChild("MVC_Title")
+		if old then
+			old:Destroy()
+		end
+		local titleDef = titleById(cos.title)
+		if titleDef then
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "MVC_Title"
+			gui.Size = UDim2.new(12, 0, 2.4, 0)
+			gui.StudsOffset = Vector3.new(0, 2.4, 0)
+			gui.AlwaysOnTop = true
+			gui.MaxDistance = 200
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromScale(1, 1)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.FredokaOne
+			label.TextScaled = true
+			label.TextColor3 = Color3.fromRGB(255, 215, 80)
+			label.TextStrokeColor3 = Color3.new(0, 0, 0)
+			label.TextStrokeTransparency = 0
+			label.Text = titleDef.label
+			label.Parent = gui
+			gui.Parent = head
+		end
+	end
+
+	-- Rainbow trail.
+	if cos.trail then
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if hrp and not hrp:FindFirstChild("MVC_Trail") then
+			local a0 = Instance.new("Attachment")
+			a0.Position = Vector3.new(0, 1, 0)
+			a0.Parent = hrp
+			local a1 = Instance.new("Attachment")
+			a1.Position = Vector3.new(0, -1, 0)
+			a1.Parent = hrp
+			local trail = Instance.new("Trail")
+			trail.Name = "MVC_Trail"
+			trail.Attachment0 = a0
+			trail.Attachment1 = a1
+			trail.Lifetime = 0.6
+			trail.WidthScale = NumberSequence.new(1, 0)
+			trail.Transparency = NumberSequence.new(0.2, 1)
+			trail.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+				ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 200, 60)),
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(90, 220, 90)),
+				ColorSequenceKeypoint.new(0.75, Color3.fromRGB(80, 160, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 90, 240)),
+			})
+			trail.Parent = hrp
+		end
+	end
+end
+
+local function reapply(player)
+	if player.Character then
+		CosmeticsService.apply(player, player.Character)
+	end
+end
+
+-- Returns true if the itemId was a cosmetics purchase (handled here).
+function CosmeticsService.buy(player, itemId)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return false
+	end
+	profile.cosmetics = profile.cosmetics or { speed = 0, jump = 0, trail = false, title = "" }
+	local cos = profile.cosmetics
+
+	if itemId == "cos_speed" then
+		local tier = (cos.speed or 0) + 1
+		local cost = Config.Character.SpeedCosts[tier]
+		if not cost then
+			notify(player, "\u{1F45F} Speed is already maxed!", "info")
+		elseif ctx.Economy.trySpendGems(player, cost) then
+			cos.speed = tier
+			reapply(player)
+			notify(player, "\u{1F45F} Speed boost tier " .. tier .. " equipped!", "buy")
+		else
+			notify(player, "Need \u{1F48E} " .. cost .. " gems!", "bad")
+		end
+		return true
+	elseif itemId == "cos_jump" then
+		local tier = (cos.jump or 0) + 1
+		local cost = Config.Character.JumpCosts[tier]
+		if not cost then
+			notify(player, "\u{1F998} Jump is already maxed!", "info")
+		elseif ctx.Economy.trySpendGems(player, cost) then
+			cos.jump = tier
+			reapply(player)
+			notify(player, "\u{1F998} Jump boost tier " .. tier .. " equipped!", "buy")
+		else
+			notify(player, "Need \u{1F48E} " .. cost .. " gems!", "bad")
+		end
+		return true
+	elseif itemId == "cos_trail" then
+		if cos.trail then
+			notify(player, "\u{1F308} You already have the rainbow trail!", "info")
+		elseif ctx.Economy.trySpendGems(player, Config.Character.TrailCost) then
+			cos.trail = true
+			reapply(player)
+			notify(player, "\u{1F308} Rainbow trail equipped!", "buy")
+		else
+			notify(player, "Need \u{1F48E} " .. Config.Character.TrailCost .. " gems!", "bad")
+		end
+		return true
+	elseif itemId:sub(1, 10) == "cos_title_" then
+		local titleId = itemId:sub(11)
+		local titleDef = titleById(titleId)
+		if not titleDef then
+			return true
+		end
+		if cos.title == titleId then
+			notify(player, "That title is already equipped!", "info")
+		elseif ctx.Economy.trySpendGems(player, titleDef.cost) then
+			cos.title = titleId
+			reapply(player)
+			notify(player, "\u{1F3F7}\u{FE0F} Title equipped: " .. titleDef.label, "buy")
+		else
+			notify(player, "Need \u{1F48E} " .. titleDef.cost .. " gems!", "bad")
+		end
+		return true
+	end
+	return false
+end
+
+function CosmeticsService.init(context)
+	ctx = context
+	Players.PlayerAdded:Connect(function(player)
+		player.CharacterAdded:Connect(function(character)
+			task.wait(0.2)
+			CosmeticsService.apply(player, character)
+		end)
+	end)
+end
+
+return CosmeticsService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
 -- are unavailable (unpublished place / Studio without API access) the game
 -- still runs, it just won't save.
 
@@ -856,6 +1222,9 @@ local function defaultProfile()
 		nukeIsland = false,
 		nukeCharges = 0,
 		lastNukeAt = 0,
+		rebirths = 0,
+		cosmetics = { speed = 0, jump = 0, trail = false, title = "" },
+		quests = {},
 		daily = { streak = 0, lastClaimAt = 0 },
 		stats = { nukesFired = 0, missilesFired = 0, stolen = 0 },
 	}
@@ -960,7 +1329,7 @@ function DataService.allPlayers()
 end
 
 return DataService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
 -- the free-gift timer, the gem shop and gamepass hooks.
 
 local Players = game:GetService("Players")
@@ -1019,7 +1388,29 @@ end
 
 function EconomyService.cashMultiplier(player)
 	local session = ctx.session[player]
-	return (session and session.passCash) and 2 or 1
+	local profile = ctx.Data.get(player)
+	local mult = (session and session.passCash) and 2 or 1
+	-- Permanent rebirth bonus (+100% per rebirth) and temporary event boosts.
+	if profile then
+		mult *= 1 + (profile.rebirths or 0) * Config.Rebirth.IncomePerRebirth
+	end
+	mult *= ctx.eventCashMult or 1
+	return mult
+end
+
+function EconomyService.rebirthCost(profile)
+	return Config.Rebirth.BaseCost * Config.Rebirth.CostGrowth ^ (profile.rebirths or 0)
+end
+
+-- Number of distinct building types currently owned (for quest stats).
+local function distinctBuildings(slot)
+	local count = 0
+	for _, zone in pairs(slot.zones) do
+		if zone.level &gt; 0 then
+			count += 1
+		end
+	end
+	return count
 end
 
 function EconomyService.damageMultiplier(player)
@@ -1050,12 +1441,22 @@ function EconomyService.pushState(player)
 	end
 	local slot = ctx.Plot.getSlot(player)
 	local rocketLevel = profile.rocketLevel
+	local stats = slot and {
+		cash = profile.cash,
+		worth = ctx.Plot.cityWorth(slot),
+		rocket_level = rocketLevel,
+		buildings = distinctBuildings(slot),
+	} or nil
 	local snapshot = {
 		cash = profile.cash,
 		gems = profile.gems,
 		income = EconomyService.getIncomePerSec(player),
 		worth = slot and ctx.Plot.cityWorth(slot) or 0,
 		plotIndex = slot and slot.index or 0,
+		rebirths = profile.rebirths or 0,
+		rebirthCost = EconomyService.rebirthCost(profile),
+		quests = ctx.Quests and ctx.Quests.getSummary(player, stats) or nil,
+		cosmetics = profile.cosmetics,
 		rocketLevel = rocketLevel,
 		rocketCost = rocketLevel &lt; Config.Rocket.MaxLevel
 			and math.floor(Config.Rocket.BaseUpgradeCost * Config.Rocket.CostGrowth ^ (rocketLevel - 1))
@@ -1126,6 +1527,14 @@ local function incomeLoop()
 					slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
 						.. "\n\u{1F4B5} " .. NumberFormat.abbrev(ctx.Plot.cityWorth(slot))
 					updateLeaderstats(player)
+					if ctx.Quests then
+						ctx.Quests.evaluate(player, {
+							cash = profile.cash,
+							worth = ctx.Plot.cityWorth(slot),
+							rocket_level = profile.rocketLevel,
+							buildings = distinctBuildings(slot),
+						})
+					end
 					EconomyService.pushState(player)
 				end
 			end
@@ -1137,6 +1546,12 @@ local function onShopBuy(player, itemId)
 	local profile = ctx.Data.get(player)
 	local session = ctx.session[player]
 	if not profile or not session or type(itemId) ~= "string" then
+		return
+	end
+
+	-- Character shop items are handled by CosmeticsService.
+	if ctx.Cosmetics and ctx.Cosmetics.buy(player, itemId) then
+		EconomyService.pushState(player)
 		return
 	end
 
@@ -1258,6 +1673,29 @@ function EconomyService.init(context)
 	Remotes.Events.ShopBuy.OnServerEvent:Connect(onShopBuy)
 	Remotes.Events.ClaimGift.OnServerEvent:Connect(onClaimGift)
 
+	Remotes.Events.RequestRebirth.OnServerEvent:Connect(function(player)
+		local profile = ctx.Data.get(player)
+		local slot = ctx.Plot.getSlot(player)
+		if not profile or not slot then
+			return
+		end
+		local cost = EconomyService.rebirthCost(profile)
+		if profile.cash &lt; cost then
+			notify(player, "\u{1F31F} Rebirth needs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.rebirths = (profile.rebirths or 0) + 1
+		profile.cash = Config.StartingCash
+		ctx.Plot.resetBuildings(player)
+		local mult = 1 + profile.rebirths * Config.Rebirth.IncomePerRebirth
+		notify(player, "\u{1F31F} REBIRTH " .. profile.rebirths .. "! Permanent income x" .. mult .. "!", "victory")
+		Remotes.Events.Notify:FireAllClients({
+			msg = "\u{1F31F} " .. player.DisplayName .. " was REBORN! Their income is now x" .. mult .. "!",
+			kind = "info",
+		})
+		EconomyService.pushState(player)
+	end)
+
 	Remotes.Functions.GetSnapshot.OnServerInvoke = function(player)
 		if ctx.Data.get(player) and ctx.session[player] then
 			EconomyService.pushState(player)
@@ -1285,7 +1723,338 @@ function EconomyService.init(context)
 end
 
 return EconomyService
-</ProtectedString></Properties></Item><Item class="Script" referent="RBX12"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
+-- Supply Drop. Keeps servers lively and unpredictable.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local EventsService = {}
+
+local ctx
+local rng = Random.new()
+
+local function announce(kind, msg, duration)
+	Remotes.Events.GameEvent:FireAllClients({ kind = kind, msg = msg, duration = duration or 0 })
+end
+
+local function notify(player, msg, kindName)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kindName or "info" })
+end
+
+local function cashFrenzy()
+	announce("frenzy", "\u{1F4B8} CASH FRENZY! All income x" .. Config.Events.FrenzyMult
+		.. " for " .. Config.Events.FrenzyDuration .. " seconds!", Config.Events.FrenzyDuration)
+	ctx.eventCashMult = Config.Events.FrenzyMult
+	task.delay(Config.Events.FrenzyDuration, function()
+		ctx.eventCashMult = 1
+	end)
+end
+
+local function gemRain()
+	announce("gems", "\u{1F48E} GEM RAIN! Everyone gets +" .. Config.Events.GemRainAmount .. " gems!", 6)
+	for _, player in ipairs(Players:GetPlayers()) do
+		local profile = ctx.Data.get(player)
+		if profile then
+			profile.gems += Config.Events.GemRainAmount
+			ctx.Economy.pushState(player)
+		end
+	end
+end
+
+local function meteorShower()
+	local occupied = {}
+	for _, slot in ipairs(ctx.Plot.slots()) do
+		if slot.owner and not ctx.Plot.isImmune(slot) then
+			occupied[#occupied + 1] = slot
+		end
+	end
+	if #occupied == 0 then
+		return
+	end
+	announce("meteor", "\u{2604}\u{FE0F} METEOR SHOWER! Small meteors are falling on cities!", 14)
+
+	for i = 1, Config.Events.MeteorCount do
+		task.delay(1 + i * 1.2, function()
+			local slot = occupied[rng:NextInteger(1, #occupied)]
+			if not slot.owner then
+				return
+			end
+			local minX, minZ, maxX, maxZ = Layout.plotBounds(slot.index)
+			local pos = Vector3.new(rng:NextNumber(minX, maxX), Layout.GroundY, rng:NextNumber(minZ, maxZ))
+			local from = pos + Vector3.new(rng:NextNumber(-80, 80), 420, rng:NextNumber(-80, 80))
+			local flight = 2.2
+			Remotes.Events.MissileEvent:FireAllClients({
+				kind = "meteor",
+				from = from,
+				to = pos,
+				flight = flight,
+			})
+			task.delay(flight, function()
+				if slot.owner then
+					-- No payout and no shield use for weather damage.
+					local _, count = ctx.Plot.applyBlast(slot, pos, Config.Events.MeteorDamage)
+					if count &gt; 0 then
+						notify(slot.owner, "\u{2604}\u{FE0F} A meteor smashed " .. count .. " of your buildings!", "bad")
+					end
+				end
+			end)
+		end)
+	end
+end
+
+local function supplyDrop()
+	announce("supply", "\u{1F4E6} SUPPLY DROP at the lobby! First one to grab it wins!", 25)
+
+	local pos = Vector3.new(rng:NextNumber(-35, 35), Config.GroundY + 2, rng:NextNumber(-35, 35))
+	local crate = Instance.new("Part")
+	crate.Name = "SupplyDrop"
+	crate.Size = Vector3.new(4, 4, 4)
+	crate.Position = pos + Vector3.new(0, 60, 0)
+	crate.Anchored = true
+	crate.Color = Color3.fromRGB(255, 215, 80)
+	crate.Material = Enum.Material.Neon
+	crate.Parent = workspace
+
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(16, 0, 5, 0)
+	gui.StudsOffset = Vector3.new(0, 4, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 1000
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 230, 120)
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Text = "\u{1F4E6} SUPPLY DROP!"
+	label.Parent = gui
+	gui.Parent = crate
+
+	-- Drop animation.
+	task.spawn(function()
+		for _ = 1, 30 do
+			task.wait(0.05)
+			if not crate.Parent then
+				return
+			end
+			crate.Position -= Vector3.new(0, 2, 0)
+		end
+		crate.Position = pos
+	end)
+
+	local claimed = false
+	crate.Touched:Connect(function(hit)
+		if claimed then
+			return
+		end
+		local character = hit.Parent
+		local player = character and Players:GetPlayerFromCharacter(character)
+		if not player then
+			return
+		end
+		claimed = true
+		local profile = ctx.Data.get(player)
+		if profile then
+			local cashReward = math.max(5000, ctx.Economy.getIncomePerSec(player) * 60 * Config.Events.SupplyCashMinutes)
+			profile.cash += cashReward
+			profile.gems += Config.Events.SupplyGems
+			announce("supply_claim", "\u{1F4E6} " .. player.DisplayName .. " grabbed the supply drop! (+\u{1F4B5} "
+				.. NumberFormat.abbrev(cashReward) .. " +\u{1F48E} " .. Config.Events.SupplyGems .. ")", 5)
+			ctx.Economy.pushState(player)
+		end
+		crate:Destroy()
+	end)
+
+	task.delay(60, function()
+		if crate.Parent then
+			crate:Destroy()
+		end
+	end)
+end
+
+local EVENTS = { cashFrenzy, gemRain, meteorShower, supplyDrop }
+
+function EventsService.init(context)
+	ctx = context
+	ctx.eventCashMult = 1
+	task.spawn(function()
+		while true do
+			task.wait(rng:NextNumber(Config.Events.MinInterval, Config.Events.MaxInterval))
+			if #Players:GetPlayers() &gt; 0 then
+				local event = EVENTS[rng:NextInteger(1, #EVENTS)]
+				task.spawn(event)
+			end
+		end
+	end)
+end
+
+return EventsService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard: an OrderedDataStore
+-- keeps the top city worths ever seen, displayed on a big board in the lobby.
+
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+
+local LeaderboardService = {}
+
+local ctx
+local store = nil
+local rowLabels = {}
+local nameCache = {}
+
+-- OrderedDataStores only take integers up to ~9e18; clamp huge worths.
+local MAX_STORE = 9e15
+
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetOrderedDataStore("MVC_TopWorth_v1")
+	end)
+	if ok then
+		store = result
+	else
+		warn("[MVC] Leaderboard store unavailable: " .. tostring(result))
+	end
+end
+
+local function buildBoard()
+	local base = Vector3.new(0, Config.GroundY, -42)
+	local board = Instance.new("Part")
+	board.Name = "Leaderboard"
+	board.Anchored = true
+	board.Size = Vector3.new(22, 14, 1.5)
+	board.Position = base + Vector3.new(0, 8, 0)
+	board.Color = Color3.fromRGB(44, 46, 56)
+	board.Parent = workspace
+
+	for _, off in ipairs({ Vector3.new(-9, 0, 0), Vector3.new(9, 0, 0) }) do
+		local leg = Instance.new("Part")
+		leg.Anchored = true
+		leg.Size = Vector3.new(1.2, 8, 1.2)
+		leg.Position = base + off + Vector3.new(0, 2, 0)
+		leg.Color = Color3.fromRGB(120, 120, 128)
+		leg.Parent = workspace
+	end
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.CanvasSize = Vector2.new(440, 280)
+	gui.Parent = board
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0, 42)
+	title.BackgroundColor3 = Color3.fromRGB(235, 60, 60)
+	title.BorderSizePixel = 0
+	title.Font = Enum.Font.FredokaOne
+	title.TextScaled = true
+	title.TextColor3 = Color3.new(1, 1, 1)
+	title.TextStrokeColor3 = Color3.new(0, 0, 0)
+	title.TextStrokeTransparency = 0
+	title.Text = "\u{1F3C6} RICHEST CITIES OF ALL TIME \u{1F3C6}"
+	title.Parent = gui
+
+	for i = 1, 10 do
+		local row = Instance.new("TextLabel")
+		row.Size = UDim2.new(1, -16, 0, 22)
+		row.Position = UDim2.new(0, 8, 0, 44 + (i - 1) * 23)
+		row.BackgroundTransparency = 1
+		row.Font = Enum.Font.FredokaOne
+		row.TextScaled = true
+		row.TextXAlignment = Enum.TextXAlignment.Left
+		row.TextColor3 = i &lt;= 3 and Color3.fromRGB(255, 215, 80) or Color3.new(1, 1, 1)
+		row.TextStrokeColor3 = Color3.new(0, 0, 0)
+		row.TextStrokeTransparency = 0
+		row.Text = i .. ". ..."
+		row.Parent = gui
+		rowLabels[i] = row
+	end
+end
+
+local function playerName(userId)
+	if nameCache[userId] then
+		return nameCache[userId]
+	end
+	local ok, name = pcall(function()
+		return Players:GetNameFromUserIdAsync(userId)
+	end)
+	nameCache[userId] = ok and name or ("Player " .. userId)
+	return nameCache[userId]
+end
+
+local function submitScores()
+	if not store then
+		return
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			local worth = math.floor(math.min(ctx.Plot.cityWorth(slot), MAX_STORE))
+			if worth &gt; 0 then
+				pcall(function()
+					store:UpdateAsync(tostring(player.UserId), function(old)
+						if old and old &gt;= worth then
+							return old
+						end
+						return worth
+					end)
+				end)
+			end
+		end
+	end
+end
+
+local function refreshBoard()
+	if not store then
+		for i = 1, 10 do
+			rowLabels[i].Text = i .. ". (enable API access to activate)"
+		end
+		return
+	end
+	local ok, pages = pcall(function()
+		return store:GetSortedAsync(false, 10)
+	end)
+	if not ok then
+		return
+	end
+	local top = pages:GetCurrentPage()
+	for i = 1, 10 do
+		local entry = top[i]
+		if entry then
+			rowLabels[i].Text = i .. ". " .. playerName(tonumber(entry.key)) .. " — \u{1F4B5} "
+				.. NumberFormat.abbrev(entry.value)
+		else
+			rowLabels[i].Text = i .. ". ---"
+		end
+	end
+end
+
+function LeaderboardService.init(context)
+	ctx = context
+	buildBoard()
+	task.spawn(function()
+		while true do
+			submitScores()
+			refreshBoard()
+			task.wait(90)
+		end
+	end)
+end
+
+return LeaderboardService
+</ProtectedString></Properties></Item><Item class="Script" referent="RBX17"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
 -- Builds the world, wires the services, manages player lifecycle.
 
 local Players = game:GetService("Players")
@@ -1303,11 +2072,17 @@ local PlotService = require(script.Parent.PlotService)
 local EconomyService = require(script.Parent.EconomyService)
 local CombatService = require(script.Parent.CombatService)
 local RewardsService = require(script.Parent.RewardsService)
+local QuestService = require(script.Parent.QuestService)
+local EventsService = require(script.Parent.EventsService)
+local CosmeticsService = require(script.Parent.CosmeticsService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
+local NPCBuilder = require(script.Parent.NPCBuilder)
 
 StarterPlayer.CameraMaxZoomDistance = 400
 Players.RespawnTime = 3
 
 local world = WorldBuilder.build()
+NPCBuilder.build(world.root)
 
 local ctx = {
 	Data = DataService,
@@ -1317,6 +2092,11 @@ local ctx = {
 	Economy = EconomyService,
 	Combat = CombatService,
 	Rewards = RewardsService,
+	Quests = QuestService,
+	Events = EventsService,
+	Cosmetics = CosmeticsService,
+	Leaderboard = LeaderboardService,
+	eventCashMult = 1,
 	session = {}, -- [player] = { giftReadyAt, rocketReadyAt, passCash, passDamage }
 }
 
@@ -1324,6 +2104,10 @@ PlotService.init(ctx)
 EconomyService.init(ctx)
 CombatService.init(ctx)
 RewardsService.init(ctx)
+QuestService.init(ctx)
+CosmeticsService.init(ctx)
+EventsService.init(ctx)
+LeaderboardService.init(ctx)
 
 local function onPlayerAdded(player)
 	ctx.session[player] = {}
@@ -1367,7 +2151,183 @@ game:BindToClose(function()
 end)
 
 print("[MVC] Missiles vs Cities server ready. Max " .. Config.MaxPlayers .. " players per server.")
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Builds the lobby NPCs (little blocky people with Talk prompts),
+-- Benny's shop stand and the golden Rebirth shrine.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NPCDefs = require(Shared.NPCDefs)
+local NumberFormat = require(Shared.NumberFormat)
+
+local NPCBuilder = {}
+
+local SKIN = Color3.fromRGB(255, 204, 148)
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+-- Small blocky person, ~4 studs tall. Returns the model and its torso.
+function NPCBuilder.buildPerson(cf, shirt, pants, hat, parent)
+	local model = Instance.new("Model")
+	model.Name = "Person"
+
+	part({ Name = "LegL", Size = Vector3.new(0.7, 1.4, 0.7), CFrame = cf * CFrame.new(-0.4, 0.7, 0), Color = pants, Parent = model })
+	part({ Name = "LegR", Size = Vector3.new(0.7, 1.4, 0.7), CFrame = cf * CFrame.new(0.4, 0.7, 0), Color = pants, Parent = model })
+	local torso = part({ Name = "Torso", Size = Vector3.new(1.7, 1.7, 0.9), CFrame = cf * CFrame.new(0, 2.25, 0), Color = shirt, Parent = model })
+	part({ Name = "ArmL", Size = Vector3.new(0.6, 1.5, 0.6), CFrame = cf * CFrame.new(-1.2, 2.3, 0), Color = shirt, Parent = model })
+	part({ Name = "ArmR", Size = Vector3.new(0.6, 1.5, 0.6), CFrame = cf * CFrame.new(1.2, 2.3, 0), Color = shirt, Parent = model })
+	part({ Name = "Head", Size = Vector3.new(1.1, 1.1, 1.1), CFrame = cf * CFrame.new(0, 3.7, 0), Color = SKIN, Parent = model })
+	part({ Name = "Hat", Size = Vector3.new(1.3, 0.45, 1.3), CFrame = cf * CFrame.new(0, 4.4, 0), Color = hat, Parent = model })
+
+	model.PrimaryPart = torso
+	model.Parent = parent
+	return model, torso
+end
+
+local function buildShopStand(root)
+	local folder = Instance.new("Folder")
+	folder.Name = "ShopStand"
+	folder.Parent = root
+
+	local base = Vector3.new(38, Config.GroundY, 14)
+	part({ Name = "Counter", Size = Vector3.new(2, 3.4, 12), Position = base + Vector3.new(-3, 1.7, 0), CanCollide = true, Color = Color3.fromRGB(150, 116, 78), Material = Enum.Material.WoodPlanks, Parent = folder })
+	part({ Name = "PostL", Size = Vector3.new(0.8, 8, 0.8), Position = base + Vector3.new(1.5, 4, -5.5), Color = Color3.fromRGB(120, 90, 60), Parent = folder })
+	part({ Name = "PostR", Size = Vector3.new(0.8, 8, 0.8), Position = base + Vector3.new(1.5, 4, 5.5), Color = Color3.fromRGB(120, 90, 60), Parent = folder })
+	-- Striped awning.
+	for i = 0, 3 do
+		part({
+			Name = "Awning",
+			Size = Vector3.new(7, 0.4, 3),
+			CFrame = CFrame.new(base + Vector3.new(-1, 8.4, -4.5 + i * 3)) * CFrame.Angles(0, 0, math.rad(-12)),
+			Color = (i % 2 == 0) and Color3.fromRGB(235, 60, 60) or Color3.fromRGB(240, 240, 245),
+			Parent = folder,
+		})
+	end
+end
+
+local function buildRebirthShrine(root, prompts)
+	local folder = Instance.new("Folder")
+	folder.Name = "RebirthShrine"
+	folder.Parent = root
+
+	local base = Vector3.new(0, Config.GroundY, 38)
+	local pedestal = part({
+		Name = "Pedestal",
+		Size = Vector3.new(8, 2, 8),
+		Position = base + Vector3.new(0, 1, 0),
+		CanCollide = true,
+		Color = Color3.fromRGB(255, 215, 80),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+	local orb = part({
+		Name = "Orb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(4.5, 4.5, 4.5),
+		Position = base + Vector3.new(0, 5, 0),
+		Color = Color3.fromRGB(255, 230, 120),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120))
+	sparkle.Rate = 6
+	sparkle.Lifetime = NumberRange.new(0.8, 1.4)
+	sparkle.Speed = NumberRange.new(2, 4)
+	sparkle.Parent = orb
+
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(22, 0, 8, 0)
+	gui.StudsOffset = Vector3.new(0, 6, 0)
+	gui.MaxDistance = 300
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 230, 120)
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Text = "\u{1F31F} REBIRTH SHRINE \u{1F31F}\nReset your city for a\nPERMANENT income boost!\nFirst rebirth: \u{1F4B5} "
+		.. NumberFormat.abbrev(Config.Rebirth.BaseCost)
+	label.Parent = gui
+	gui.Parent = orb
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "RebirthPrompt"
+	prompt.ActionText = "Rebirth"
+	prompt.ObjectText = "Rebirth Shrine"
+	prompt.HoldDuration = 0.5
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = pedestal
+	prompts.rebirth = prompt
+end
+
+-- Builds everything; returns { prompts = { [npcId] = prompt, rebirth = prompt } }.
+function NPCBuilder.build(root)
+	local prompts = {}
+
+	buildShopStand(root)
+	buildRebirthShrine(root, prompts)
+
+	local folder = Instance.new("Folder")
+	folder.Name = "NPCs"
+	folder.Parent = root
+
+	for _, def in ipairs(NPCDefs.List) do
+		local cf = CFrame.new(Vector3.new(def.pos.X, Config.GroundY, def.pos.Z))
+			* CFrame.Angles(0, math.rad(def.facing or 0), 0)
+		local model, torso = NPCBuilder.buildPerson(cf, def.shirt, def.pants, def.hat, folder)
+		model.Name = "NPC_" .. def.id
+
+		local gui = Instance.new("BillboardGui")
+		gui.Size = UDim2.new(14, 0, 3.4, 0)
+		gui.StudsOffset = Vector3.new(0, 3.6, 0)
+		gui.MaxDistance = 120
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.FredokaOne
+		label.TextScaled = true
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.TextStrokeColor3 = Color3.new(0, 0, 0)
+		label.TextStrokeTransparency = 0
+		label.Text = def.emoji .. " " .. def.name
+		label.Parent = gui
+		gui.Parent = torso
+
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "TalkPrompt_" .. def.id
+		prompt.ActionText = "Talk"
+		prompt.ObjectText = def.name
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = torso
+		prompts[def.id] = prompt
+	end
+
+	return { prompts = prompts }
+end
+
+return NPCBuilder
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
 -- damage, destruction, rebuild timers and HP regen.
 
 local Players = game:GetService("Players")
@@ -1496,6 +2456,9 @@ local function onPadTouched(slot, zi, hit)
 		notify(player, def.emoji .. " Built " .. def.name .. "!", "buy")
 	else
 		notify(player, def.emoji .. " " .. def.name .. " upgraded to Lv" .. targetLevel .. "!", "buy")
+	end
+	if ctx.Quests then
+		ctx.Quests.onEvent(player, "upgrade", 1)
 	end
 	ctx.Economy.pushState(player)
 end
@@ -1681,6 +2644,28 @@ function PlotService.nukeSlot(slot)
 	return worth
 end
 
+-- Rebirth: wipe the city back to a single house (visuals + profile).
+function PlotService.resetBuildings(player)
+	local slot = playerSlot[player]
+	local profile = ctx.Data.get(player)
+	if not slot or not profile then
+		return
+	end
+	profile.buildings = { house = 1 }
+	for zi, def in ipairs(BuildingDefs.List) do
+		local level = (def.id == "house") and 1 or 0
+		slot.zones[zi] = {
+			level = level,
+			hp = BuildingDefs.maxHp(def, math.max(level, 1)),
+			destroyed = false,
+			repairAt = 0,
+			lastHitAt = 0,
+		}
+		renderZone(slot, zi)
+		PlotService.updatePad(slot, zi)
+	end
+end
+
 function PlotService.repairAll(slot)
 	local repaired = 0
 	for zi, def in ipairs(BuildingDefs.List) do
@@ -1750,7 +2735,161 @@ function PlotService.init(context)
 end
 
 return PlotService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
+-- evaluated against live values every economy tick. Completions pay out
+-- automatically with a fanfare; repeatable end-quests loop forever.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local QuestDefs = require(Shared.QuestDefs)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local QuestService = {}
+
+local ctx
+
+local STAT_KINDS = { cash = true, worth = true, rocket_level = true, buildings = true }
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function chainState(profile, chainId)
+	profile.quests = profile.quests or {}
+	local state = profile.quests[chainId]
+	if not state then
+		state = { index = 1, progress = 0, loops = 0 }
+		profile.quests[chainId] = state
+	end
+	return state
+end
+
+local function currentQuest(chainId, state)
+	local chain = QuestDefs.Chains[chainId]
+	return chain.quests[state.index]
+end
+
+local function grantReward(player, reward)
+	local profile = ctx.Data.get(player)
+	local bits = {}
+	if reward.cash then
+		profile.cash += reward.cash
+		bits[#bits + 1] = "\u{1F4B5} " .. NumberFormat.abbrev(reward.cash)
+	end
+	if reward.cashMinutes then
+		local amount = math.max(5000, ctx.Economy.getIncomePerSec(player) * 60 * reward.cashMinutes)
+		profile.cash += amount
+		bits[#bits + 1] = "\u{1F4B5} " .. NumberFormat.abbrev(amount)
+	end
+	if reward.gems then
+		profile.gems += reward.gems
+		bits[#bits + 1] = "\u{1F48E} " .. reward.gems
+	end
+	if reward.shield then
+		profile.shields += reward.shield
+		bits[#bits + 1] = "\u{1F6E1}\u{FE0F} Shield"
+	end
+	if reward.barrage then
+		profile.barrage += reward.barrage
+		bits[#bits + 1] = "\u{1F680}x3 Barrage"
+	end
+	return table.concat(bits, " + ")
+end
+
+local function tryComplete(player, chainId, state, statValue)
+	local quest = currentQuest(chainId, state)
+	if not quest then
+		return
+	end
+	local progress = statValue or state.progress
+	if progress &lt; quest.goal then
+		return
+	end
+
+	local rewardText = grantReward(player, quest.reward)
+	notify(player, "\u{1F4DC} QUEST COMPLETE: " .. quest.name .. "! Reward: " .. rewardText, "victory")
+
+	if quest.repeatable then
+		state.loops += 1
+		state.progress = 0
+	else
+		state.index += 1
+		state.progress = 0
+	end
+end
+
+-- Counter events: upgrade, destroy, missile_launch, nuke.
+function QuestService.onEvent(player, kind, amount)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	for chainId in pairs(QuestDefs.Chains) do
+		local state = chainState(profile, chainId)
+		local quest = currentQuest(chainId, state)
+		if quest and quest.kind == kind then
+			state.progress += amount
+			tryComplete(player, chainId, state)
+		end
+	end
+end
+
+-- Stat evaluation, called from the economy tick.
+-- stats = { cash =, worth =, rocket_level =, buildings = }
+function QuestService.evaluate(player, stats)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	for chainId in pairs(QuestDefs.Chains) do
+		local state = chainState(profile, chainId)
+		local quest = currentQuest(chainId, state)
+		if quest and STAT_KINDS[quest.kind] then
+			tryComplete(player, chainId, state, stats[quest.kind] or 0)
+		end
+	end
+end
+
+-- Compact summary for the client (state push).
+function QuestService.getSummary(player, stats)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return nil
+	end
+	local summary = {}
+	for chainId, chain in pairs(QuestDefs.Chains) do
+		local state = chainState(profile, chainId)
+		local quest = currentQuest(chainId, state)
+		if quest then
+			local progress = state.progress
+			if STAT_KINDS[quest.kind] and stats then
+				progress = stats[quest.kind] or 0
+			end
+			summary[chainId] = {
+				title = chain.title,
+				name = quest.name,
+				desc = quest.desc,
+				progress = math.min(progress, quest.goal),
+				goal = quest.goal,
+				number = state.index,
+				total = #chain.quests,
+				repeatable = quest.repeatable or false,
+			}
+		else
+			summary[chainId] = { title = chain.title, done = true, total = #chain.quests }
+		end
+	end
+	return summary
+end
+
+function QuestService.init(context)
+	ctx = context
+end
+
+return QuestService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -1834,7 +2973,7 @@ function RewardsService.init(context)
 end
 
 return RewardsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the whole map from parts at server start: lobby, 5 plot islands,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the whole map from parts at server start: lobby, 5 plot islands,
 -- roads, buy pads, rocket silos, bridges and Nuke Island.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1983,7 +3122,8 @@ local function buildRoads(center, folder)
 			Parent = folder,
 		})
 	end
-	local hZs = { 104, 52, 0, -52 }
+	local hZs = { 130, 78, 26, -26, -78 }
+	local dashLimit = Config.PlotSize / 2 - 16
 	for _, z in ipairs(hZs) do
 		part({
 			Name = "RoadH",
@@ -1993,8 +3133,8 @@ local function buildRoads(center, folder)
 			Parent = folder,
 		})
 		-- Yellow dashes along horizontal roads.
-		local x = -96
-		while x &lt;= 96 do
+		local x = -dashLimit
+		while x &lt;= dashLimit do
 			part({
 				Name = "Dash",
 				Size = Vector3.new(6, 0.05, 1.6),
@@ -2010,6 +3150,9 @@ end
 local function buildFence(center, folder)
 	local h = 3
 	local half = Config.PlotSize / 2
+	local gate = 20 -- half-width of the front gate opening
+	local segLen = half - gate
+	local segOff = gate + segLen / 2
 	local segs = {
 		-- back wall
 		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z - half), Vector3.new(Config.PlotSize, h, 1) },
@@ -2017,8 +3160,8 @@ local function buildFence(center, folder)
 		{ Vector3.new(center.X - half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
 		{ Vector3.new(center.X + half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
 		-- front wall, split to leave a gate for the bridge
-		{ Vector3.new(center.X - 65, Config.GroundY + h / 2, center.Z + half), Vector3.new(90, h, 1) },
-		{ Vector3.new(center.X + 65, Config.GroundY + h / 2, center.Z + half), Vector3.new(90, h, 1) },
+		{ Vector3.new(center.X - segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
+		{ Vector3.new(center.X + segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
 	}
 	for _, seg in ipairs(segs) do
 		part({
@@ -2311,6 +3454,12 @@ function WorldBuilder.build()
 	atmosphere.Haze = 1
 	atmosphere.Parent = Lighting
 
+	-- Volumetric clouds.
+	local clouds = Instance.new("Clouds")
+	clouds.Cover = 0.48
+	clouds.Density = 0.72
+	clouds.Parent = workspace.Terrain
+
 	return {
 		root = root,
 		slots = slots,
@@ -2320,7 +3469,7 @@ function WorldBuilder.build()
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX35"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX31"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX30"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX48"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX44"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX43"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
 -- and a red beacon beam marking exactly where the strike will land.
 
 local TweenService = game:GetService("TweenService")
@@ -2481,7 +3630,7 @@ function AlarmUI.init()
 end
 
 return AlarmUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
 -- tap anywhere on their plot to move the target crosshair, then BLOW UP.
 -- Also handles nuke mode (☢ button) and the barrage toggle.
 
@@ -2787,7 +3936,7 @@ function AttackView.init(context)
 end
 
 return AttackView
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2866,7 +4015,242 @@ function CashPopups.init()
 end
 
 return CashPopups
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local CharacterShop = {}
+
+local ctx
+local gui
+local buttons = {}
+
+local function makeItem(content, order, id, color)
+	local button = UILib.button({
+		Size = UDim2.new(1, -16, 0, 46),
+		Position = UDim2.new(0, 8, 0, 8 + (order - 1) * 56),
+		Text = "",
+		BackgroundColor3 = color or UILib.Colors.Green,
+	}, content, function()
+		Remotes.Events.ShopBuy:FireServer(id)
+	end)
+	buttons[id] = button
+	return button
+end
+
+local function refresh()
+	local state = ctx.State.get()
+	local cos = state and state.cosmetics or {}
+	local speedTier = cos.speed or 0
+	local jumpTier = cos.jump or 0
+
+	local speedCost = Config.Character.SpeedCosts[speedTier + 1]
+	buttons.cos_speed.Text = speedCost
+		and ("\u{1F45F} Speed Boost " .. (speedTier + 1) .. "/3 — \u{1F48E} " .. speedCost)
+		or "\u{1F45F} Speed Boost MAXED!"
+
+	local jumpCost = Config.Character.JumpCosts[jumpTier + 1]
+	buttons.cos_jump.Text = jumpCost
+		and ("\u{1F998} Jump Boost " .. (jumpTier + 1) .. "/3 — \u{1F48E} " .. jumpCost)
+		or "\u{1F998} Jump Boost MAXED!"
+
+	buttons.cos_trail.Text = cos.trail
+		and "\u{1F308} Rainbow Trail OWNED!"
+		or ("\u{1F308} Rainbow Trail — \u{1F48E} " .. Config.Character.TrailCost)
+
+	for _, titleDef in ipairs(Config.Character.Titles) do
+		local button = buttons["cos_title_" .. titleDef.id]
+		if button then
+			button.Text = (cos.title == titleDef.id and "\u{2705} " or "")
+				.. titleDef.label .. " — \u{1F48E} " .. titleDef.cost
+		end
+	end
+end
+
+function CharacterShop.toggle()
+	gui.Enabled = not gui.Enabled
+	if gui.Enabled then
+		refresh()
+	end
+end
+
+function CharacterShop.init(context)
+	ctx = context
+	local panelGui, content = UILib.panel("MVC_CharShop", "\u{2728} Character Shop", UDim2.new(0, 400, 0, 400), 12)
+	gui = panelGui
+
+	makeItem(content, 1, "cos_speed")
+	makeItem(content, 2, "cos_jump")
+	makeItem(content, 3, "cos_trail", UILib.Colors.Purple)
+	local order = 4
+	for _, titleDef in ipairs(Config.Character.Titles) do
+		makeItem(content, order, "cos_title_" .. titleDef.id, UILib.Colors.Gold)
+		order += 1
+	end
+
+	ctx.State.changed.Event:Connect(function()
+		if gui.Enabled then
+			refresh()
+		end
+	end)
+end
+
+return CharacterShop
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Citizens</string><ProtectedString name="Source">-- Ambient little citizens wandering around active cities. Purely client-side
+-- (zero network cost): a plot is considered "active" if it produced income
+-- popups recently, plus your own plot.
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local Remotes = require(Shared.Remotes)
+
+local Citizens = {}
+
+local CITIZENS_PER_PLOT = 5
+local WALK_SPEED = 5
+local SKIN = Color3.fromRGB(255, 204, 148)
+local SHIRTS = {
+	Color3.fromRGB(235, 60, 60), Color3.fromRGB(60, 150, 240), Color3.fromRGB(88, 200, 60),
+	Color3.fromRGB(250, 200, 60), Color3.fromRGB(190, 90, 240), Color3.fromRGB(255, 140, 60),
+}
+
+local rng = Random.new()
+local lastPop = {} -- [plotIndex] = os.clock() of last income popup
+local citizens = {} -- flat list of citizen records
+local perPlot = {} -- [plotIndex] = count
+local ctx
+
+local function tinyPerson(parent)
+	local model = Instance.new("Model")
+	local shirt = SHIRTS[rng:NextInteger(1, #SHIRTS)]
+	local pants = SHIRTS[rng:NextInteger(1, #SHIRTS)]
+
+	local function p(size, color)
+		local piece = Instance.new("Part")
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.CanQuery = false
+		piece.CanTouch = false
+		piece.TopSurface = Enum.SurfaceType.Smooth
+		piece.BottomSurface = Enum.SurfaceType.Smooth
+		piece.Size = size
+		piece.Color = color
+		piece.Parent = model
+		return piece
+	end
+
+	local body = p(Vector3.new(1, 1.1, 0.6), shirt)
+	local head = p(Vector3.new(0.7, 0.7, 0.7), SKIN)
+	local legs = p(Vector3.new(0.9, 0.8, 0.55), pants)
+	model.PrimaryPart = body
+	model.Parent = parent
+	return model, body, head, legs
+end
+
+local function spawnCitizen(plotIndex)
+	local center = Layout.plotCenter(plotIndex)
+	local half = Config.PlotSize / 2 - 24
+	local model, body, head, legs = tinyPerson(workspace)
+	model.Name = "MVC_Citizen"
+
+	local record = {
+		plotIndex = plotIndex,
+		model = model,
+		body = body,
+		head = head,
+		legs = legs,
+		pos = Vector3.new(center.X + rng:NextNumber(-half, half), Layout.GroundY, center.Z + rng:NextNumber(-half, half)),
+		target = nil,
+		phase = rng:NextNumber(0, math.pi * 2),
+	}
+	record.target = record.pos
+	citizens[#citizens + 1] = record
+	perPlot[plotIndex] = (perPlot[plotIndex] or 0) + 1
+end
+
+local function removeCitizensOf(plotIndex)
+	for i = #citizens, 1, -1 do
+		local record = citizens[i]
+		if record.plotIndex == plotIndex then
+			record.model:Destroy()
+			table.remove(citizens, i)
+		end
+	end
+	perPlot[plotIndex] = 0
+end
+
+local function isActive(plotIndex)
+	local state = ctx.State.get()
+	if state and state.plotIndex == plotIndex then
+		return true
+	end
+	local t = lastPop[plotIndex]
+	return t ~= nil and os.clock() - t &lt; 12
+end
+
+function Citizens.init(context)
+	ctx = context
+
+	Remotes.Events.IncomePops.OnClientEvent:Connect(function(plotIndex)
+		if type(plotIndex) == "number" then
+			lastPop[plotIndex] = os.clock()
+		end
+	end)
+
+	-- Population manager.
+	task.spawn(function()
+		while true do
+			task.wait(4)
+			for plotIndex = 1, Config.PlotCount do
+				if isActive(plotIndex) then
+					while (perPlot[plotIndex] or 0) &lt; CITIZENS_PER_PLOT do
+						spawnCitizen(plotIndex)
+					end
+				elseif (perPlot[plotIndex] or 0) &gt; 0 then
+					removeCitizensOf(plotIndex)
+				end
+			end
+		end
+	end)
+
+	-- Movement: waddle between random points, with a little bob.
+	RunService.Heartbeat:Connect(function(dt)
+		local now = os.clock()
+		for _, c in ipairs(citizens) do
+			local toTarget = c.target - c.pos
+			toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
+			if toTarget.Magnitude &lt; 1.5 then
+				local center = Layout.plotCenter(c.plotIndex)
+				local half = Config.PlotSize / 2 - 24
+				c.target = Vector3.new(
+					center.X + rng:NextNumber(-half, half),
+					Layout.GroundY,
+					center.Z + rng:NextNumber(-half, half)
+				)
+			else
+				c.pos += toTarget.Unit * math.min(WALK_SPEED * dt, toTarget.Magnitude)
+			end
+			local bob = math.abs(math.sin(now * 8 + c.phase)) * 0.22
+			local look = CFrame.lookAt(c.pos, Vector3.new(c.target.X, c.pos.Y, c.target.Z))
+			local waddle = CFrame.Angles(0, 0, math.sin(now * 8 + c.phase) * 0.08)
+			c.legs.CFrame = look * waddle * CFrame.new(0, 0.4 + bob, 0)
+			c.body.CFrame = look * waddle * CFrame.new(0, 1.35 + bob, 0)
+			c.head.CFrame = look * waddle * CFrame.new(0, 2.25 + bob, 0)
+		end
+	end)
+end
+
+return Citizens
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -2913,7 +4297,7 @@ function ClientState.start()
 end
 
 return ClientState
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
 -- rainbow Day 7 card (free nuke), just like the reference screenshots.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3068,7 +4452,183 @@ function DailyRewardsUI.init(context)
 end
 
 return DailyRewardsUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
+-- and an action button on the last line (open shop, view quests, ...).
+
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local NPCDefs = require(Shared.NPCDefs)
+local SoundBook = require(Shared.SoundBook)
+local UILib = require(script.Parent.UILib)
+
+local Dialogue = {}
+
+local ctx
+local gui
+local nameLabel
+local textLabel
+local nextButton
+local actionButton
+
+local currentNpc = nil
+local lineIndex = 1
+local typing = false
+local typeToken = 0
+
+local function typeLine(text)
+	typeToken += 1
+	local token = typeToken
+	typing = true
+	textLabel.Text = ""
+	task.spawn(function()
+		for i = 1, #text do
+			if token ~= typeToken then
+				return
+			end
+			-- Never split a UTF-8 character (emoji are multi-byte).
+			local safe = text:sub(1, i)
+			local lastOk = utf8.len(safe)
+			if lastOk then
+				textLabel.Text = safe
+				if i % 3 == 0 then
+					SoundBook.play("Blip", UILib.playerGui())
+				end
+			end
+			task.wait(0.018)
+		end
+		if token == typeToken then
+			textLabel.Text = text
+			typing = false
+		end
+	end)
+end
+
+local function showLine()
+	local def = currentNpc
+	if not def then
+		return
+	end
+	local isLast = lineIndex &gt;= #def.lines
+	typeLine(def.lines[lineIndex])
+	nextButton.Text = isLast and "Bye!" or "Next \u{25B6}"
+	actionButton.Visible = isLast and def.action ~= nil
+	if isLast and def.action then
+		actionButton.Text = def.actionLabel or "Okay"
+	end
+end
+
+function Dialogue.close()
+	currentNpc = nil
+	gui.Enabled = false
+end
+
+function Dialogue.open(npcId)
+	local def = NPCDefs.ById[npcId]
+	if not def then
+		return
+	end
+	currentNpc = def
+	lineIndex = 1
+	nameLabel.Text = def.emoji .. " " .. def.name
+	gui.Enabled = true
+	SoundBook.play("PanelOpen", UILib.playerGui())
+	showLine()
+end
+
+local function doAction()
+	local def = currentNpc
+	Dialogue.close()
+	if not def then
+		return
+	end
+	if def.action == "shop" then
+		ctx.ShopToggle()
+	elseif def.action == "charshop" then
+		ctx.CharShop.toggle()
+	elseif def.action == "quest" then
+		ctx.QuestUI.toggle()
+	end
+end
+
+function Dialogue.init(context)
+	ctx = context
+
+	gui = UILib.screen("MVC_Dialogue", 25)
+	gui.Enabled = false
+
+	local box = UILib.frame({
+		Size = UDim2.new(0, 560, 0, 170),
+		Position = UDim2.new(0.5, 0, 1, -30),
+		AnchorPoint = Vector2.new(0.5, 1),
+		BackgroundTransparency = 0.05,
+	}, gui)
+
+	local header = UILib.frame({
+		Size = UDim2.new(0, 320, 0, 40),
+		Position = UDim2.new(0, 14, 0, -20),
+		BackgroundColor3 = UILib.Colors.Blue,
+	}, box)
+	nameLabel = UILib.text({
+		Size = UDim2.new(1, -12, 1, -8),
+		Position = UDim2.new(0, 6, 0, 4),
+		Text = "",
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, header)
+
+	textLabel = UILib.text({
+		Size = UDim2.new(1, -28, 0, 74),
+		Position = UDim2.new(0, 14, 0, 28),
+		Text = "",
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextScaled = false,
+		TextSize = 22,
+	}, box)
+
+	nextButton = UILib.button({
+		Size = UDim2.new(0, 130, 0, 42),
+		Position = UDim2.new(1, -144, 1, -54),
+		Text = "Next \u{25B6}",
+		BackgroundColor3 = UILib.Colors.Green,
+	}, box, function()
+		if not currentNpc then
+			return
+		end
+		if typing then
+			typeToken += 1
+			typing = false
+			textLabel.Text = currentNpc.lines[lineIndex]
+			return
+		end
+		if lineIndex &gt;= #currentNpc.lines then
+			Dialogue.close()
+		else
+			lineIndex += 1
+			showLine()
+		end
+	end)
+
+	actionButton = UILib.button({
+		Size = UDim2.new(0, 220, 0, 42),
+		Position = UDim2.new(0, 14, 1, -54),
+		Text = "",
+		BackgroundColor3 = UILib.Colors.Purple,
+		Visible = false,
+	}, box, doAction)
+
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		local id = prompt.Name:match("^TalkPrompt_(.+)$")
+		if id then
+			Dialogue.open(id)
+		end
+	end)
+end
+
+return Dialogue
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
 -- the full nuke sequence (flash, fireball, mushroom cloud, shockwave),
 -- shield domes and camera shake. Purely cosmetic — damage is server-side.
 
@@ -3401,7 +4961,88 @@ function FX.init()
 end
 
 return FX
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
+-- and a live countdown for timed events.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+local NumberFormat = require(Shared.NumberFormat)
+local UILib = require(script.Parent.UILib)
+
+local GameEvents = {}
+
+local KIND_COLORS = {
+	frenzy = Color3.fromRGB(88, 200, 60),
+	gems = Color3.fromRGB(190, 90, 240),
+	meteor = Color3.fromRGB(235, 120, 40),
+	supply = Color3.fromRGB(250, 200, 60),
+	supply_claim = Color3.fromRGB(250, 200, 60),
+}
+
+local gui
+local banner
+local label
+local hideAt = 0
+local baseMsg = ""
+
+local function show(payload)
+	baseMsg = payload.msg or ""
+	banner.BackgroundColor3 = KIND_COLORS[payload.kind] or UILib.Colors.Blue
+	label.Text = baseMsg
+	hideAt = os.clock() + math.max(payload.duration or 5, 5)
+
+	banner.Visible = true
+	banner.Position = UDim2.new(0.5, 0, 0, -70)
+	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, 0, 0, 104),
+	}):Play()
+
+	SoundBook.play("Horn", UILib.playerGui(), { PlaybackSpeed = 1.6 })
+	SoundBook.play("Ding", UILib.playerGui())
+end
+
+function GameEvents.init()
+	gui = UILib.screen("MVC_Events", 8)
+	banner = UILib.frame({
+		Size = UDim2.new(0, 620, 0, 46),
+		Position = UDim2.new(0.5, 0, 0, 104),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = UILib.Colors.Blue,
+		Visible = false,
+	}, gui)
+	label = UILib.text({
+		Size = UDim2.new(1, -16, 1, -8),
+		Position = UDim2.new(0, 8, 0, 4),
+		Text = "",
+	}, banner)
+
+	Remotes.Events.GameEvent.OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" and type(payload.msg) == "string" then
+			show(payload)
+		end
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			if banner.Visible then
+				local left = hideAt - os.clock()
+				if left &lt;= 0 then
+					banner.Visible = false
+				elseif left &lt; 120 then
+					label.Text = baseMsg .. "  (" .. NumberFormat.clock(left) .. ")"
+				end
+			end
+		end
+	end)
+end
+
+return GameEvents
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
 -- Cash smoothly counts up toward the real value for juice.
 
 local RunService = game:GetService("RunService")
@@ -3447,10 +5088,22 @@ function HUD.init(ctx)
 		TextColor3 = Color3.fromRGB(200, 235, 190),
 	}, holder)
 
+	local rebirthLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.new(0, 0, 0, 90),
+		Text = "",
+		TextColor3 = Color3.fromRGB(255, 230, 120),
+	}, holder)
+
 	ctx.State.changed.Event:Connect(function(data)
 		targetCash = data.cash
 		gemsLabel.Text = "\u{1F48E} " .. NumberFormat.commas(data.gems)
 		incomeLabel.Text = "+" .. NumberFormat.abbrev(data.income) .. "/s"
+		if (data.rebirths or 0) &gt; 0 then
+			rebirthLabel.Text = "\u{1F31F} Rebirth " .. data.rebirths .. " (x" .. (1 + data.rebirths) .. " income)"
+		else
+			rebirthLabel.Text = ""
+		end
 	end)
 
 	RunService.RenderStepped:Connect(function(dt)
@@ -3467,7 +5120,7 @@ function HUD.init(ctx)
 end
 
 return HUD
-</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
+</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
 
 local ClientState = require(script.Parent.ClientState)
 local Notifier = require(script.Parent.Notifier)
@@ -3480,27 +5133,42 @@ local AlarmUI = require(script.Parent.AlarmUI)
 local FX = require(script.Parent.FX)
 local CashPopups = require(script.Parent.CashPopups)
 local MusicPlayer = require(script.Parent.MusicPlayer)
+local Dialogue = require(script.Parent.Dialogue)
+local QuestUI = require(script.Parent.QuestUI)
+local CharacterShop = require(script.Parent.CharacterShop)
+local GameEvents = require(script.Parent.GameEvents)
+local Citizens = require(script.Parent.Citizens)
+local RebirthUI = require(script.Parent.RebirthUI)
 
 local ctx = {
 	State = ClientState,
 	Notifier = Notifier,
 	AttackView = AttackView,
 	DailyUI = DailyRewardsUI,
+	QuestUI = QuestUI,
+	CharShop = CharacterShop,
+	ShopToggle = SidePanel.toggleShop,
 }
 
 Notifier.init()
 HUD.init(ctx)
 AttackView.init(ctx)
 DailyRewardsUI.init(ctx)
+QuestUI.init(ctx)
+CharacterShop.init(ctx)
 SidePanel.init(ctx)
 RocketPanel.init(ctx)
+Dialogue.init(ctx)
+RebirthUI.init(ctx)
 AlarmUI.init()
 FX.init()
 CashPopups.init()
+GameEvents.init()
+Citizens.init(ctx)
 MusicPlayer.init()
 
 ClientState.start()
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Background music playlist with a mute toggle (bottom-right).
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Background music playlist with a mute toggle (bottom-right).
 
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3567,7 +5235,7 @@ function MusicPlayer.init()
 end
 
 return MusicPlayer
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3647,7 +5315,190 @@ function Notifier.init()
 end
 
 return Notifier
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local NumberFormat = require(Shared.NumberFormat)
+local UILib = require(script.Parent.UILib)
+
+local QuestUI = {}
+
+local ctx
+local gui
+local cards = {}
+
+local function makeCard(parent, order)
+	local card = UILib.frame({
+		Size = UDim2.new(1, -8, 0, 118),
+		Position = UDim2.new(0, 4, 0, 8 + (order - 1) * 128),
+		BackgroundColor3 = UILib.Colors.LightBlue,
+	}, parent)
+
+	local title = UILib.text({
+		Size = UDim2.new(1, -16, 0, 26),
+		Position = UDim2.new(0, 8, 0, 4),
+		Text = "",
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, card)
+
+	local questName = UILib.text({
+		Size = UDim2.new(1, -16, 0, 24),
+		Position = UDim2.new(0, 8, 0, 32),
+		Text = "",
+		TextColor3 = Color3.fromRGB(255, 235, 160),
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, card)
+
+	local desc = UILib.text({
+		Size = UDim2.new(1, -16, 0, 20),
+		Position = UDim2.new(0, 8, 0, 58),
+		Text = "",
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, card)
+
+	local barBack = UILib.frame({
+		Size = UDim2.new(1, -16, 0, 22),
+		Position = UDim2.new(0, 8, 0, 86),
+		BackgroundColor3 = UILib.Colors.DarkGray,
+	}, card)
+	local barFill = UILib.frame({
+		Size = UDim2.new(0, 0, 1, 0),
+		BackgroundColor3 = UILib.Colors.Green,
+	}, barBack)
+	local barText = UILib.text({
+		Size = UDim2.fromScale(1, 1),
+		Text = "",
+	}, barBack)
+
+	return { card = card, title = title, questName = questName, desc = desc, barFill = barFill, barText = barText }
+end
+
+local function refresh(quests)
+	if not quests then
+		return
+	end
+	local order = 1
+	for _, chainId in ipairs({ "mayor", "general" }) do
+		local data = quests[chainId]
+		local card = cards[order]
+		if data and card then
+			card.title.Text = data.title or ""
+			if data.done then
+				card.questName.Text = "\u{2705} All quests complete!"
+				card.desc.Text = "You finished this whole quest line. Legend!"
+				card.barFill.Size = UDim2.fromScale(1, 1)
+				card.barText.Text = "DONE"
+			else
+				card.questName.Text = "\u{1F4DC} Quest " .. data.number .. "/" .. data.total .. ": " .. data.name
+					.. (data.repeatable and " (\u{221E} repeatable)" or "")
+				card.desc.Text = data.desc
+				local frac = math.clamp(data.progress / math.max(data.goal, 1), 0, 1)
+				card.barFill.Size = UDim2.fromScale(frac, 1)
+				card.barText.Text = NumberFormat.abbrev(data.progress) .. " / " .. NumberFormat.abbrev(data.goal)
+			end
+		end
+		order += 1
+	end
+end
+
+function QuestUI.toggle()
+	gui.Enabled = not gui.Enabled
+	if gui.Enabled then
+		local state = ctx.State.get()
+		if state then
+			refresh(state.quests)
+		end
+	end
+end
+
+function QuestUI.init(context)
+	ctx = context
+	local panelGui, content = UILib.panel("MVC_Quests", "\u{1F4DC} Quests", UDim2.new(0, 460, 0, 300), 12)
+	gui = panelGui
+
+	cards[1] = makeCard(content, 1)
+	cards[2] = makeCard(content, 2)
+
+	ctx.State.changed.Event:Connect(function(state)
+		if gui.Enabled and state.quests then
+			refresh(state.quests)
+		end
+	end)
+end
+
+return QuestUI
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
+
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local RebirthUI = {}
+
+local ctx
+local gui
+local infoLabel
+local confirmButton
+
+local function refresh()
+	local state = ctx.State.get()
+	if not state then
+		return
+	end
+	local nextMult = 1 + (state.rebirths + 1) * Config.Rebirth.IncomePerRebirth
+	infoLabel.Text = "\u{1F31F} Rebirths so far: " .. state.rebirths
+		.. "\n\nRebirthing RESETS your buildings and cash,\nbut your income becomes x" .. nextMult
+		.. " FOREVER!\n(You keep gems, rocket level and nuke access.)"
+	local afford = state.cash &gt;= state.rebirthCost
+	confirmButton.Text = "REBIRTH — \u{1F4B5} " .. NumberFormat.abbrev(state.rebirthCost)
+	confirmButton.BackgroundColor3 = afford and UILib.Colors.Gold or UILib.Colors.Gray
+end
+
+function RebirthUI.init(context)
+	ctx = context
+	local panelGui, content = UILib.panel("MVC_Rebirth", "\u{1F31F} Rebirth Shrine", UDim2.new(0, 420, 0, 300), 14)
+	gui = panelGui
+
+	infoLabel = UILib.text({
+		Size = UDim2.new(1, -20, 0, 160),
+		Position = UDim2.new(0, 10, 0, 8),
+		Text = "",
+		TextWrapped = true,
+	}, content)
+
+	confirmButton = UILib.button({
+		Size = UDim2.new(1, -20, 0, 56),
+		Position = UDim2.new(0, 10, 1, -70),
+		Text = "REBIRTH",
+		BackgroundColor3 = UILib.Colors.Gold,
+	}, content, function()
+		Remotes.Events.RequestRebirth:FireServer()
+		gui.Enabled = false
+	end)
+
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		if prompt.Name == "RebirthPrompt" then
+			refresh()
+			gui.Enabled = true
+		end
+	end)
+
+	ctx.State.changed.Event:Connect(function()
+		if gui.Enabled then
+			refresh()
+		end
+	end)
+end
+
+return RebirthUI
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
 -- Also routes the Nuke Island silo prompt into nuke attack mode.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -3764,7 +5615,7 @@ function RocketPanel.init(context)
 end
 
 return RocketPanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
 -- and the gem shop panel.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3780,6 +5631,11 @@ local SidePanel = {}
 local ctx
 local giftButton
 local shopGui
+
+-- Exposed so NPC dialogue ("Open Shop") can toggle the same panel.
+function SidePanel.toggleShop()
+	shopGui.Enabled = not shopGui.Enabled
+end
 
 local function makeShop()
 	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} Shop", UDim2.new(0, 380, 0, 380), 12)
@@ -3857,6 +5713,9 @@ function SidePanel.init(context)
 	sideButton(holder, 4, "\u{1F4A3}", "Attack", UILib.Colors.Purple, function()
 		ctx.AttackView.open(false)
 	end)
+	sideButton(holder, 5, "\u{1F4DC}", "Quests", UILib.Colors.Gold, function()
+		ctx.QuestUI.toggle()
+	end)
 
 	-- Compact 2X gamepass buttons under the main column.
 	local passCash = UILib.button({
@@ -3866,7 +5725,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_cash")
 	end)
-	passCash.LayoutOrder = 5
+	passCash.LayoutOrder = 6
 	passCash.Parent = holder
 
 	local passDmg = UILib.button({
@@ -3876,7 +5735,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_damage")
 	end)
-	passDmg.LayoutOrder = 6
+	passDmg.LayoutOrder = 7
 	passDmg.Parent = holder
 
 	-- Gift button countdown.
@@ -3894,7 +5753,7 @@ function SidePanel.init(context)
 end
 
 return SidePanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
 -- bright colors, FredokaOne everywhere. All panels share this look.
 
 local TweenService = game:GetService("TweenService")
@@ -4027,6 +5886,13 @@ function UILib.panel(name, title, size, displayOrder)
 	local gui = UILib.screen(name, displayOrder or 10)
 	gui.Enabled = false
 
+	-- Whoosh whenever any panel opens.
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if gui.Enabled then
+			SoundBook.play("PanelOpen", UILib.playerGui())
+		end
+	end)
+
 	local frame = UILib.frame({
 		Name = "Panel",
 		Size = size,
@@ -4071,4 +5937,4 @@ function UILib.panel(name, title, size, displayOrder)
 end
 
 return UILib
-</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX36"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX49"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>

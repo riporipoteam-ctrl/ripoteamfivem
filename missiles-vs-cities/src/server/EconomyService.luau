@@ -57,7 +57,29 @@ end
 
 function EconomyService.cashMultiplier(player)
 	local session = ctx.session[player]
-	return (session and session.passCash) and 2 or 1
+	local profile = ctx.Data.get(player)
+	local mult = (session and session.passCash) and 2 or 1
+	-- Permanent rebirth bonus (+100% per rebirth) and temporary event boosts.
+	if profile then
+		mult *= 1 + (profile.rebirths or 0) * Config.Rebirth.IncomePerRebirth
+	end
+	mult *= ctx.eventCashMult or 1
+	return mult
+end
+
+function EconomyService.rebirthCost(profile)
+	return Config.Rebirth.BaseCost * Config.Rebirth.CostGrowth ^ (profile.rebirths or 0)
+end
+
+-- Number of distinct building types currently owned (for quest stats).
+local function distinctBuildings(slot)
+	local count = 0
+	for _, zone in pairs(slot.zones) do
+		if zone.level > 0 then
+			count += 1
+		end
+	end
+	return count
 end
 
 function EconomyService.damageMultiplier(player)
@@ -88,12 +110,22 @@ function EconomyService.pushState(player)
 	end
 	local slot = ctx.Plot.getSlot(player)
 	local rocketLevel = profile.rocketLevel
+	local stats = slot and {
+		cash = profile.cash,
+		worth = ctx.Plot.cityWorth(slot),
+		rocket_level = rocketLevel,
+		buildings = distinctBuildings(slot),
+	} or nil
 	local snapshot = {
 		cash = profile.cash,
 		gems = profile.gems,
 		income = EconomyService.getIncomePerSec(player),
 		worth = slot and ctx.Plot.cityWorth(slot) or 0,
 		plotIndex = slot and slot.index or 0,
+		rebirths = profile.rebirths or 0,
+		rebirthCost = EconomyService.rebirthCost(profile),
+		quests = ctx.Quests and ctx.Quests.getSummary(player, stats) or nil,
+		cosmetics = profile.cosmetics,
 		rocketLevel = rocketLevel,
 		rocketCost = rocketLevel < Config.Rocket.MaxLevel
 			and math.floor(Config.Rocket.BaseUpgradeCost * Config.Rocket.CostGrowth ^ (rocketLevel - 1))
@@ -164,6 +196,14 @@ local function incomeLoop()
 					slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
 						.. "\n\u{1F4B5} " .. NumberFormat.abbrev(ctx.Plot.cityWorth(slot))
 					updateLeaderstats(player)
+					if ctx.Quests then
+						ctx.Quests.evaluate(player, {
+							cash = profile.cash,
+							worth = ctx.Plot.cityWorth(slot),
+							rocket_level = profile.rocketLevel,
+							buildings = distinctBuildings(slot),
+						})
+					end
 					EconomyService.pushState(player)
 				end
 			end
@@ -175,6 +215,12 @@ local function onShopBuy(player, itemId)
 	local profile = ctx.Data.get(player)
 	local session = ctx.session[player]
 	if not profile or not session or type(itemId) ~= "string" then
+		return
+	end
+
+	-- Character shop items are handled by CosmeticsService.
+	if ctx.Cosmetics and ctx.Cosmetics.buy(player, itemId) then
+		EconomyService.pushState(player)
 		return
 	end
 
@@ -295,6 +341,29 @@ function EconomyService.init(context)
 
 	Remotes.Events.ShopBuy.OnServerEvent:Connect(onShopBuy)
 	Remotes.Events.ClaimGift.OnServerEvent:Connect(onClaimGift)
+
+	Remotes.Events.RequestRebirth.OnServerEvent:Connect(function(player)
+		local profile = ctx.Data.get(player)
+		local slot = ctx.Plot.getSlot(player)
+		if not profile or not slot then
+			return
+		end
+		local cost = EconomyService.rebirthCost(profile)
+		if profile.cash < cost then
+			notify(player, "\u{1F31F} Rebirth needs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.rebirths = (profile.rebirths or 0) + 1
+		profile.cash = Config.StartingCash
+		ctx.Plot.resetBuildings(player)
+		local mult = 1 + profile.rebirths * Config.Rebirth.IncomePerRebirth
+		notify(player, "\u{1F31F} REBIRTH " .. profile.rebirths .. "! Permanent income x" .. mult .. "!", "victory")
+		Remotes.Events.Notify:FireAllClients({
+			msg = "\u{1F31F} " .. player.DisplayName .. " was REBORN! Their income is now x" .. mult .. "!",
+			kind = "info",
+		})
+		EconomyService.pushState(player)
+	end)
 
 	Remotes.Functions.GetSnapshot.OnServerInvoke = function(player)
 		if ctx.Data.get(player) and ctx.session[player] then

@@ -16,11 +16,17 @@ local PlotService = require(script.Parent.PlotService)
 local EconomyService = require(script.Parent.EconomyService)
 local CombatService = require(script.Parent.CombatService)
 local RewardsService = require(script.Parent.RewardsService)
+local QuestService = require(script.Parent.QuestService)
+local EventsService = require(script.Parent.EventsService)
+local CosmeticsService = require(script.Parent.CosmeticsService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
+local NPCBuilder = require(script.Parent.NPCBuilder)
 
 StarterPlayer.CameraMaxZoomDistance = 400
 Players.RespawnTime = 3
 
 local world = WorldBuilder.build()
+NPCBuilder.build(world.root)
 
 local ctx = {
 	Data = DataService,
@@ -30,6 +36,11 @@ local ctx = {
 	Economy = EconomyService,
 	Combat = CombatService,
 	Rewards = RewardsService,
+	Quests = QuestService,
+	Events = EventsService,
+	Cosmetics = CosmeticsService,
+	Leaderboard = LeaderboardService,
+	eventCashMult = 1,
 	session = {}, -- [player] = { giftReadyAt, rocketReadyAt, passCash, passDamage }
 }
 
@@ -37,6 +48,10 @@ PlotService.init(ctx)
 EconomyService.init(ctx)
 CombatService.init(ctx)
 RewardsService.init(ctx)
+QuestService.init(ctx)
+CosmeticsService.init(ctx)
+EventsService.init(ctx)
+LeaderboardService.init(ctx)
 
 local function onPlayerAdded(player)
 	ctx.session[player] = {}

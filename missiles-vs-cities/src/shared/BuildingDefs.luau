@@ -17,6 +17,10 @@ BuildingDefs.List = {
 	{ id = "military", name = "Military Base", emoji = "\u{1FA96}", color = Color3.fromRGB(110, 140, 90), baseCost = 40e9, baseIncome = 1.9e6, hp = 16000, style = "towers" },
 	{ id = "wind", name = "Wind Farm", emoji = "\u{1F300}", color = Color3.fromRGB(200, 240, 250), baseCost = 380e9, baseIncome = 8.8e6, hp = 9000, style = "turbines" },
 	{ id = "space", name = "Space Center", emoji = "\u{1F6F0}\u{FE0F}", color = Color3.fromRGB(255, 255, 255), baseCost = 3.6e12, baseIncome = 42e6, hp = 30000, style = "towers" },
+	{ id = "techhub", name = "Tech Hub", emoji = "\u{1F4BB}", color = Color3.fromRGB(90, 230, 220), baseCost = 34e12, baseIncome = 380e6, hp = 45000, style = "towers" },
+	{ id = "casino", name = "Casino", emoji = "\u{1F3B0}", color = Color3.fromRGB(250, 180, 60), baseCost = 320e12, baseIncome = 3.4e9, hp = 60000, style = "towers" },
+	{ id = "port", name = "Mega Port", emoji = "\u{2693}", color = Color3.fromRGB(120, 150, 190), baseCost = 3e15, baseIncome = 30e9, hp = 90000, style = "panels" },
+	{ id = "goldtower", name = "Golden Tower", emoji = "\u{1F3C6}", color = Color3.fromRGB(255, 215, 80), baseCost = 28e15, baseIncome = 260e9, hp = 150000, style = "towers" },
 }
 
 BuildingDefs.ById = {}

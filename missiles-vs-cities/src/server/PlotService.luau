@@ -128,6 +128,9 @@ local function onPadTouched(slot, zi, hit)
 	else
 		notify(player, def.emoji .. " " .. def.name .. " upgraded to Lv" .. targetLevel .. "!", "buy")
 	end
+	if ctx.Quests then
+		ctx.Quests.onEvent(player, "upgrade", 1)
+	end
 	ctx.Economy.pushState(player)
 end
 
@@ -310,6 +313,28 @@ function PlotService.nukeSlot(slot)
 	end
 	slot.immuneUntil = now() + Config.Nuke.ImmunityAfter
 	return worth
+end
+
+-- Rebirth: wipe the city back to a single house (visuals + profile).
+function PlotService.resetBuildings(player)
+	local slot = playerSlot[player]
+	local profile = ctx.Data.get(player)
+	if not slot or not profile then
+		return
+	end
+	profile.buildings = { house = 1 }
+	for zi, def in ipairs(BuildingDefs.List) do
+		local level = (def.id == "house") and 1 or 0
+		slot.zones[zi] = {
+			level = level,
+			hp = BuildingDefs.maxHp(def, math.max(level, 1)),
+			destroyed = false,
+			repairAt = 0,
+			lastHitAt = 0,
+		}
+		renderZone(slot, zi)
+		PlotService.updatePad(slot, zi)
+	end
 end
 
 function PlotService.repairAll(slot)

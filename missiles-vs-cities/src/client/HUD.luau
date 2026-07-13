@@ -44,10 +44,22 @@ function HUD.init(ctx)
 		TextColor3 = Color3.fromRGB(200, 235, 190),
 	}, holder)
 
+	local rebirthLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.new(0, 0, 0, 90),
+		Text = "",
+		TextColor3 = Color3.fromRGB(255, 230, 120),
+	}, holder)
+
 	ctx.State.changed.Event:Connect(function(data)
 		targetCash = data.cash
 		gemsLabel.Text = "\u{1F48E} " .. NumberFormat.commas(data.gems)
 		incomeLabel.Text = "+" .. NumberFormat.abbrev(data.income) .. "/s"
+		if (data.rebirths or 0) > 0 then
+			rebirthLabel.Text = "\u{1F31F} Rebirth " .. data.rebirths .. " (x" .. (1 + data.rebirths) .. " income)"
+		else
+			rebirthLabel.Text = ""
+		end
 	end)
 
 	RunService.RenderStepped:Connect(function(dt)
