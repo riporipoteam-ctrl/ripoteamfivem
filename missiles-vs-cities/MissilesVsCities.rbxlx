@@ -1,0 +1,4074 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX32"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX33"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+
+local Config = require(script.Parent.Config)
+
+local BuildingDefs = {}
+
+BuildingDefs.List = {
+	{ id = "house", name = "Houses", emoji = "\u{1F3E0}", color = Color3.fromRGB(240, 120, 120), baseCost = 100, baseIncome = 4, hp = 600, style = "towers" },
+	{ id = "apartments", name = "Apartments", emoji = "\u{1F3D8}\u{FE0F}", color = Color3.fromRGB(245, 170, 90), baseCost = 750, baseIncome = 12, hp = 900, style = "towers" },
+	{ id = "shops", name = "Shops", emoji = "\u{1F3EA}", color = Color3.fromRGB(255, 220, 90), baseCost = 6500, baseIncome = 45, hp = 1200, style = "towers" },
+	{ id = "bank", name = "Bank", emoji = "\u{1F3E6}", color = Color3.fromRGB(140, 220, 120), baseCost = 60e3, baseIncome = 210, hp = 1800, style = "towers" },
+	{ id = "factory", name = "Factory", emoji = "\u{1F3ED}", color = Color3.fromRGB(170, 170, 180), baseCost = 550e3, baseIncome = 950, hp = 2600, style = "towers" },
+	{ id = "solar", name = "Solar Field", emoji = "\u{2600}\u{FE0F}", color = Color3.fromRGB(80, 140, 235), baseCost = 5e6, baseIncome = 4200, hp = 1500, style = "panels" },
+	{ id = "downtown", name = "Downtown", emoji = "\u{1F3D9}\u{FE0F}", color = Color3.fromRGB(120, 200, 255), baseCost = 48e6, baseIncome = 19e3, hp = 5200, style = "towers" },
+	{ id = "stadium", name = "Stadium", emoji = "\u{1F3DF}\u{FE0F}", color = Color3.fromRGB(220, 130, 240), baseCost = 450e6, baseIncome = 88e3, hp = 6500, style = "towers" },
+	{ id = "airport", name = "Airport", emoji = "\u{2708}\u{FE0F}", color = Color3.fromRGB(235, 235, 240), baseCost = 4.2e9, baseIncome = 400e3, hp = 8000, style = "panels" },
+	{ id = "military", name = "Military Base", emoji = "\u{1FA96}", color = Color3.fromRGB(110, 140, 90), baseCost = 40e9, baseIncome = 1.9e6, hp = 16000, style = "towers" },
+	{ id = "wind", name = "Wind Farm", emoji = "\u{1F300}", color = Color3.fromRGB(200, 240, 250), baseCost = 380e9, baseIncome = 8.8e6, hp = 9000, style = "turbines" },
+	{ id = "space", name = "Space Center", emoji = "\u{1F6F0}\u{FE0F}", color = Color3.fromRGB(255, 255, 255), baseCost = 3.6e12, baseIncome = 42e6, hp = 30000, style = "towers" },
+}
+
+BuildingDefs.ById = {}
+for i, def in ipairs(BuildingDefs.List) do
+	def.zoneIndex = i
+	BuildingDefs.ById[def.id] = def
+end
+
+-- Cost to go from (targetLevel - 1) to targetLevel. Level 1 = the initial purchase.
+function BuildingDefs.upgradeCost(def, targetLevel)
+	return math.floor(def.baseCost * Config.CostGrowth ^ (targetLevel - 1))
+end
+
+function BuildingDefs.income(def, level)
+	if level &lt;= 0 then
+		return 0
+	end
+	return def.baseIncome * level * Config.IncomeGrowth ^ (level - 1)
+end
+
+function BuildingDefs.maxHp(def, level)
+	return math.floor(def.hp * (1 + 0.35 * (level - 1)))
+end
+
+-- Total cash ever invested into this building at the given level (geometric sum).
+function BuildingDefs.totalWorth(def, level)
+	if level &lt;= 0 then
+		return 0
+	end
+	local g = Config.CostGrowth
+	return def.baseCost * (g ^ level - 1) / (g - 1)
+end
+
+return BuildingDefs
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Config</string><ProtectedString name="Source">-- Central balance / tuning for Missiles vs Cities.
+-- Every number a designer would want to touch lives here.
+
+local Config = {}
+
+Config.MaxPlayers = 5
+
+-- World layout
+Config.PlotCount = 5
+Config.PlotSize = 220
+Config.PlotDistance = 420
+Config.ZoneSize = 40
+Config.GroundY = 4
+
+-- Economy
+Config.StartingCash = 1000
+Config.StartingGems = 25
+Config.IncomeInterval = 2
+Config.AutosaveInterval = 120
+Config.BuildingMaxLevel = 60
+Config.CostGrowth = 1.32
+Config.IncomeGrowth = 1.13
+
+-- Rockets
+Config.Rocket = {
+	MaxLevel = 100,
+	BaseDamage = 400,
+	DamageGrowth = 1.16,
+	BaseUpgradeCost = 2500,
+	CostGrowth = 1.42,
+	Cooldown = 45,
+	FlightTime = 6,
+	BlastRadius = 34,
+}
+
+-- Nukes
+Config.Nuke = {
+	IslandCost = 995e12, -- $995 Trillion for nuke access
+	Cooldown = 24 * 60 * 60, -- one nuke per day
+	FlightTime = 12,
+	ImmunityAfter = 180, -- seconds of protection after being nuked
+}
+
+Config.MissileRepairTime = 120 -- seconds for a missile-destroyed building to rebuild
+Config.HpRegenDelay = 60 -- damaged (not destroyed) buildings heal after this long without hits
+Config.JoinImmunity = 120 -- new joiners can't be attacked for this long
+
+-- Gem shop
+Config.Shop = {
+	RepairAllGems = 25,
+	SkipCooldownGems = 10,
+	ShieldGems = 40,
+	BarrageGems = 40,
+}
+Config.GiftInterval = 15 * 60 -- free gift every 15 minutes of playtime
+Config.GiftGems = 15
+
+-- Monetization placeholders. Create gamepasses for your experience and put
+-- their IDs here; 0 leaves the buttons in "not configured" mode.
+Config.GamePassCash2x = 0
+Config.GamePassDamage2x = 0
+
+-- Daily rewards (index = streak day). Client renders this table directly.
+Config.DailyRewards = {
+	{ label = "50 Gems", emoji = "\u{1F48E}", kind = "gems", amount = 50 },
+	{ label = "Cash Boost", emoji = "\u{1F4B5}", kind = "cash_minutes", amount = 10 },
+	{ label = "Shield", emoji = "\u{1F6E1}\u{FE0F}", kind = "shield", amount = 1 },
+	{ label = "Barrage", emoji = "\u{1F680}", kind = "barrage", amount = 1 },
+	{ label = "150 Gems", emoji = "\u{1F48E}", kind = "gems", amount = 150 },
+	{ label = "400 Gems", emoji = "\u{1F48E}", kind = "gems", amount = 400 },
+	{ label = "FREE NUKE", emoji = "\u{2622}\u{FE0F}", kind = "nuke_charge", amount = 1 },
+}
+Config.DailyClaimWindow = 20 * 60 * 60 -- can claim again 20h after last claim
+Config.DailyStreakBreak = 48 * 60 * 60 -- miss 48h and the streak resets
+
+return Config
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Layout</string><ProtectedString name="Source">-- Deterministic world layout math, shared by server (to build the world)
+-- and client (to aim cameras, popups and crosshairs) so nothing needs replicating.
+
+local Config = require(script.Parent.Config)
+
+local Layout = {}
+
+Layout.GroundY = Config.GroundY
+
+local HALF = Config.PlotSize / 2
+
+-- Zone grid: 4 columns x 3 rows of 40-stud zones separated by 12-stud roads.
+local COL_X = { -78, -26, 26, 78 }
+local ROW_Z = { 78, 26, -26 }
+
+Layout.NukeIslandCenter = Vector3.new(0, 0, -880)
+Layout.NukeIslandSize = 150
+
+function Layout.plotCenter(plotIndex)
+	-- Plots sit on a circle around the lobby, leaving due north clear
+	-- for the bridge out to Nuke Island.
+	local angle = math.rad(-54 + (plotIndex - 1) * 72)
+	return Vector3.new(math.cos(angle) * Config.PlotDistance, 0, math.sin(angle) * Config.PlotDistance)
+end
+
+function Layout.zoneOffset(zoneIndex)
+	local row = math.ceil(zoneIndex / 4)
+	local col = ((zoneIndex - 1) % 4) + 1
+	return Vector3.new(COL_X[col], 0, ROW_Z[row])
+end
+
+function Layout.zoneCenter(plotIndex, zoneIndex)
+	local c = Layout.plotCenter(plotIndex)
+	local o = Layout.zoneOffset(zoneIndex)
+	return Vector3.new(c.X + o.X, Config.GroundY, c.Z + o.Z)
+end
+
+-- Buy/upgrade pad sits on the road directly in front of its zone.
+function Layout.padPos(plotIndex, zoneIndex)
+	return Layout.zoneCenter(plotIndex, zoneIndex) + Vector3.new(0, 0, 26)
+end
+
+function Layout.siloPos(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X, Config.GroundY, c.Z - 84)
+end
+
+function Layout.plotSpawn(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 103)
+end
+
+function Layout.plotBounds(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	return c.X - HALF, c.Z - HALF, c.X + HALF, c.Z + HALF
+end
+
+function Layout.clampToPlot(plotIndex, pos)
+	local minX, minZ, maxX, maxZ = Layout.plotBounds(plotIndex)
+	return Vector3.new(
+		math.clamp(pos.X, minX, maxX),
+		Layout.GroundY,
+		math.clamp(pos.Z, minZ, maxZ)
+	)
+end
+
+-- Top-down camera used by the attack ("BLOW UP") view.
+function Layout.attackCameraCFrame(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	local eye = Vector3.new(c.X, 330, c.Z + 40)
+	return CFrame.lookAt(eye, Vector3.new(c.X, Layout.GroundY, c.Z))
+end
+
+return Layout
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">NumberFormat</string><ProtectedString name="Source">-- Big-number formatting: 1.28M / 846T / 71.3Sx style plus full comma strings.
+
+local NumberFormat = {}
+
+local SUFFIXES = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "UDc", "DDc", "TDc" }
+
+function NumberFormat.abbrev(n)
+	n = math.floor(n + 0.5)
+	if n &lt; 0 then
+		return "-" .. NumberFormat.abbrev(-n)
+	end
+	if n &lt; 1000 then
+		return tostring(n)
+	end
+	local idx = math.floor(math.log10(n) / 3)
+	idx = math.min(idx, #SUFFIXES - 1)
+	local scaled = n / 10 ^ (idx * 3)
+	local txt
+	if scaled &gt;= 100 then
+		txt = string.format("%.0f", scaled)
+	elseif scaled &gt;= 10 then
+		txt = string.format("%.1f", scaled)
+	else
+		txt = string.format("%.2f", scaled)
+	end
+	txt = txt:gsub("%.0+$", ""):gsub("(%.%d-)0+$", "%1")
+	return txt .. SUFFIXES[idx + 1]
+end
+
+function NumberFormat.commas(n)
+	n = math.floor(n + 0.5)
+	local neg = n &lt; 0
+	local s = string.format("%.0f", math.abs(n))
+	local out = s:reverse():gsub("(%d%d%d)", "%1,")
+	out = out:reverse():gsub("^,", "")
+	return (neg and "-" or "") .. out
+end
+
+-- 1:35:03 style countdown text.
+function NumberFormat.clock(sec)
+	sec = math.max(0, math.floor(sec))
+	local h = sec // 3600
+	local m = (sec % 3600) // 60
+	local s = sec % 60
+	if h &gt; 0 then
+		return string.format("%d:%02d:%02d", h, m, s)
+	end
+	return string.format("%d:%02d", m, s)
+end
+
+return NumberFormat
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Remotes</string><ProtectedString name="Source">-- Creates (server) or fetches (client) all RemoteEvents/RemoteFunctions.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local EVENTS = {
+	"State", -- server -&gt; client: full player state snapshot
+	"IncomePops", -- server -&gt; all: floating +$ popup batches
+	"Notify", -- server -&gt; client(s): toast messages
+	"MissileEvent", -- server -&gt; all: rocket/nuke flight for client FX
+	"Alarm", -- server -&gt; victim: incoming strike warning
+	"ShieldFX", -- server -&gt; all: shield block visual
+	"DailyData", -- server -&gt; client: daily rewards refresh
+	"RequestLaunch", -- client -&gt; server: fire rocket/nuke
+	"UpgradeRocket", -- client -&gt; server
+	"ClaimDaily", -- client -&gt; server
+	"ShopBuy", -- client -&gt; server: gem shop / gamepass buttons
+	"ClaimGift", -- client -&gt; server
+}
+local FUNCTIONS = {
+	"GetSnapshot", -- client asks for initial state
+	"GetTargets", -- client asks who can be attacked
+}
+
+local Remotes = { Events = {}, Functions = {} }
+
+if RunService:IsServer() then
+	local folder = Instance.new("Folder")
+	folder.Name = "Remotes"
+	for _, name in ipairs(EVENTS) do
+		local ev = Instance.new("RemoteEvent")
+		ev.Name = name
+		ev.Parent = folder
+		Remotes.Events[name] = ev
+	end
+	for _, name in ipairs(FUNCTIONS) do
+		local fn = Instance.new("RemoteFunction")
+		fn.Name = name
+		fn.Parent = folder
+		Remotes.Functions[name] = fn
+	end
+	folder.Parent = ReplicatedStorage
+else
+	local folder = ReplicatedStorage:WaitForChild("Remotes")
+	for _, name in ipairs(EVENTS) do
+		Remotes.Events[name] = folder:WaitForChild(name)
+	end
+	for _, name in ipairs(FUNCTIONS) do
+		Remotes.Functions[name] = folder:WaitForChild(name)
+	end
+end
+
+return Remotes
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">SoundBook</string><ProtectedString name="Source">-- All game audio in one place. The rbxasset:// entries are built into every
+-- Roblox install so they always play; swap any of them for marketplace ids
+-- ("rbxassetid://12345") if you want richer audio later.
+
+local SoundBook = {}
+
+SoundBook.Defs = {
+	Click = { id = "rbxasset://sounds/button.wav", volume = 0.6 },
+	Good = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.7 },
+	Bad = { id = "rbxasset://sounds/uuhhh.wav", volume = 0.7 },
+	Buy = { id = "rbxasset://sounds/snap.wav", volume = 0.8 },
+	Launch = { id = "rbxasset://sounds/swoosh.wav", volume = 1 },
+	Explosion = { id = "rbxasset://sounds/collide.wav", volume = 1 },
+	BigRumble = { id = "rbxasset://sounds/bass.wav", volume = 1 },
+	Glass = { id = "rbxasset://sounds/glassbreak.wav", volume = 0.9 },
+	Victory = { id = "rbxasset://sounds/victory.wav", volume = 0.8 },
+	Flash = { id = "rbxasset://sounds/flashbulb.wav", volume = 0.9 },
+	Siren = { id = "rbxasset://sounds/bass.wav", volume = 0.9 }, -- pitch-modulated into a wail by AlarmUI
+}
+
+-- Background music playlist (Roblox library asset ids). Edit freely.
+SoundBook.Music = { 142376088 }
+
+function SoundBook.make(key, props)
+	local def = SoundBook.Defs[key]
+	if not def then
+		return nil
+	end
+	local s = Instance.new("Sound")
+	s.SoundId = def.id
+	s.Volume = def.volume
+	if props then
+		for k, v in pairs(props) do
+			s[k] = v
+		end
+	end
+	return s
+end
+
+function SoundBook.play(key, parent, props)
+	local s = SoundBook.make(key, props)
+	if not s then
+		return nil
+	end
+	s.Parent = parent
+	s:Play()
+	s.Ended:Once(function()
+		s:Destroy()
+	end)
+	task.delay(12, function()
+		if s and s.Parent then
+			s:Destroy()
+		end
+	end)
+	return s
+end
+
+-- Positional one-shot: spins up a throwaway invisible part to host the sound.
+function SoundBook.playAt(key, position, props)
+	local holder = Instance.new("Part")
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(1, 1, 1)
+	holder.Position = position
+	holder.Parent = workspace
+	local s = SoundBook.play(key, holder, props)
+	task.delay(12, function()
+		holder:Destroy()
+	end)
+	return s
+end
+
+return SoundBook
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX34"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX16"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's building cluster for its level, plus the rubble state.
+-- Everything is deterministic per (plot, zone) so cities look stable.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+
+local BuildingVisuals = {}
+
+local SUB_OFFSETS = {
+	Vector3.new(-10, 0, -10),
+	Vector3.new(10, 0, 10),
+	Vector3.new(10, 0, -10),
+	Vector3.new(-10, 0, 10),
+}
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+local function lighten(color, amt)
+	return Color3.new(
+		math.min(color.R + amt, 1),
+		math.min(color.G + amt, 1),
+		math.min(color.B + amt, 1)
+	)
+end
+
+local function renderTowers(model, def, level, center, rng)
+	local count = math.clamp(1 + math.floor(level / 15), 1, 4)
+	for i = 1, count do
+		local off = SUB_OFFSETS[i]
+		local h = 8 + math.min(level, Config.BuildingMaxLevel) * 0.45 * (0.8 + rng:NextNumber() * 0.4)
+		local base = Vector3.new(center.X + off.X, Config.GroundY, center.Z + off.Z)
+		part({
+			Name = "Tower",
+			Size = Vector3.new(16, h, 16),
+			Position = base + Vector3.new(0, h / 2, 0),
+			Color = def.color,
+			Parent = model,
+		})
+		part({
+			Name = "Trim",
+			Size = Vector3.new(16.6, 1, 16.6),
+			Position = base + Vector3.new(0, h + 0.5, 0),
+			Color = lighten(def.color, 0.25),
+			Material = level &gt;= 30 and Enum.Material.Neon or Enum.Material.SmoothPlastic,
+			Parent = model,
+		})
+		part({
+			Name = "Door",
+			Size = Vector3.new(4, 5, 0.5),
+			Position = base + Vector3.new(0, 2.5, 8.1),
+			Color = Color3.fromRGB(60, 50, 45),
+			Parent = model,
+		})
+	end
+end
+
+local function renderPanels(model, def, level, center, rng)
+	local rows = math.clamp(2 + math.floor(level / 10), 2, 6)
+	for i = 1, rows do
+		local rowIdx = math.ceil(i / 2)
+		local side = (i % 2 == 0) and 1 or -1
+		local pos = Vector3.new(center.X + side * 9, Config.GroundY + 2.2, center.Z - 14 + rowIdx * 8)
+		part({
+			Name = "Panel",
+			Size = Vector3.new(14, 0.6, 7),
+			CFrame = CFrame.new(pos) * CFrame.Angles(math.rad(-18), 0, 0),
+			Color = def.color,
+			Material = Enum.Material.Glass,
+			Reflectance = 0.2,
+			Parent = model,
+		})
+		part({
+			Name = "PanelLeg",
+			Size = Vector3.new(1, 2.4, 1),
+			Position = Vector3.new(pos.X, Config.GroundY + 1.2, pos.Z),
+			Color = Color3.fromRGB(120, 120, 128),
+			Parent = model,
+		})
+	end
+	local _ = rng
+end
+
+local function renderTurbines(model, def, level, center, rng)
+	local count = math.clamp(1 + math.floor(level / 12), 1, 4)
+	for i = 1, count do
+		local off = SUB_OFFSETS[i]
+		local h = 18 + math.min(level, 60) * 0.2 + rng:NextNumber() * 2
+		local base = Vector3.new(center.X + off.X, Config.GroundY, center.Z + off.Z)
+		part({
+			Name = "TurbinePole",
+			Size = Vector3.new(1.6, h, 1.6),
+			Position = base + Vector3.new(0, h / 2, 0),
+			Color = Color3.fromRGB(240, 240, 245),
+			Parent = model,
+		})
+		local hub = base + Vector3.new(0, h, 1.2)
+		part({
+			Name = "TurbineHub",
+			Size = Vector3.new(2.4, 2.4, 2.4),
+			Position = hub,
+			Color = def.color,
+			Parent = model,
+		})
+		for b = 0, 2 do
+			local ang = math.rad(b * 120)
+			part({
+				Name = "Blade",
+				Size = Vector3.new(0.8, 9, 0.4),
+				CFrame = CFrame.new(hub) * CFrame.Angles(0, 0, ang) * CFrame.new(0, 5.5, 0),
+				Color = Color3.fromRGB(240, 240, 245),
+				Parent = model,
+			})
+		end
+	end
+end
+
+local function renderRubble(model, def, center, rng)
+	for i = 1, 5 do
+		local off = Vector3.new((rng:NextNumber() - 0.5) * 26, 0, (rng:NextNumber() - 0.5) * 26)
+		local size = Vector3.new(6 + rng:NextNumber() * 8, 2 + rng:NextNumber() * 3, 6 + rng:NextNumber() * 8)
+		part({
+			Name = "Rubble",
+			Size = size,
+			CFrame = CFrame.new(center + off + Vector3.new(0, size.Y / 2, 0))
+				* CFrame.Angles(0, rng:NextNumber() * math.pi, math.rad((rng:NextNumber() - 0.5) * 20)),
+			Color = Color3.fromRGB(52, 50, 48),
+			Material = Enum.Material.Slate,
+			Parent = model,
+		})
+	end
+	local smokePart = part({
+		Name = "SmokeSource",
+		Size = Vector3.new(4, 1, 4),
+		Position = center + Vector3.new(0, 2, 0),
+		Transparency = 1,
+		CanCollide = false,
+		Parent = model,
+	})
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(Color3.fromRGB(70, 70, 70), Color3.fromRGB(120, 120, 120))
+	smoke.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 3),
+		NumberSequenceKeypoint.new(1, 8),
+	})
+	smoke.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.4),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	smoke.Lifetime = NumberRange.new(1.2, 2.2)
+	smoke.Rate = 8
+	smoke.Speed = NumberRange.new(3, 6)
+	smoke.SpreadAngle = Vector2.new(18, 18)
+	smoke.Parent = smokePart
+	local fire = Instance.new("Fire")
+	fire.Size = 8
+	fire.Heat = 10
+	fire.Parent = smokePart
+	local _ = def
+end
+
+-- container: the Model for this zone. level 0 clears it.
+function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, center, destroyed)
+	container:ClearAllChildren()
+	local rng = Random.new(plotIndex * 1000 + zoneIndex * 17)
+	if destroyed then
+		renderRubble(container, def, Vector3.new(center.X, Config.GroundY, center.Z), rng)
+	elseif level &gt; 0 then
+		local ground = Vector3.new(center.X, Config.GroundY, center.Z)
+		if def.style == "panels" then
+			renderPanels(container, def, level, ground, rng)
+		elseif def.style == "turbines" then
+			renderTurbines(container, def, level, ground, rng)
+		else
+			renderTowers(container, def, level, ground, rng)
+		end
+	end
+end
+
+return BuildingVisuals
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
+-- Clients only render FX; every gameplay decision happens here.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local CombatService = {}
+
+local ctx
+
+local function now()
+	return os.clock()
+end
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function notifyAll(msg, kind)
+	Remotes.Events.Notify:FireAllClients({ msg = msg, kind = kind or "info" })
+end
+
+local function siloLaunchPos(plotIndex)
+	return Layout.siloPos(plotIndex) + Vector3.new(0, 22, 0)
+end
+
+local function rocketDamage(player)
+	local profile = ctx.Data.get(player)
+	local level = profile and profile.rocketLevel or 1
+	return math.floor(Config.Rocket.BaseDamage * Config.Rocket.DamageGrowth ^ (level - 1))
+		* ctx.Economy.damageMultiplier(player)
+end
+
+local function impactRocket(attackerUserId, targetUserId, pos, damage)
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target then
+		return
+	end
+	local slot = ctx.Plot.getSlot(target)
+	if not slot then
+		return
+	end
+	local attacker = Players:GetPlayerByUserId(attackerUserId)
+
+	local profile = ctx.Data.get(target)
+	if profile and profile.shields &gt; 0 then
+		profile.shields -= 1
+		Remotes.Events.ShieldFX:FireAllClients(slot.index, pos)
+		notify(target, "\u{1F6E1}\u{FE0F} Your shield blocked a missile!", "good")
+		if attacker then
+			notify(attacker, "\u{1F6E1}\u{FE0F} " .. target.DisplayName .. "'s shield blocked your missile!", "bad")
+		end
+		ctx.Economy.pushState(target)
+		return
+	end
+
+	local worth, count = ctx.Plot.applyBlast(slot, pos, damage)
+	if count &gt; 0 and attacker then
+		ctx.Economy.addCash(attacker, worth)
+		local aProfile = ctx.Data.get(attacker)
+		if aProfile then
+			aProfile.stats.stolen += worth
+		end
+		notify(attacker, "\u{1F4A5} Destroyed " .. count .. " buildings! +\u{1F4B5} "
+			.. NumberFormat.abbrev(worth), "victory")
+		notify(target, "\u{1F4A5} " .. attacker.DisplayName .. "'s missile destroyed "
+			.. count .. " of your buildings!", "bad")
+		ctx.Economy.pushState(attacker)
+	elseif attacker then
+		notify(attacker, "\u{1F4A8} Missile hit, but nothing was destroyed...", "info")
+	end
+	ctx.Economy.pushState(target)
+end
+
+local function impactNuke(attackerUserId, targetUserId)
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target then
+		return
+	end
+	local slot = ctx.Plot.getSlot(target)
+	if not slot then
+		return
+	end
+	local attacker = Players:GetPlayerByUserId(attackerUserId)
+
+	local worth = ctx.Plot.nukeSlot(slot)
+	if attacker then
+		ctx.Economy.addCash(attacker, worth)
+		local aProfile = ctx.Data.get(attacker)
+		if aProfile then
+			aProfile.stats.stolen += worth
+		end
+		notify(attacker, "\u{2622}\u{FE0F} DIRECT HIT! You stole \u{1F4B5} "
+			.. NumberFormat.abbrev(worth) .. "!", "victory")
+		ctx.Economy.pushState(attacker)
+	end
+	notify(target, "\u{2622}\u{FE0F} Your city was NUKED! It will rebuild itself over the next few minutes.", "bad")
+	notifyAll("\u{2622}\u{FE0F} " .. (attacker and attacker.DisplayName or "Someone")
+		.. " NUKED " .. target.DisplayName .. "'s city for \u{1F4B5} " .. NumberFormat.abbrev(worth) .. "!")
+	ctx.Economy.pushState(target)
+end
+
+local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
+	if type(targetUserId) ~= "number" or type(x) ~= "number" or type(z) ~= "number" then
+		return
+	end
+	local session = ctx.session[player]
+	local profile = ctx.Data.get(player)
+	local mySlot = ctx.Plot.getSlot(player)
+	if not session or not profile or not mySlot then
+		return
+	end
+
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target or target == player then
+		notify(player, "That player isn't here anymore!", "bad")
+		return
+	end
+	local targetSlot = ctx.Plot.getSlot(target)
+	if not targetSlot then
+		notify(player, "That player has no city!", "bad")
+		return
+	end
+	if ctx.Plot.isImmune(targetSlot) then
+		notify(player, "\u{1F6E1}\u{FE0F} " .. target.DisplayName .. " is protected right now!", "bad")
+		return
+	end
+
+	local pos = Layout.clampToPlot(targetSlot.index, Vector3.new(x, 0, z))
+	local fromPos = siloLaunchPos(mySlot.index)
+
+	if useNuke then
+		local canNuke = profile.nukeIsland or profile.nukeCharges &gt; 0
+		if not canNuke then
+			notify(player, "\u{2622}\u{FE0F} You need Nuke Access (\u{1F4B5} "
+				.. NumberFormat.abbrev(Config.Nuke.IslandCost) .. ") or a free nuke charge!", "bad")
+			return
+		end
+		if os.time() - profile.lastNukeAt &lt; Config.Nuke.Cooldown then
+			local wait = Config.Nuke.Cooldown - (os.time() - profile.lastNukeAt)
+			notify(player, "\u{2622}\u{FE0F} Nuke ready in " .. NumberFormat.clock(wait) .. " (one per day)!", "bad")
+			return
+		end
+		if not profile.nukeIsland then
+			profile.nukeCharges -= 1
+		end
+		profile.lastNukeAt = os.time()
+		profile.stats.nukesFired += 1
+
+		local flight = Config.Nuke.FlightTime
+		Remotes.Events.MissileEvent:FireAllClients({
+			kind = "nuke",
+			from = fromPos,
+			to = pos,
+			flight = flight,
+			attacker = player.DisplayName,
+		})
+		Remotes.Events.Alarm:FireClient(target, { kind = "nuke", pos = pos, eta = flight })
+		notifyAll("\u{2622}\u{FE0F} " .. player.DisplayName .. " has launched a NUKE at "
+			.. target.DisplayName .. "'s city!", "bad")
+		task.delay(flight, impactNuke, player.UserId, target.UserId)
+	else
+		if now() &lt; (session.rocketReadyAt or 0) then
+			notify(player, "\u{1F680} Rocket reloading! "
+				.. NumberFormat.clock((session.rocketReadyAt or 0) - now()), "bad")
+			return
+		end
+		session.rocketReadyAt = now() + Config.Rocket.Cooldown
+
+		local salvo = 1
+		if useBarrage and profile.barrage &gt; 0 then
+			profile.barrage -= 1
+			salvo = 3
+		end
+		local damage = rocketDamage(player)
+		local offsets = { Vector3.new(0, 0, 0), Vector3.new(18, 0, 10), Vector3.new(-16, 0, 14) }
+		for s = 1, salvo do
+			local hitPos = Layout.clampToPlot(targetSlot.index, pos + offsets[s])
+			local flight = Config.Rocket.FlightTime + (s - 1) * 0.7
+			Remotes.Events.MissileEvent:FireAllClients({
+				kind = "rocket",
+				from = fromPos,
+				to = hitPos,
+				flight = flight,
+				attacker = player.DisplayName,
+			})
+			task.delay(flight, impactRocket, player.UserId, target.UserId, hitPos, damage)
+		end
+		profile.stats.missilesFired += salvo
+		Remotes.Events.Alarm:FireClient(target, { kind = "rocket", pos = pos, eta = Config.Rocket.FlightTime })
+		notify(target, "\u{1F6A8} " .. player.DisplayName .. " launched "
+			.. (salvo &gt; 1 and salvo .. " missiles" or "a missile") .. " at your city!", "bad")
+	end
+	ctx.Economy.pushState(player)
+end
+
+local function onUpgradeRocket(player)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	if profile.rocketLevel &gt;= Config.Rocket.MaxLevel then
+		notify(player, "\u{1F680} Rocket is max level!", "info")
+		return
+	end
+	local cost = math.floor(Config.Rocket.BaseUpgradeCost * Config.Rocket.CostGrowth ^ (profile.rocketLevel - 1))
+	if not ctx.Economy.trySpend(player, cost) then
+		notify(player, "Need \u{1F4B5} " .. NumberFormat.abbrev(cost) .. " to upgrade!", "bad")
+		return
+	end
+	profile.rocketLevel += 1
+	notify(player, "\u{1F680} Rocket upgraded to Lv" .. profile.rocketLevel .. "!", "buy")
+	ctx.Economy.pushState(player)
+end
+
+function CombatService.init(context)
+	ctx = context
+
+	Remotes.Events.RequestLaunch.OnServerEvent:Connect(onRequestLaunch)
+	Remotes.Events.UpgradeRocket.OnServerEvent:Connect(onUpgradeRocket)
+
+	Remotes.Functions.GetTargets.OnServerInvoke = function(player)
+		local targets = {}
+		for _, slot in ipairs(ctx.Plot.slots()) do
+			local owner = slot.owner
+			if owner and owner ~= player then
+				targets[#targets + 1] = {
+					userId = owner.UserId,
+					name = owner.DisplayName,
+					plotIndex = slot.index,
+					immune = ctx.Plot.isImmune(slot),
+				}
+			end
+		end
+		return targets
+	end
+end
+
+return CombatService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
+-- are unavailable (unpublished place / Studio without API access) the game
+-- still runs, it just won't save.
+
+local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+
+local DataService = {}
+
+local store = nil
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore("MVC_PlayerData_v1")
+	end)
+	if ok then
+		store = result
+	else
+		warn("[MVC] DataStores unavailable, running without saving: " .. tostring(result))
+	end
+end
+
+local profiles = {} -- [player] = profile
+
+local function defaultProfile()
+	return {
+		cash = Config.StartingCash,
+		gems = Config.StartingGems,
+		buildings = { house = 1 },
+		rocketLevel = 1,
+		shields = 0,
+		barrage = 0,
+		nukeIsland = false,
+		nukeCharges = 0,
+		lastNukeAt = 0,
+		daily = { streak = 0, lastClaimAt = 0 },
+		stats = { nukesFired = 0, missilesFired = 0, stolen = 0 },
+	}
+end
+
+local function mergeInto(base, saved)
+	for k, v in pairs(saved) do
+		if type(v) == "table" and type(base[k]) == "table" then
+			mergeInto(base[k], v)
+		else
+			base[k] = v
+		end
+	end
+end
+
+local function key(player)
+	return "u_" .. player.UserId
+end
+
+function DataService.load(player)
+	local profile = defaultProfile()
+	if store then
+		local loaded = nil
+		for attempt = 1, 3 do
+			local ok, result = pcall(function()
+				return store:GetAsync(key(player))
+			end)
+			if ok then
+				loaded = result
+				profile.__loadOk = true
+				break
+			end
+			if attempt &lt; 3 then
+				task.wait(1.5 * attempt)
+			end
+		end
+		if type(loaded) == "table" then
+			mergeInto(profile, loaded)
+			profile.__loadOk = true
+		end
+	end
+	if not profile.__loadOk and store then
+		-- Never overwrite real data with defaults after a failed load.
+		profile.__noSave = true
+		warn("[MVC] Failed to load data for " .. player.Name .. "; running session-only.")
+	end
+	profiles[player] = profile
+	return profile
+end
+
+function DataService.get(player)
+	return profiles[player]
+end
+
+local function snapshot(profile)
+	local copy = {}
+	for k, v in pairs(profile) do
+		if type(k) == "string" and k:sub(1, 2) ~= "__" then
+			if type(v) == "table" then
+				local inner = {}
+				for k2, v2 in pairs(v) do
+					inner[k2] = v2
+				end
+				copy[k] = inner
+			else
+				copy[k] = v
+			end
+		end
+	end
+	return copy
+end
+
+function DataService.save(player)
+	local profile = profiles[player]
+	if not profile or not store or profile.__noSave then
+		return false
+	end
+	local data = snapshot(profile)
+	for attempt = 1, 3 do
+		local ok, err = pcall(function()
+			store:UpdateAsync(key(player), function()
+				return data
+			end)
+		end)
+		if ok then
+			return true
+		end
+		warn("[MVC] Save attempt " .. attempt .. " failed for " .. player.Name .. ": " .. tostring(err))
+		if attempt &lt; 3 then
+			task.wait(2 * attempt)
+		end
+	end
+	return false
+end
+
+function DataService.forget(player)
+	profiles[player] = nil
+end
+
+function DataService.allPlayers()
+	return profiles
+end
+
+return DataService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
+-- the free-gift timer, the gem shop and gamepass hooks.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local BuildingDefs = require(Shared.BuildingDefs)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local EconomyService = {}
+
+local ctx
+
+local function now()
+	return os.clock()
+end
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+function EconomyService.addCash(player, amount)
+	local profile = ctx.Data.get(player)
+	if profile then
+		profile.cash += amount
+	end
+end
+
+function EconomyService.trySpend(player, amount)
+	local profile = ctx.Data.get(player)
+	if not profile or profile.cash &lt; amount then
+		return false
+	end
+	profile.cash -= amount
+	return true
+end
+
+function EconomyService.addGems(player, amount)
+	local profile = ctx.Data.get(player)
+	if profile then
+		profile.gems += amount
+	end
+end
+
+function EconomyService.trySpendGems(player, amount)
+	local profile = ctx.Data.get(player)
+	if not profile or profile.gems &lt; amount then
+		return false
+	end
+	profile.gems -= amount
+	return true
+end
+
+function EconomyService.cashMultiplier(player)
+	local session = ctx.session[player]
+	return (session and session.passCash) and 2 or 1
+end
+
+function EconomyService.damageMultiplier(player)
+	local session = ctx.session[player]
+	return (session and session.passDamage) and 2 or 1
+end
+
+function EconomyService.getIncomePerSec(player)
+	local slot = ctx.Plot.getSlot(player)
+	if not slot then
+		return 0
+	end
+	local total = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 and not zone.destroyed then
+			total += BuildingDefs.income(def, zone.level)
+		end
+	end
+	return total * EconomyService.cashMultiplier(player)
+end
+
+function EconomyService.pushState(player)
+	local profile = ctx.Data.get(player)
+	local session = ctx.session[player]
+	if not profile or not session then
+		return
+	end
+	local slot = ctx.Plot.getSlot(player)
+	local rocketLevel = profile.rocketLevel
+	local snapshot = {
+		cash = profile.cash,
+		gems = profile.gems,
+		income = EconomyService.getIncomePerSec(player),
+		worth = slot and ctx.Plot.cityWorth(slot) or 0,
+		plotIndex = slot and slot.index or 0,
+		rocketLevel = rocketLevel,
+		rocketCost = rocketLevel &lt; Config.Rocket.MaxLevel
+			and math.floor(Config.Rocket.BaseUpgradeCost * Config.Rocket.CostGrowth ^ (rocketLevel - 1))
+			or 0,
+		rocketDamage = math.floor(Config.Rocket.BaseDamage * Config.Rocket.DamageGrowth ^ (rocketLevel - 1))
+			* EconomyService.damageMultiplier(player),
+		rocketRemaining = math.max(0, (session.rocketReadyAt or 0) - now()),
+		nukeOwned = profile.nukeIsland,
+		nukeCharges = profile.nukeCharges,
+		nukeRemaining = math.max(0, profile.lastNukeAt + Config.Nuke.Cooldown - os.time()),
+		shields = profile.shields,
+		barrage = profile.barrage,
+		giftRemaining = math.max(0, (session.giftReadyAt or 0) - now()),
+		daily = ctx.Rewards.getData(player),
+		passes = { cash2x = session.passCash or false, dmg2x = session.passDamage or false },
+	}
+	Remotes.Events.State:FireClient(player, snapshot)
+end
+
+local function updateLeaderstats(player)
+	local profile = ctx.Data.get(player)
+	local stats = player:FindFirstChild("leaderstats")
+	if not profile or not stats then
+		return
+	end
+	local slot = ctx.Plot.getSlot(player)
+	stats.Cash.Value = NumberFormat.abbrev(profile.cash)
+	stats.Worth.Value = NumberFormat.abbrev(slot and ctx.Plot.cityWorth(slot) or 0)
+end
+
+local function makeLeaderstats(player)
+	local stats = Instance.new("Folder")
+	stats.Name = "leaderstats"
+	local cash = Instance.new("StringValue")
+	cash.Name = "Cash"
+	cash.Value = "0"
+	cash.Parent = stats
+	local worth = Instance.new("StringValue")
+	worth.Name = "Worth"
+	worth.Value = "0"
+	worth.Parent = stats
+	stats.Parent = player
+end
+
+local function incomeLoop()
+	while true do
+		task.wait(Config.IncomeInterval)
+		for _, slot in ipairs(ctx.Plot.slots()) do
+			local player = slot.owner
+			if player then
+				local profile = ctx.Data.get(player)
+				if profile then
+					local mult = EconomyService.cashMultiplier(player)
+					local pops = {}
+					local total = 0
+					for zi, def in ipairs(BuildingDefs.List) do
+						local zone = slot.zones[zi]
+						if zone.level &gt; 0 and not zone.destroyed then
+							local amt = BuildingDefs.income(def, zone.level) * Config.IncomeInterval * mult
+							total += amt
+							pops[#pops + 1] = { zi, amt }
+						end
+					end
+					if total &gt; 0 then
+						profile.cash += total
+						Remotes.Events.IncomePops:FireAllClients(slot.index, pops)
+					end
+					slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
+						.. "\n\u{1F4B5} " .. NumberFormat.abbrev(ctx.Plot.cityWorth(slot))
+					updateLeaderstats(player)
+					EconomyService.pushState(player)
+				end
+			end
+		end
+	end
+end
+
+local function onShopBuy(player, itemId)
+	local profile = ctx.Data.get(player)
+	local session = ctx.session[player]
+	if not profile or not session or type(itemId) ~= "string" then
+		return
+	end
+
+	if itemId == "repair_all" then
+		local slot = ctx.Plot.getSlot(player)
+		if not slot then
+			return
+		end
+		local anyDestroyed = false
+		for _, zone in pairs(slot.zones) do
+			if zone.destroyed then
+				anyDestroyed = true
+				break
+			end
+		end
+		if not anyDestroyed then
+			notify(player, "Nothing needs repairs!", "info")
+			return
+		end
+		if not EconomyService.trySpendGems(player, Config.Shop.RepairAllGems) then
+			notify(player, "Need \u{1F48E} " .. Config.Shop.RepairAllGems .. " gems!", "bad")
+			return
+		end
+		local count = ctx.Plot.repairAll(slot)
+		notify(player, "\u{1F527} Instantly rebuilt " .. count .. " buildings!", "good")
+	elseif itemId == "skip_cooldown" then
+		if (session.rocketReadyAt or 0) &lt;= now() then
+			notify(player, "Your rocket is already ready!", "info")
+			return
+		end
+		if not EconomyService.trySpendGems(player, Config.Shop.SkipCooldownGems) then
+			notify(player, "Need \u{1F48E} " .. Config.Shop.SkipCooldownGems .. " gems!", "bad")
+			return
+		end
+		session.rocketReadyAt = 0
+		notify(player, "\u{1F680} Rocket ready!", "good")
+	elseif itemId == "shield" then
+		if not EconomyService.trySpendGems(player, Config.Shop.ShieldGems) then
+			notify(player, "Need \u{1F48E} " .. Config.Shop.ShieldGems .. " gems!", "bad")
+			return
+		end
+		profile.shields += 1
+		notify(player, "\u{1F6E1}\u{FE0F} Shield armed! Blocks the next missile strike.", "good")
+	elseif itemId == "barrage" then
+		if not EconomyService.trySpendGems(player, Config.Shop.BarrageGems) then
+			notify(player, "Need \u{1F48E} " .. Config.Shop.BarrageGems .. " gems!", "bad")
+			return
+		end
+		profile.barrage += 1
+		notify(player, "\u{1F680}\u{1F680}\u{1F680} Barrage loaded! Your next launch fires 3 rockets.", "good")
+	elseif itemId == "pass_cash" then
+		if Config.GamePassCash2x &gt; 0 then
+			MarketplaceService:PromptGamePassPurchase(player, Config.GamePassCash2x)
+		else
+			notify(player, "2X CASH gamepass isn't configured yet (see Config.luau).", "info")
+		end
+	elseif itemId == "pass_damage" then
+		if Config.GamePassDamage2x &gt; 0 then
+			MarketplaceService:PromptGamePassPurchase(player, Config.GamePassDamage2x)
+		else
+			notify(player, "2X DAMAGE gamepass isn't configured yet (see Config.luau).", "info")
+		end
+	end
+	EconomyService.pushState(player)
+end
+
+local function onClaimGift(player)
+	local session = ctx.session[player]
+	local profile = ctx.Data.get(player)
+	if not session or not profile then
+		return
+	end
+	if now() &lt; (session.giftReadyAt or 0) then
+		notify(player, "\u{1F381} Gift isn't ready yet!", "bad")
+		return
+	end
+	session.giftReadyAt = now() + Config.GiftInterval
+	local cashGift = math.max(1000, EconomyService.getIncomePerSec(player) * 300)
+	profile.gems += Config.GiftGems
+	profile.cash += cashGift
+	notify(player, "\u{1F381} Gift claimed! +\u{1F48E} " .. Config.GiftGems
+		.. " and +\u{1F4B5} " .. NumberFormat.abbrev(cashGift) .. "!", "victory")
+	EconomyService.pushState(player)
+end
+
+function EconomyService.onJoin(player)
+	makeLeaderstats(player)
+	local session = ctx.session[player]
+	session.giftReadyAt = now() + Config.GiftInterval
+	session.rocketReadyAt = 0
+
+	if Config.GamePassCash2x &gt; 0 then
+		task.spawn(function()
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, Config.GamePassCash2x)
+			end)
+			if ok and owns then
+				session.passCash = true
+				EconomyService.pushState(player)
+			end
+		end)
+	end
+	if Config.GamePassDamage2x &gt; 0 then
+		task.spawn(function()
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, Config.GamePassDamage2x)
+			end)
+			if ok and owns then
+				session.passDamage = true
+				EconomyService.pushState(player)
+			end
+		end)
+	end
+end
+
+function EconomyService.init(context)
+	ctx = context
+
+	Remotes.Events.ShopBuy.OnServerEvent:Connect(onShopBuy)
+	Remotes.Events.ClaimGift.OnServerEvent:Connect(onClaimGift)
+
+	Remotes.Functions.GetSnapshot.OnServerInvoke = function(player)
+		if ctx.Data.get(player) and ctx.session[player] then
+			EconomyService.pushState(player)
+			return true
+		end
+		return false
+	end
+
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+		local session = ctx.session[player]
+		if not purchased or not session then
+			return
+		end
+		if passId == Config.GamePassCash2x then
+			session.passCash = true
+			notify(player, "\u{1F4B5} 2X CASH activated!", "victory")
+		elseif passId == Config.GamePassDamage2x then
+			session.passDamage = true
+			notify(player, "\u{1F4A5} 2X DAMAGE activated!", "victory")
+		end
+		EconomyService.pushState(player)
+	end)
+
+	task.spawn(incomeLoop)
+end
+
+return EconomyService
+</ProtectedString></Properties></Item><Item class="Script" referent="RBX12"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
+-- Builds the world, wires the services, manages player lifecycle.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterPlayer = game:GetService("StarterPlayer")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+require(Shared.Remotes) -- create remotes before any client can ask for them
+
+local DataService = require(script.Parent.DataService)
+local WorldBuilder = require(script.Parent.WorldBuilder)
+local BuildingVisuals = require(script.Parent.BuildingVisuals)
+local PlotService = require(script.Parent.PlotService)
+local EconomyService = require(script.Parent.EconomyService)
+local CombatService = require(script.Parent.CombatService)
+local RewardsService = require(script.Parent.RewardsService)
+
+StarterPlayer.CameraMaxZoomDistance = 400
+Players.RespawnTime = 3
+
+local world = WorldBuilder.build()
+
+local ctx = {
+	Data = DataService,
+	Visuals = BuildingVisuals,
+	World = world,
+	Plot = PlotService,
+	Economy = EconomyService,
+	Combat = CombatService,
+	Rewards = RewardsService,
+	session = {}, -- [player] = { giftReadyAt, rocketReadyAt, passCash, passDamage }
+}
+
+PlotService.init(ctx)
+EconomyService.init(ctx)
+CombatService.init(ctx)
+RewardsService.init(ctx)
+
+local function onPlayerAdded(player)
+	ctx.session[player] = {}
+	DataService.load(player)
+	if not player.Parent then
+		return -- left while loading
+	end
+	EconomyService.onJoin(player)
+	PlotService.assign(player)
+	EconomyService.pushState(player)
+end
+
+local function onPlayerRemoving(player)
+	PlotService.release(player)
+	DataService.save(player)
+	DataService.forget(player)
+	ctx.session[player] = nil
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _, player in ipairs(Players:GetPlayers()) do
+	task.spawn(onPlayerAdded, player)
+end
+Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+-- Autosave.
+task.spawn(function()
+	while true do
+		task.wait(Config.AutosaveInterval)
+		for _, player in ipairs(Players:GetPlayers()) do
+			DataService.save(player)
+		end
+	end
+end)
+
+game:BindToClose(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		DataService.save(player)
+	end
+	task.wait(1)
+end)
+
+print("[MVC] Missiles vs Cities server ready. Max " .. Config.MaxPlayers .. " players per server.")
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
+-- damage, destruction, rebuild timers and HP regen.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local BuildingDefs = require(Shared.BuildingDefs)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local PlotService = {}
+
+local ctx
+local slots
+local playerSlot = {} -- [player] = slot
+local touchDebounce = {} -- [player.UserId .. ":" .. zi] = last touch clock
+
+local function now()
+	return os.clock()
+end
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+function PlotService.getSlot(player)
+	return playerSlot[player]
+end
+
+function PlotService.slots()
+	return slots
+end
+
+local function renderZone(slot, zi)
+	local def = BuildingDefs.List[zi]
+	local zone = slot.zones[zi]
+	local center = Layout.zoneCenter(slot.index, zi)
+	ctx.Visuals.render(slot.zoneData[zi].buildings, def, zone.level, slot.index, zi, center, zone.destroyed)
+end
+
+function PlotService.updatePad(slot, zi)
+	local def = BuildingDefs.List[zi]
+	local zone = slot.zones[zi]
+	local data = slot.zoneData[zi]
+	local label = data.padLabel
+	local pad = data.pad
+
+	if not slot.owner then
+		label.Text = ""
+		pad.Color = Color3.fromRGB(140, 140, 140)
+		return
+	end
+
+	if zone.destroyed then
+		local remaining = math.max(0, math.ceil(zone.repairAt - now()))
+		label.Text = "\u{1F4A5} " .. def.name .. " destroyed!\nRebuilding " .. NumberFormat.clock(remaining)
+		pad.Color = Color3.fromRGB(120, 120, 120)
+	elseif zone.level &lt;= 0 then
+		label.Text = "\u{1F3D7}\u{FE0F} Buy " .. def.name .. "\n\u{1F4B5} " .. NumberFormat.abbrev(BuildingDefs.upgradeCost(def, 1))
+		pad.Color = Color3.fromRGB(80, 235, 90)
+	elseif zone.level &gt;= Config.BuildingMaxLevel then
+		label.Text = def.emoji .. " " .. def.name .. " Lv MAX"
+		pad.Color = Color3.fromRGB(250, 200, 60)
+	else
+		local maxHp = BuildingDefs.maxHp(def, zone.level)
+		local hpLine = ""
+		if zone.hp &lt; maxHp then
+			hpLine = "\n\u{2764}\u{FE0F} " .. NumberFormat.commas(zone.hp) .. " / " .. NumberFormat.commas(maxHp) .. " HP"
+		end
+		label.Text = def.emoji .. " " .. def.name .. " Lv" .. zone.level
+			.. "\n\u{2B06}\u{FE0F} Upgrade \u{1F4B5} " .. NumberFormat.abbrev(BuildingDefs.upgradeCost(def, zone.level + 1))
+			.. hpLine
+		pad.Color = Color3.fromRGB(80, 235, 90)
+	end
+end
+
+local function onPadTouched(slot, zi, hit)
+	local character = hit.Parent
+	if not character then
+		return
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player and character.Parent then
+		player = Players:GetPlayerFromCharacter(character.Parent)
+	end
+	if not player or slot.owner ~= player then
+		return
+	end
+
+	local dKey = player.UserId .. ":" .. zi
+	if touchDebounce[dKey] and now() - touchDebounce[dKey] &lt; 0.8 then
+		return
+	end
+	touchDebounce[dKey] = now()
+
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	local def = BuildingDefs.List[zi]
+	local zone = slot.zones[zi]
+
+	if zone.destroyed then
+		notify(player, "\u{1F4A5} " .. def.name .. " is rebuilding, hang tight!", "bad")
+		return
+	end
+	if zone.level &gt;= Config.BuildingMaxLevel then
+		return
+	end
+
+	local targetLevel = zone.level + 1
+	local cost = BuildingDefs.upgradeCost(def, targetLevel)
+	if not ctx.Economy.trySpend(player, cost) then
+		notify(player, "Need \u{1F4B5} " .. NumberFormat.abbrev(cost) .. " for " .. def.name .. "!", "bad")
+		return
+	end
+
+	zone.level = targetLevel
+	zone.hp = BuildingDefs.maxHp(def, targetLevel)
+	profile.buildings[def.id] = targetLevel
+	renderZone(slot, zi)
+	PlotService.updatePad(slot, zi)
+	if targetLevel == 1 then
+		notify(player, def.emoji .. " Built " .. def.name .. "!", "buy")
+	else
+		notify(player, def.emoji .. " " .. def.name .. " upgraded to Lv" .. targetLevel .. "!", "buy")
+	end
+	ctx.Economy.pushState(player)
+end
+
+local function onNukePadTouched(hit)
+	local character = hit.Parent
+	if not character then
+		return
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return
+	end
+	local dKey = player.UserId .. ":nuke"
+	if touchDebounce[dKey] and now() - touchDebounce[dKey] &lt; 1 then
+		return
+	end
+	touchDebounce[dKey] = now()
+
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	if profile.nukeIsland then
+		notify(player, "\u{2622}\u{FE0F} You already own Nuke Access!", "info")
+		return
+	end
+	if not ctx.Economy.trySpend(player, Config.Nuke.IslandCost) then
+		notify(player, "Nuke Access costs \u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. "!", "bad")
+		return
+	end
+	profile.nukeIsland = true
+	notify(player, "\u{2622}\u{FE0F} NUKE ACCESS UNLOCKED! One nuke every 24 hours.", "victory")
+	Remotes.Events.Notify:FireAllClients({
+		msg = "\u{2622}\u{FE0F} " .. player.DisplayName .. " just bought NUKE ACCESS. Be afraid.",
+		kind = "info",
+	})
+	ctx.Economy.pushState(player)
+end
+
+function PlotService.assign(player)
+	local slot
+	for _, s in ipairs(slots) do
+		if not s.owner then
+			slot = s
+			break
+		end
+	end
+	if not slot then
+		player:Kick("Server is full (5 cities max). Please try another server!")
+		return nil
+	end
+
+	local profile = ctx.Data.get(player)
+	slot.owner = player
+	slot.immuneUntil = now() + Config.JoinImmunity
+	playerSlot[player] = slot
+
+	for zi, def in ipairs(BuildingDefs.List) do
+		local level = (profile.buildings and profile.buildings[def.id]) or 0
+		slot.zones[zi] = {
+			level = level,
+			hp = BuildingDefs.maxHp(def, math.max(level, 1)),
+			destroyed = false,
+			repairAt = 0,
+			lastHitAt = 0,
+		}
+		renderZone(slot, zi)
+		PlotService.updatePad(slot, zi)
+	end
+
+	slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
+
+	local function place(character)
+		local hrp = character:WaitForChild("HumanoidRootPart", 8)
+		if hrp and playerSlot[player] == slot then
+			task.wait(0.15)
+			character:PivotTo(CFrame.new(Layout.plotSpawn(slot.index)))
+		end
+	end
+	slot.charConn = player.CharacterAdded:Connect(place)
+	if player.Character then
+		task.spawn(place, player.Character)
+	end
+
+	return slot
+end
+
+function PlotService.release(player)
+	local slot = playerSlot[player]
+	if not slot then
+		return
+	end
+	if slot.charConn then
+		slot.charConn:Disconnect()
+		slot.charConn = nil
+	end
+	slot.owner = nil
+	slot.bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
+	for zi in ipairs(BuildingDefs.List) do
+		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0 }
+		renderZone(slot, zi)
+		PlotService.updatePad(slot, zi)
+	end
+	playerSlot[player] = nil
+end
+
+function PlotService.isImmune(slot)
+	return slot.immuneUntil and now() &lt; slot.immuneUntil
+end
+
+-- Sum of invested value across intact buildings (used for nuke payouts).
+function PlotService.intactWorth(slot)
+	local worth = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 and not zone.destroyed then
+			worth += BuildingDefs.totalWorth(def, zone.level)
+		end
+	end
+	return worth
+end
+
+function PlotService.cityWorth(slot)
+	local worth = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 then
+			worth += BuildingDefs.totalWorth(def, zone.level)
+		end
+	end
+	return worth
+end
+
+function PlotService.destroyZone(slot, zi, repairAfter)
+	local zone = slot.zones[zi]
+	zone.destroyed = true
+	zone.repairAt = now() + repairAfter
+	renderZone(slot, zi)
+	PlotService.updatePad(slot, zi)
+end
+
+-- Missile blast: damages every intact building within the radius.
+-- Returns total worth destroyed and how many buildings fell.
+function PlotService.applyBlast(slot, pos, damage)
+	local worthDestroyed = 0
+	local destroyedCount = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 and not zone.destroyed then
+			local center = Layout.zoneCenter(slot.index, zi)
+			local dx = center.X - pos.X
+			local dz = center.Z - pos.Z
+			if math.sqrt(dx * dx + dz * dz) &lt;= Config.Rocket.BlastRadius then
+				zone.hp -= damage
+				zone.lastHitAt = now()
+				if zone.hp &lt;= 0 then
+					worthDestroyed += BuildingDefs.totalWorth(def, zone.level)
+					destroyedCount += 1
+					PlotService.destroyZone(slot, zi, Config.MissileRepairTime)
+				else
+					PlotService.updatePad(slot, zi)
+				end
+			end
+		end
+	end
+	return worthDestroyed, destroyedCount
+end
+
+-- Nuke: flattens the whole city, staggered rebuild, temporary immunity.
+function PlotService.nukeSlot(slot)
+	local worth = 0
+	local delayStep = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 and not zone.destroyed then
+			worth += BuildingDefs.totalWorth(def, zone.level)
+			delayStep += 1
+			PlotService.destroyZone(slot, zi, 60 + delayStep * 15)
+		end
+	end
+	slot.immuneUntil = now() + Config.Nuke.ImmunityAfter
+	return worth
+end
+
+function PlotService.repairAll(slot)
+	local repaired = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 and zone.destroyed then
+			zone.destroyed = false
+			zone.hp = BuildingDefs.maxHp(def, zone.level)
+			renderZone(slot, zi)
+			PlotService.updatePad(slot, zi)
+			repaired += 1
+		end
+	end
+	return repaired
+end
+
+local function maintenanceLoop()
+	while true do
+		task.wait(1)
+		for _, slot in ipairs(slots) do
+			if slot.owner then
+				for zi, def in ipairs(BuildingDefs.List) do
+					local zone = slot.zones[zi]
+					if zone.destroyed then
+						if now() &gt;= zone.repairAt then
+							zone.destroyed = false
+							zone.hp = BuildingDefs.maxHp(def, zone.level)
+							renderZone(slot, zi)
+							PlotService.updatePad(slot, zi)
+							notify(slot.owner, "\u{2705} " .. def.name .. " rebuilt!", "good")
+						else
+							PlotService.updatePad(slot, zi) -- live countdown text
+						end
+					elseif zone.level &gt; 0 then
+						local maxHp = BuildingDefs.maxHp(def, zone.level)
+						if zone.hp &lt; maxHp and now() - zone.lastHitAt &gt; Config.HpRegenDelay then
+							zone.hp = maxHp
+							PlotService.updatePad(slot, zi)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+function PlotService.init(context)
+	ctx = context
+	slots = ctx.World.slots
+
+	for _, slot in ipairs(slots) do
+		slot.zones = {}
+		for zi in ipairs(BuildingDefs.List) do
+			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0 }
+			PlotService.updatePad(slot, zi)
+		end
+		for zi in ipairs(BuildingDefs.List) do
+			local pad = slot.zoneData[zi].pad
+			pad.Touched:Connect(function(hit)
+				onPadTouched(slot, zi, hit)
+			end)
+		end
+	end
+
+	ctx.World.nukePad.Touched:Connect(onNukePadTouched)
+
+	task.spawn(maintenanceLoop)
+end
+
+return PlotService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local RewardsService = {}
+
+local ctx
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function effectiveStreak(profile)
+	local daily = profile.daily
+	if daily.lastClaimAt &gt; 0 and os.time() - daily.lastClaimAt &gt; Config.DailyStreakBreak then
+		return 0 -- streak expired
+	end
+	return daily.streak
+end
+
+function RewardsService.getData(player)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return nil
+	end
+	local streak = effectiveStreak(profile)
+	local sinceClaim = os.time() - profile.daily.lastClaimAt
+	local canClaim = profile.daily.lastClaimAt == 0 or sinceClaim &gt;= Config.DailyClaimWindow
+	return {
+		dayIndex = (streak % 7) + 1, -- the next day to claim
+		canClaim = canClaim,
+		nextIn = canClaim and 0 or (Config.DailyClaimWindow - sinceClaim),
+	}
+end
+
+local function onClaimDaily(player)
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	local data = RewardsService.getData(player)
+	if not data.canClaim then
+		notify(player, "\u{23F3} Next reward in " .. NumberFormat.clock(data.nextIn) .. "!", "bad")
+		return
+	end
+
+	local reward = Config.DailyRewards[data.dayIndex]
+	if reward.kind == "gems" then
+		profile.gems += reward.amount
+		notify(player, "\u{1F48E} Day " .. data.dayIndex .. " reward: +" .. reward.amount .. " gems!", "victory")
+	elseif reward.kind == "cash_minutes" then
+		local amount = math.max(2500, ctx.Economy.getIncomePerSec(player) * 60 * reward.amount)
+		profile.cash += amount
+		notify(player, "\u{1F4B5} Day " .. data.dayIndex .. " reward: +"
+			.. NumberFormat.abbrev(amount) .. " cash!", "victory")
+	elseif reward.kind == "shield" then
+		profile.shields += reward.amount
+		notify(player, "\u{1F6E1}\u{FE0F} Day " .. data.dayIndex .. " reward: Shield armed!", "victory")
+	elseif reward.kind == "barrage" then
+		profile.barrage += reward.amount
+		notify(player, "\u{1F680} Day " .. data.dayIndex .. " reward: Barrage loaded!", "victory")
+	elseif reward.kind == "nuke_charge" then
+		profile.nukeCharges += reward.amount
+		notify(player, "\u{2622}\u{FE0F} DAY 7 REWARD: FREE NUKE! Open the attack view to use it.", "victory")
+	end
+
+	profile.daily.streak = effectiveStreak(profile) + 1
+	profile.daily.lastClaimAt = os.time()
+
+	Remotes.Events.DailyData:FireClient(player, RewardsService.getData(player))
+	ctx.Economy.pushState(player)
+end
+
+function RewardsService.init(context)
+	ctx = context
+	Remotes.Events.ClaimDaily.OnServerEvent:Connect(onClaimDaily)
+end
+
+return RewardsService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the whole map from parts at server start: lobby, 5 plot islands,
+-- roads, buy pads, rocket silos, bridges and Nuke Island.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local BuildingDefs = require(Shared.BuildingDefs)
+local NumberFormat = require(Shared.NumberFormat)
+
+local WorldBuilder = {}
+
+local COLOR_GRASS = Color3.fromRGB(106, 200, 86)
+local COLOR_SAND = Color3.fromRGB(233, 208, 148)
+local COLOR_ROAD = Color3.fromRGB(58, 58, 64)
+local COLOR_DASH = Color3.fromRGB(248, 214, 62)
+local COLOR_ZONE = Color3.fromRGB(126, 212, 102)
+local COLOR_FENCE = Color3.fromRGB(196, 164, 108)
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+local function billboard(adornee, sizeX, sizeY, offsetY, maxDistance)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(sizeX, 0, sizeY, 0)
+	gui.StudsOffset = Vector3.new(0, offsetY, 0)
+	gui.MaxDistance = maxDistance or 250
+	gui.AlwaysOnTop = false
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Text = ""
+	label.Parent = gui
+	gui.Parent = adornee
+	return gui, label
+end
+
+local function buildTree(pos, parent)
+	part({
+		Name = "Trunk",
+		Size = Vector3.new(2, 7, 2),
+		Position = pos + Vector3.new(0, 3.5, 0),
+		Color = Color3.fromRGB(126, 90, 54),
+		Parent = parent,
+	})
+	part({
+		Name = "Leaves",
+		Size = Vector3.new(6, 5, 6),
+		Position = pos + Vector3.new(0, 9, 0),
+		Color = Color3.fromRGB(70, 170, 70),
+		Parent = parent,
+	})
+end
+
+local function buildLobby(root)
+	local folder = Instance.new("Folder")
+	folder.Name = "Lobby"
+	folder.Parent = root
+
+	part({
+		Name = "LobbyBase",
+		Size = Vector3.new(110, 8, 110),
+		Position = Vector3.new(0, 0, 0),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = folder,
+	})
+	part({
+		Name = "LobbyRim",
+		Size = Vector3.new(122, 7, 122),
+		Position = Vector3.new(0, -1, 0),
+		Color = COLOR_SAND,
+		Material = Enum.Material.Sand,
+		Parent = folder,
+	})
+
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn"
+	spawn.Size = Vector3.new(14, 1, 14)
+	spawn.Position = Vector3.new(0, Config.GroundY + 0.5, 0)
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.TopSurface = Enum.SurfaceType.Smooth
+	spawn.Color = Color3.fromRGB(90, 160, 240)
+	spawn.Parent = folder
+
+	buildTree(Vector3.new(-40, Config.GroundY, -40), folder)
+	buildTree(Vector3.new(42, Config.GroundY, -38), folder)
+	buildTree(Vector3.new(-38, Config.GroundY, 42), folder)
+	buildTree(Vector3.new(40, Config.GroundY, 40), folder)
+
+	local signPost = part({
+		Name = "WelcomeSign",
+		Size = Vector3.new(18, 6, 1),
+		Position = Vector3.new(0, Config.GroundY + 6, -20),
+		Color = Color3.fromRGB(235, 60, 60),
+		Parent = folder,
+	})
+	local _, label = billboard(signPost, 22, 8, 4, 400)
+	label.Text = "\u{1F680} MISSILES VS CITIES \u{1F680}\nCross a bridge to find your city!"
+end
+
+local function buildBridge(fromPos, toPos, width, parent)
+	local flatFrom = Vector3.new(fromPos.X, 0, fromPos.Z)
+	local flatTo = Vector3.new(toPos.X, 0, toPos.Z)
+	local length = (flatTo - flatFrom).Magnitude
+	local mid = (flatFrom + flatTo) / 2
+	local cf = CFrame.lookAt(Vector3.new(mid.X, Config.GroundY - 0.5, mid.Z), Vector3.new(flatTo.X, Config.GroundY - 0.5, flatTo.Z))
+	part({
+		Name = "Bridge",
+		Size = Vector3.new(width, 1, length),
+		CFrame = cf,
+		Color = Color3.fromRGB(150, 116, 78),
+		Material = Enum.Material.WoodPlanks,
+		Parent = parent,
+	})
+end
+
+local function buildRoads(center, folder)
+	-- Vertical roads (full depth) then horizontal roads; tiny Y offsets stop z-fighting.
+	local vXs = { -104, -52, 0, 52, 104 }
+	for _, x in ipairs(vXs) do
+		part({
+			Name = "RoadV",
+			Size = Vector3.new(12, 0.2, Config.PlotSize),
+			Position = Vector3.new(center.X + x, Config.GroundY + 0.1, center.Z),
+			Color = COLOR_ROAD,
+			Parent = folder,
+		})
+	end
+	local hZs = { 104, 52, 0, -52 }
+	for _, z in ipairs(hZs) do
+		part({
+			Name = "RoadH",
+			Size = Vector3.new(Config.PlotSize, 0.2, 12),
+			Position = Vector3.new(center.X, Config.GroundY + 0.14, center.Z + z),
+			Color = COLOR_ROAD,
+			Parent = folder,
+		})
+		-- Yellow dashes along horizontal roads.
+		local x = -96
+		while x &lt;= 96 do
+			part({
+				Name = "Dash",
+				Size = Vector3.new(6, 0.05, 1.6),
+				Position = Vector3.new(center.X + x, Config.GroundY + 0.26, center.Z + z),
+				Color = COLOR_DASH,
+				Parent = folder,
+			})
+			x += 24
+		end
+	end
+end
+
+local function buildFence(center, folder)
+	local h = 3
+	local half = Config.PlotSize / 2
+	local segs = {
+		-- back wall
+		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z - half), Vector3.new(Config.PlotSize, h, 1) },
+		-- side walls
+		{ Vector3.new(center.X - half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
+		{ Vector3.new(center.X + half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
+		-- front wall, split to leave a gate for the bridge
+		{ Vector3.new(center.X - 65, Config.GroundY + h / 2, center.Z + half), Vector3.new(90, h, 1) },
+		{ Vector3.new(center.X + 65, Config.GroundY + h / 2, center.Z + half), Vector3.new(90, h, 1) },
+	}
+	for _, seg in ipairs(segs) do
+		part({
+			Name = "Fence",
+			Size = seg[2],
+			Position = seg[1],
+			Color = COLOR_FENCE,
+			Material = Enum.Material.Wood,
+			Parent = folder,
+		})
+	end
+end
+
+local function buildSilo(plotIndex, folder)
+	local pos = Layout.siloPos(plotIndex)
+
+	-- Hazard-striped launch pad.
+	part({
+		Name = "SiloPad",
+		Size = Vector3.new(36, 0.4, 36),
+		Position = pos + Vector3.new(0, 0.2, 0),
+		Color = Color3.fromRGB(240, 200, 40),
+		Parent = folder,
+	})
+	for i = -1, 1 do
+		part({
+			Name = "SiloStripe",
+			Size = Vector3.new(4, 0.1, 36),
+			Position = pos + Vector3.new(i * 12, 0.5, 0),
+			Color = Color3.fromRGB(30, 30, 30),
+			Parent = folder,
+		})
+	end
+
+	-- Scaffold tower.
+	for _, corner in ipairs({ Vector3.new(-8, 0, -8), Vector3.new(8, 0, -8), Vector3.new(-8, 0, 8), Vector3.new(8, 0, 8) }) do
+		part({
+			Name = "SiloColumn",
+			Size = Vector3.new(2, 26, 2),
+			Position = pos + corner + Vector3.new(0, 13, 0),
+			Color = Color3.fromRGB(160, 160, 168),
+			Material = Enum.Material.Metal,
+			Parent = folder,
+		})
+	end
+	part({
+		Name = "SiloTop",
+		Size = Vector3.new(20, 2, 20),
+		Position = pos + Vector3.new(0, 27, 0),
+		Color = Color3.fromRGB(120, 120, 128),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+
+	-- The rocket itself (blocky, like everything else here).
+	local body = part({
+		Name = "SiloRocket",
+		Size = Vector3.new(5, 16, 5),
+		Position = pos + Vector3.new(0, 9, 0),
+		Color = Color3.fromRGB(240, 240, 245),
+		Parent = folder,
+	})
+	part({
+		Name = "SiloRocketNose",
+		Size = Vector3.new(3.4, 4, 3.4),
+		Position = pos + Vector3.new(0, 19, 0),
+		Color = Color3.fromRGB(230, 60, 60),
+		Parent = folder,
+	})
+	for _, off in ipairs({ Vector3.new(-3.2, 0, 0), Vector3.new(3.2, 0, 0), Vector3.new(0, 0, -3.2), Vector3.new(0, 0, 3.2) }) do
+		part({
+			Name = "SiloFin",
+			Size = Vector3.new(1.4, 5, 1.4),
+			Position = pos + off + Vector3.new(0, 2.5, 0),
+			Color = Color3.fromRGB(230, 60, 60),
+			Parent = folder,
+		})
+	end
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "RocketPrompt"
+	prompt.ActionText = "Rocket Controls"
+	prompt.ObjectText = "Rocket Silo"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 16
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = body
+
+	local _, label = billboard(body, 18, 6, 16, 300)
+	label.Text = "\u{1F680} Rocket Silo"
+
+	return body
+end
+
+local function buildPlot(plotIndex, root)
+	local center = Layout.plotCenter(plotIndex)
+	local folder = Instance.new("Folder")
+	folder.Name = "Plot" .. plotIndex
+	folder.Parent = root
+
+	part({
+		Name = "Island",
+		Size = Vector3.new(Config.PlotSize, 10, Config.PlotSize),
+		Position = Vector3.new(center.X, -1, center.Z),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = folder,
+	})
+	part({
+		Name = "IslandRim",
+		Size = Vector3.new(Config.PlotSize + 18, 8, Config.PlotSize + 18),
+		Position = Vector3.new(center.X, -1.5, center.Z),
+		Color = COLOR_SAND,
+		Material = Enum.Material.Sand,
+		Parent = folder,
+	})
+
+	buildRoads(center, folder)
+	buildFence(center, folder)
+
+	-- Owner banner on a pole at the front gate.
+	local pole = part({
+		Name = "BannerPole",
+		Size = Vector3.new(1, 12, 1),
+		Position = Vector3.new(center.X - 12, Config.GroundY + 6, center.Z + Config.PlotSize / 2 - 4),
+		Color = Color3.fromRGB(120, 120, 128),
+		Parent = folder,
+	})
+	local bannerGui, bannerLabel = billboard(pole, 26, 8, 8, 800)
+	bannerGui.AlwaysOnTop = true
+	bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
+	bannerLabel.TextColor3 = Color3.fromRGB(255, 235, 235)
+
+	local zoneData = {}
+	for zi = 1, #BuildingDefs.List do
+		local zCenter = Layout.zoneCenter(plotIndex, zi)
+		local plate = part({
+			Name = "ZonePlate",
+			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
+			Position = Vector3.new(zCenter.X, Config.GroundY + 0.15, zCenter.Z),
+			Color = COLOR_ZONE,
+			Parent = folder,
+		})
+
+		local buildings = Instance.new("Model")
+		buildings.Name = "Buildings" .. zi
+		buildings.Parent = folder
+
+		local padPos = Layout.padPos(plotIndex, zi)
+		local pad = part({
+			Name = "Pad" .. zi,
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.6, 9, 9),
+			CFrame = CFrame.new(padPos.X, Config.GroundY + 0.4, padPos.Z) * CFrame.Angles(0, 0, math.rad(90)),
+			Color = Color3.fromRGB(80, 235, 90),
+			Material = Enum.Material.Neon,
+			Parent = folder,
+		})
+		local padGui, padLabel = billboard(pad, 16, 8, 7, 180)
+		padGui.AlwaysOnTop = false
+
+		zoneData[zi] = {
+			plate = plate,
+			pad = pad,
+			padLabel = padLabel,
+			buildings = buildings,
+		}
+	end
+
+	local siloBody = buildSilo(plotIndex, folder)
+	buildBridge(Vector3.new(0, 0, 0), center, 10, folder)
+
+	return {
+		index = plotIndex,
+		folder = folder,
+		zoneData = zoneData,
+		bannerLabel = bannerLabel,
+		siloBody = siloBody,
+	}
+end
+
+local function buildNukeIsland(root)
+	local folder = Instance.new("Folder")
+	folder.Name = "NukeIsland"
+	folder.Parent = root
+
+	local c = Layout.NukeIslandCenter
+	local size = Layout.NukeIslandSize
+
+	part({
+		Name = "NukeBase",
+		Size = Vector3.new(size, 10, size),
+		Position = Vector3.new(c.X, -1, c.Z),
+		Color = Color3.fromRGB(96, 96, 104),
+		Material = Enum.Material.Concrete,
+		Parent = folder,
+	})
+	part({
+		Name = "NukeRim",
+		Size = Vector3.new(size + 14, 8, size + 14),
+		Position = Vector3.new(c.X, -1.5, c.Z),
+		Color = Color3.fromRGB(240, 200, 40),
+		Parent = folder,
+	})
+
+	-- Big scary silo.
+	for _, corner in ipairs({ Vector3.new(-12, 0, -12), Vector3.new(12, 0, -12), Vector3.new(-12, 0, 12), Vector3.new(12, 0, 12) }) do
+		part({
+			Name = "NukeColumn",
+			Size = Vector3.new(3, 40, 3),
+			Position = Vector3.new(c.X, Config.GroundY + 20, c.Z) + corner,
+			Color = Color3.fromRGB(70, 70, 78),
+			Material = Enum.Material.DiamondPlate,
+			Parent = folder,
+		})
+	end
+	local nukeBody = part({
+		Name = "NukeRocket",
+		Size = Vector3.new(8, 26, 8),
+		Position = Vector3.new(c.X, Config.GroundY + 13, c.Z),
+		Color = Color3.fromRGB(60, 62, 68),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+	part({
+		Name = "NukeNose",
+		Size = Vector3.new(5, 6, 5),
+		Position = Vector3.new(c.X, Config.GroundY + 29, c.Z),
+		Color = Color3.fromRGB(180, 235, 60),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local _, siloLabel = billboard(nukeBody, 30, 10, 26, 1200)
+	siloLabel.Text = "\u{2622}\u{FE0F} NUKE ISLAND \u{2622}\u{FE0F}"
+	siloLabel.TextColor3 = Color3.fromRGB(190, 255, 90)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "NukePrompt"
+	prompt.ActionText = "Nuke Controls"
+	prompt.ObjectText = "Nuclear Silo"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 20
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = nukeBody
+
+	-- Purchase pad at the island entrance.
+	local padPos = Vector3.new(c.X, Config.GroundY + 0.4, c.Z + size / 2 - 18)
+	local pad = part({
+		Name = "NukeBuyPad",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 14, 14),
+		CFrame = CFrame.new(padPos) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(190, 90, 240),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local _, padLabel = billboard(pad, 24, 10, 8, 400)
+	padLabel.Text = "\u{2622}\u{FE0F} BUY NUKE ACCESS\n\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost)
+		.. "\nOne nuke every 24h!"
+
+	buildBridge(Vector3.new(0, 0, 0), Vector3.new(c.X, 0, c.Z + size / 2), 12, folder)
+
+	return { pad = pad, body = nukeBody }
+end
+
+function WorldBuilder.build()
+	local root = Instance.new("Folder")
+	root.Name = "GameWorld"
+	root.Parent = workspace
+
+	-- Ocean.
+	workspace.Terrain:FillBlock(CFrame.new(0, -8, 0), Vector3.new(4096, 10, 4096), Enum.Material.Water)
+
+	buildLobby(root)
+
+	local slots = {}
+	for i = 1, Config.PlotCount do
+		slots[i] = buildPlot(i, root)
+	end
+
+	local nuke = buildNukeIsland(root)
+
+	-- Bright cartoon lighting.
+	Lighting.Brightness = 3
+	Lighting.ClockTime = 12
+	Lighting.Ambient = Color3.fromRGB(140, 140, 140)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 160, 170)
+	local atmosphere = Instance.new("Atmosphere")
+	atmosphere.Density = 0.25
+	atmosphere.Haze = 1
+	atmosphere.Parent = Lighting
+
+	return {
+		root = root,
+		slots = slots,
+		nukePad = nuke.pad,
+		nukeBody = nuke.body,
+	}
+end
+
+return WorldBuilder
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX35"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX31"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX30"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
+-- and a red beacon beam marking exactly where the strike will land.
+
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+local NumberFormat = require(Shared.NumberFormat)
+
+local AlarmUI = {}
+
+local player = Players.LocalPlayer
+local activeAlarm = nil
+
+local function beacon(pos, duration)
+	local beam = Instance.new("Part")
+	beam.Anchored = true
+	beam.CanCollide = false
+	beam.CanQuery = false
+	beam.CanTouch = false
+	beam.Size = Vector3.new(2, 120, 2)
+	beam.Position = pos + Vector3.new(0, 60, 0)
+	beam.Color = Color3.fromRGB(255, 40, 40)
+	beam.Material = Enum.Material.Neon
+	beam.Transparency = 0.25
+	beam.Parent = workspace
+
+	local ring = Instance.new("Part")
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.4, 30, 30)
+	ring.CFrame = CFrame.new(pos + Vector3.new(0, 1, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Color = Color3.fromRGB(255, 40, 40)
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.3
+	ring.Parent = workspace
+
+	task.spawn(function()
+		local elapsed = 0
+		while elapsed &lt; duration do
+			local pulse = TweenService:Create(ring, TweenInfo.new(0.5), { Transparency = 0.75 })
+			pulse:Play()
+			task.wait(0.5)
+			ring.Transparency = 0.3
+			elapsed += 0.6
+			task.wait(0.1)
+		end
+		beam:Destroy()
+		ring:Destroy()
+	end)
+end
+
+local function runSiren(duration)
+	local sound = SoundBook.make("Siren", { Looped = true })
+	if not sound then
+		return
+	end
+	sound.Parent = player:WaitForChild("PlayerGui")
+	sound:Play()
+	task.spawn(function()
+		local elapsed = 0
+		local up = true
+		while elapsed &lt; duration do
+			local target = up and 1.4 or 0.55
+			TweenService:Create(sound, TweenInfo.new(0.45), { PlaybackSpeed = target }):Play()
+			up = not up
+			task.wait(0.45)
+			elapsed += 0.45
+		end
+		sound:Stop()
+		sound:Destroy()
+	end)
+end
+
+local function showAlarm(payload)
+	if activeAlarm then
+		activeAlarm:Destroy()
+		activeAlarm = nil
+	end
+
+	local isNuke = payload.kind == "nuke"
+	local eta = payload.eta or 6
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "MVC_Alarm"
+	gui.DisplayOrder = 60
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+	gui.Parent = player:WaitForChild("PlayerGui")
+	activeAlarm = gui
+
+	local vignette = Instance.new("Frame")
+	vignette.Size = UDim2.fromScale(1, 1)
+	vignette.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
+	vignette.BackgroundTransparency = 0.85
+	vignette.BorderSizePixel = 0
+	vignette.Parent = gui
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0, 64)
+	title.Position = UDim2.new(0, 0, 0.16, 0)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.FredokaOne
+	title.TextScaled = true
+	title.TextColor3 = Color3.fromRGB(255, 60, 60)
+	title.TextStrokeColor3 = Color3.new(0, 0, 0)
+	title.TextStrokeTransparency = 0
+	title.Text = isNuke and "\u{2622}\u{FE0F} NUCLEAR STRIKE INCOMING \u{2622}\u{FE0F}"
+		or "\u{1F6A8} INCOMING MISSILE \u{1F6A8}"
+	title.Parent = gui
+
+	local countdown = Instance.new("TextLabel")
+	countdown.Size = UDim2.new(1, 0, 0, 40)
+	countdown.Position = UDim2.new(0, 0, 0.16, 66)
+	countdown.BackgroundTransparency = 1
+	countdown.Font = Enum.Font.FredokaOne
+	countdown.TextScaled = true
+	countdown.TextColor3 = Color3.new(1, 1, 1)
+	countdown.TextStrokeColor3 = Color3.new(0, 0, 0)
+	countdown.TextStrokeTransparency = 0
+	countdown.Parent = gui
+
+	if typeof(payload.pos) == "Vector3" then
+		beacon(payload.pos, eta)
+	end
+	runSiren(math.min(eta, 15))
+
+	task.spawn(function()
+		local deadline = os.clock() + eta
+		local flashUp = true
+		while os.clock() &lt; deadline and gui.Parent do
+			countdown.Text = "Impact in " .. NumberFormat.clock(deadline - os.clock()) .. "!"
+			vignette.BackgroundTransparency = flashUp and 0.75 or 0.9
+			title.TextTransparency = flashUp and 0 or 0.25
+			flashUp = not flashUp
+			task.wait(0.4)
+		end
+		if gui.Parent then
+			gui:Destroy()
+		end
+		if activeAlarm == gui then
+			activeAlarm = nil
+		end
+	end)
+end
+
+function AlarmUI.init()
+	Remotes.Events.Alarm.OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" then
+			showAlarm(payload)
+		end
+	end)
+end
+
+return AlarmUI
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
+-- tap anywhere on their plot to move the target crosshair, then BLOW UP.
+-- Also handles nuke mode (☢ button) and the barrage toggle.
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local AttackView = {}
+
+local ctx
+local player = Players.LocalPlayer
+
+-- CurrentCamera can be recreated on respawn; always fetch it fresh.
+local function camera()
+	return workspace.CurrentCamera
+end
+
+local gui
+local nameLabel
+local fireButton
+local barrageButton
+local isOpen = false
+local nukeMode = false
+local useBarrage = false
+local targets = {}
+local targetIndex = 1
+local crosshairPos = nil
+local crosshair = nil
+local inputConn = nil
+
+local function destroyCrosshair()
+	if crosshair then
+		crosshair:Destroy()
+		crosshair = nil
+	end
+end
+
+local function placeCrosshair(pos)
+	destroyCrosshair()
+	crosshairPos = pos
+	local model = Instance.new("Model")
+	model.Name = "MVC_Crosshair"
+
+	local ring = Instance.new("Part")
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.4, 20, 20)
+	ring.CFrame = CFrame.new(pos + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Color = Color3.fromRGB(255, 40, 40)
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.25
+	ring.Parent = model
+
+	local dot = Instance.new("Part")
+	dot.Anchored = true
+	dot.CanCollide = false
+	dot.CanQuery = false
+	dot.CanTouch = false
+	dot.Shape = Enum.PartType.Ball
+	dot.Size = Vector3.new(4, 4, 4)
+	dot.Position = pos + Vector3.new(0, 2, 0)
+	dot.Color = Color3.fromRGB(255, 40, 40)
+	dot.Material = Enum.Material.Neon
+	dot.Parent = model
+
+	model.Parent = workspace
+	crosshair = model
+end
+
+local function currentTarget()
+	return targets[targetIndex]
+end
+
+local function focusTarget()
+	local target = currentTarget()
+	if not target then
+		return
+	end
+	nameLabel.Text = (target.immune and "\u{1F6E1}\u{FE0F} " or "") .. target.name
+	local center = Layout.plotCenter(target.plotIndex)
+	placeCrosshair(Vector3.new(center.X, Layout.GroundY, center.Z))
+	TweenService:Create(camera(), TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = Layout.attackCameraCFrame(target.plotIndex),
+	}):Play()
+end
+
+local function cycle(direction)
+	if #targets == 0 then
+		return
+	end
+	targetIndex = ((targetIndex - 1 + direction) % #targets) + 1
+	focusTarget()
+end
+
+local function updateButtons()
+	local state = ctx.State.get()
+	if not state then
+		return
+	end
+	if nukeMode then
+		local remaining = ctx.State.remaining("nukeRemaining")
+		if remaining &gt; 0 then
+			fireButton.Text = "\u{2622}\u{FE0F} " .. NumberFormat.clock(remaining)
+		else
+			fireButton.Text = "\u{2622}\u{FE0F} NUKE"
+		end
+		barrageButton.Visible = false
+	else
+		local remaining = ctx.State.remaining("rocketRemaining")
+		if remaining &gt; 0 then
+			fireButton.Text = "\u{23F3} " .. NumberFormat.clock(remaining)
+		else
+			fireButton.Text = "BLOW UP"
+		end
+		local barrage = state.barrage or 0
+		barrageButton.Visible = barrage &gt; 0
+		barrageButton.Text = (useBarrage and "\u{2705} " or "") .. "\u{1F680}x3 Barrage (" .. barrage .. ")"
+	end
+end
+
+function AttackView.close()
+	if not isOpen then
+		return
+	end
+	isOpen = false
+	gui.Enabled = false
+	destroyCrosshair()
+	if inputConn then
+		inputConn:Disconnect()
+		inputConn = nil
+	end
+	camera().CameraType = Enum.CameraType.Custom
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera().CameraSubject = humanoid
+	end
+end
+
+local function fire()
+	local target = currentTarget()
+	local state = ctx.State.get()
+	if not target or not crosshairPos or not state then
+		return
+	end
+	if nukeMode and ctx.State.remaining("nukeRemaining") &gt; 0 then
+		return
+	end
+	if not nukeMode and ctx.State.remaining("rocketRemaining") &gt; 0 then
+		return
+	end
+	Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, nukeMode, useBarrage)
+	useBarrage = false
+	task.delay(0.4, AttackView.close)
+end
+
+local function onTap(input, gameProcessed)
+	if gameProcessed or not isOpen then
+		return
+	end
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+	local target = currentTarget()
+	if not target then
+		return
+	end
+	local ray = camera():ViewportPointToRay(input.Position.X, input.Position.Y)
+	if math.abs(ray.Direction.Y) &lt; 1e-4 then
+		return
+	end
+	local t = (Layout.GroundY - ray.Origin.Y) / ray.Direction.Y
+	if t &lt;= 0 then
+		return
+	end
+	local hit = ray.Origin + ray.Direction * t
+	placeCrosshair(Layout.clampToPlot(target.plotIndex, hit))
+end
+
+function AttackView.open(asNuke)
+	local ok, result = pcall(function()
+		return Remotes.Functions.GetTargets:InvokeServer()
+	end)
+	if not ok or type(result) ~= "table" or #result == 0 then
+		ctx.Notifier.show("No other players to attack yet!", "info")
+		return
+	end
+	targets = result
+	targetIndex = 1
+	nukeMode = asNuke == true
+	useBarrage = false
+	isOpen = true
+	gui.Enabled = true
+
+	camera().CameraType = Enum.CameraType.Scriptable
+	focusTarget()
+	updateButtons()
+
+	inputConn = UserInputService.InputBegan:Connect(onTap)
+end
+
+function AttackView.init(context)
+	ctx = context
+	gui = UILib.screen("MVC_AttackView", 20)
+	gui.Enabled = false
+
+	-- Target name banner + cycle arrows (top center).
+	local banner = UILib.frame({
+		Size = UDim2.new(0, 380, 0, 52),
+		Position = UDim2.new(0.5, 0, 0, 18),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = UILib.Colors.Panel,
+		BackgroundTransparency = 0.25,
+	}, gui)
+
+	UILib.button({
+		Size = UDim2.new(0, 54, 0, 40),
+		Position = UDim2.new(0, 6, 0, 6),
+		Text = "\u{25C0}\u{25C0}",
+		BackgroundColor3 = UILib.Colors.LightBlue,
+	}, banner, function()
+		cycle(-1)
+	end)
+
+	nameLabel = UILib.text({
+		Size = UDim2.new(1, -132, 1, -12),
+		Position = UDim2.new(0, 66, 0, 6),
+		Text = "",
+	}, banner)
+
+	UILib.button({
+		Size = UDim2.new(0, 54, 0, 40),
+		Position = UDim2.new(1, -60, 0, 6),
+		Text = "\u{25B6}\u{25B6}",
+		BackgroundColor3 = UILib.Colors.LightBlue,
+	}, banner, function()
+		cycle(1)
+	end)
+
+	UILib.text({
+		Size = UDim2.new(0, 420, 0, 24),
+		Position = UDim2.new(0.5, 0, 0, 74),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "Tap anywhere on their city to aim!",
+		TextColor3 = Color3.fromRGB(255, 230, 160),
+	}, gui)
+
+	-- BLOW UP / NUKE button.
+	fireButton = UILib.button({
+		Size = UDim2.new(0, 300, 0, 74),
+		Position = UDim2.new(0.5, 0, 1, -170),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "BLOW UP",
+		BackgroundColor3 = UILib.Colors.Red,
+	}, gui, fire)
+
+	barrageButton = UILib.button({
+		Size = UDim2.new(0, 240, 0, 44),
+		Position = UDim2.new(0.5, 0, 1, -220),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "",
+		BackgroundColor3 = UILib.Colors.Purple,
+		Visible = false,
+	}, gui, function()
+		useBarrage = not useBarrage
+		updateButtons()
+	end)
+
+	UILib.button({
+		Size = UDim2.new(0, 200, 0, 50),
+		Position = UDim2.new(0.5, 0, 1, -84),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "CANCEL",
+		BackgroundColor3 = UILib.Colors.Gray,
+	}, gui, AttackView.close)
+
+	-- Keep cooldown text fresh while open.
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			if isOpen then
+				updateButtons()
+			end
+		end
+	end)
+
+	ctx.State.changed.Event:Connect(function()
+		if isOpen then
+			updateButtons()
+		end
+	end)
+end
+
+return AttackView
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
+
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local CashPopups = {}
+
+local active = 0
+local MAX_ACTIVE = 45
+local rng = Random.new()
+
+local function popup(worldPos, amount)
+	if active &gt;= MAX_ACTIVE then
+		return
+	end
+	active += 1
+
+	local holder = Instance.new("Part")
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(0.5, 0.5, 0.5)
+	holder.Position = worldPos + Vector3.new(rng:NextNumber(-8, 8), 10, rng:NextNumber(-8, 8))
+	holder.Parent = workspace
+
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(12, 0, 4, 0)
+	gui.StudsOffset = Vector3.new(0, 2, 0)
+	gui.AlwaysOnTop = false
+	gui.MaxDistance = 400
+	gui.Parent = holder
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(110, 240, 90)
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Text = "+" .. NumberFormat.abbrev(amount)
+	label.Parent = gui
+
+	TweenService:Create(gui, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		StudsOffset = Vector3.new(0, 9, 0),
+	}):Play()
+	TweenService:Create(label, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	}):Play()
+
+	task.delay(1.25, function()
+		holder:Destroy()
+		active -= 1
+	end)
+end
+
+function CashPopups.init()
+	Remotes.Events.IncomePops.OnClientEvent:Connect(function(plotIndex, pops)
+		if type(plotIndex) ~= "number" or type(pops) ~= "table" then
+			return
+		end
+		for _, entry in ipairs(pops) do
+			local zi, amt = entry[1], entry[2]
+			if type(zi) == "number" and type(amt) == "number" then
+				popup(Layout.zoneCenter(plotIndex, zi), amt)
+			end
+		end
+	end)
+end
+
+return CashPopups
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+
+local ClientState = {}
+
+ClientState.data = nil
+ClientState.changed = Instance.new("BindableEvent")
+
+local receivedAt = 0
+
+Remotes.Events.State.OnClientEvent:Connect(function(snapshot)
+	ClientState.data = snapshot
+	receivedAt = os.clock()
+	ClientState.changed:Fire(snapshot)
+end)
+
+function ClientState.get()
+	return ClientState.data
+end
+
+-- For fields sent as "seconds remaining": returns live remaining seconds.
+function ClientState.remaining(field)
+	local data = ClientState.data
+	if not data or not data[field] then
+		return 0
+	end
+	return math.max(0, data[field] - (os.clock() - receivedAt))
+end
+
+function ClientState.start()
+	task.spawn(function()
+		while not ClientState.data do
+			local ok = pcall(function()
+				Remotes.Functions.GetSnapshot:InvokeServer()
+			end)
+			if not ok then
+				task.wait(1)
+			end
+			task.wait(0.5)
+		end
+	end)
+end
+
+return ClientState
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
+-- rainbow Day 7 card (free nuke), just like the reference screenshots.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local DailyRewardsUI = {}
+
+local ctx
+local gui
+local cards = {}
+local dailyData = nil
+
+local function makeCard(parent, dayNumber, big)
+	local reward = Config.DailyRewards[dayNumber]
+	local card = UILib.frame({
+		Size = big and UDim2.new(0, 150, 0, 268) or UDim2.new(0, 118, 0, 128),
+		BackgroundColor3 = UILib.Colors.LightBlue,
+	}, parent)
+
+	if big then
+		local rainbow = Instance.new("UIGradient")
+		rainbow.Rotation = 90
+		rainbow.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+			ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 200, 60)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(90, 220, 90)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(80, 160, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 90, 240)),
+		})
+		rainbow.Parent = card
+	end
+
+	UILib.text({
+		Size = UDim2.new(1, -8, 0, big and 34 or 24),
+		Position = UDim2.new(0, 4, 0, 4),
+		Text = "DAY " .. dayNumber,
+	}, card)
+
+	UILib.text({
+		Size = UDim2.new(1, -8, 0, big and 80 or 38),
+		Position = UDim2.new(0, 4, 0, big and 44 or 28),
+		Text = reward.emoji,
+	}, card)
+
+	UILib.text({
+		Size = UDim2.new(1, -8, 0, big and 30 or 20),
+		Position = UDim2.new(0, 4, 0, big and 130 or 66),
+		Text = reward.label,
+		TextColor3 = big and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(235, 250, 255),
+	}, card)
+
+	local statusButton = UILib.button({
+		Size = UDim2.new(1, -16, 0, big and 44 or 32),
+		Position = UDim2.new(0, 8, 1, big and -52 or -38),
+		Text = "Locked!",
+		BackgroundColor3 = UILib.Colors.Gray,
+	}, card, function()
+		if dailyData and dailyData.canClaim and dailyData.dayIndex == dayNumber then
+			Remotes.Events.ClaimDaily:FireServer()
+		end
+	end)
+
+	cards[dayNumber] = { button = statusButton }
+	return card
+end
+
+local function refresh()
+	if not dailyData then
+		return
+	end
+	for dayNumber, card in pairs(cards) do
+		local button = card.button
+		if dayNumber &lt; dailyData.dayIndex then
+			button.Text = "Claimed"
+			button.BackgroundColor3 = UILib.Colors.Gray
+		elseif dayNumber == dailyData.dayIndex then
+			if dailyData.canClaim then
+				button.Text = "CLAIM!"
+				button.BackgroundColor3 = UILib.Colors.Green
+			else
+				button.Text = NumberFormat.clock(dailyData.nextIn)
+				button.BackgroundColor3 = UILib.Colors.DarkGray
+			end
+		else
+			button.Text = "Locked!"
+			button.BackgroundColor3 = UILib.Colors.Gray
+		end
+	end
+end
+
+function DailyRewardsUI.toggle()
+	gui.Enabled = not gui.Enabled
+	if gui.Enabled then
+		refresh()
+	end
+end
+
+function DailyRewardsUI.init(context)
+	ctx = context
+
+	local panelGui, content = UILib.panel("MVC_Daily", "\u{1F4C5} Daily Rewards", UDim2.new(0, 560, 0, 320), 12)
+	gui = panelGui
+
+	-- Days 1-6 in a 3x2 grid on the left.
+	local grid = Instance.new("Frame")
+	grid.BackgroundTransparency = 1
+	grid.Size = UDim2.new(0, 380, 1, -10)
+	grid.Position = UDim2.new(0, 0, 0, 5)
+	grid.Parent = content
+	for day = 1, 6 do
+		local card = makeCard(grid, day, false)
+		local col = (day - 1) % 3
+		local row = (day - 1) // 3
+		card.Position = UDim2.new(0, col * 128, 0, row * 140)
+	end
+
+	-- Big Day 7 card on the right.
+	local day7 = makeCard(content, 7, true)
+	day7.Position = UDim2.new(1, -156, 0, 5)
+
+	Remotes.Events.DailyData.OnClientEvent:Connect(function(data)
+		dailyData = data
+		refresh()
+	end)
+	ctx.State.changed.Event:Connect(function(state)
+		if state.daily then
+			dailyData = state.daily
+			if gui.Enabled then
+				refresh()
+			end
+		end
+	end)
+
+	-- Live countdown while the panel is open.
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if gui.Enabled and dailyData and not dailyData.canClaim and dailyData.nextIn &gt; 0 then
+				dailyData.nextIn = math.max(0, dailyData.nextIn - 1)
+				if dailyData.nextIn == 0 then
+					dailyData.canClaim = true
+				end
+				refresh()
+			end
+		end
+	end)
+end
+
+return DailyRewardsUI
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
+-- the full nuke sequence (flash, fireball, mushroom cloud, shockwave),
+-- shield domes and camera shake. Purely cosmetic — damage is server-side.
+
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Layout = require(Shared.Layout)
+local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+
+local FX = {}
+
+local player = Players.LocalPlayer
+local rng = Random.new()
+
+local function anchoredPart(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent or workspace
+	return p
+end
+
+local function shake(magnitude, duration)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	task.spawn(function()
+		local elapsed = 0
+		while elapsed &lt; duration do
+			local dt = task.wait()
+			elapsed += dt
+			local decay = 1 - elapsed / duration
+			humanoid.CameraOffset = Vector3.new(
+				rng:NextNumber(-1, 1),
+				rng:NextNumber(-1, 1),
+				rng:NextNumber(-1, 1)
+			) * magnitude * decay
+		end
+		humanoid.CameraOffset = Vector3.new(0, 0, 0)
+	end)
+end
+
+local function shakeFromDistance(pos, basePower, maxRange, duration)
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	local dist = (hrp.Position - pos).Magnitude
+	if dist &gt; maxRange then
+		return
+	end
+	shake(basePower * (1 - dist / maxRange), duration)
+end
+
+local function debris(pos, count, power, color)
+	for _ = 1, count do
+		local piece = Instance.new("Part")
+		piece.Size = Vector3.new(rng:NextNumber(1, 2.5), rng:NextNumber(1, 2.5), rng:NextNumber(1, 2.5))
+		piece.Position = pos + Vector3.new(rng:NextNumber(-3, 3), 3, rng:NextNumber(-3, 3))
+		piece.Color = color
+		piece.CanCollide = false
+		piece.CanQuery = false
+		piece.AssemblyLinearVelocity = Vector3.new(
+			rng:NextNumber(-power, power),
+			rng:NextNumber(power * 0.6, power * 1.4),
+			rng:NextNumber(-power, power)
+		)
+		piece.Parent = workspace
+		task.delay(2.5, function()
+			piece:Destroy()
+		end)
+	end
+end
+
+local function fadeOut(part, duration)
+	local tween = TweenService:Create(part, TweenInfo.new(duration), { Transparency = 1 })
+	tween:Play()
+	tween.Completed:Once(function()
+		part:Destroy()
+	end)
+end
+
+local function explosionFX(pos)
+	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = rng:NextNumber(0.6, 0.85), RollOffMaxDistance = 600 })
+
+	local boom = Instance.new("Explosion")
+	boom.Position = pos
+	boom.BlastPressure = 0
+	boom.BlastRadius = 0
+	boom.DestroyJointRadiusPercent = 0
+	boom.Parent = workspace
+
+	local flash = anchoredPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(6, 6, 6),
+		Position = pos + Vector3.new(0, 4, 0),
+		Color = Color3.fromRGB(255, 190, 60),
+		Material = Enum.Material.Neon,
+		Transparency = 0.1,
+	})
+	TweenService:Create(flash, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(60, 60, 60),
+	}):Play()
+	fadeOut(flash, 0.5)
+
+	debris(pos, 8, 40, Color3.fromRGB(80, 75, 70))
+	shakeFromDistance(pos, 1.6, 300, 0.6)
+end
+
+local function nukeFX(pos)
+	-- Blinding flash overlay.
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "MVC_NukeFlash"
+	gui.DisplayOrder = 100
+	gui.IgnoreGuiInset = true
+	gui.Parent = player:WaitForChild("PlayerGui")
+	local white = Instance.new("Frame")
+	white.Size = UDim2.fromScale(1, 1)
+	white.BackgroundColor3 = Color3.new(1, 1, 1)
+	white.BorderSizePixel = 0
+	white.Parent = gui
+	local flashTween = TweenService:Create(white, TweenInfo.new(2.2, Enum.EasingStyle.Quad), {
+		BackgroundTransparency = 1,
+	})
+	flashTween:Play()
+	flashTween.Completed:Once(function()
+		gui:Destroy()
+	end)
+
+	SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.35, Volume = 1, RollOffMaxDistance = 3000 })
+	SoundBook.playAt("Flash", pos, { RollOffMaxDistance = 3000 })
+	task.delay(0.5, function()
+		SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.28, Volume = 1, RollOffMaxDistance = 3000 })
+	end)
+
+	-- Fireball.
+	local fireball = anchoredPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(10, 10, 10),
+		Position = pos + Vector3.new(0, 10, 0),
+		Color = Color3.fromRGB(255, 160, 40),
+		Material = Enum.Material.Neon,
+	})
+	TweenService:Create(fireball, TweenInfo.new(1.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(130, 130, 130),
+		Position = pos + Vector3.new(0, 45, 0),
+	}):Play()
+	fadeOut(fireball, 2.4)
+
+	-- Shockwave ring (flattened, expanding cylinder).
+	local ring = anchoredPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 8, 8),
+		CFrame = CFrame.new(pos + Vector3.new(0, 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(255, 240, 200),
+		Material = Enum.Material.Neon,
+		Transparency = 0.2,
+	})
+	TweenService:Create(ring, TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.6, 560, 560),
+	}):Play()
+	fadeOut(ring, 2.2)
+
+	-- Mushroom cloud: stem grows, cap rises.
+	local stem = anchoredPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(6, 22, 22),
+		CFrame = CFrame.new(pos + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(140, 120, 110),
+		Material = Enum.Material.Smoke,
+		Transparency = 0.15,
+	})
+	TweenService:Create(stem, TweenInfo.new(3.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(110, 30, 30),
+		CFrame = CFrame.new(pos + Vector3.new(0, 55, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+	}):Play()
+
+	local cap = anchoredPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(26, 20, 26),
+		Position = pos + Vector3.new(0, 30, 0),
+		Color = Color3.fromRGB(160, 140, 125),
+		Material = Enum.Material.Smoke,
+		Transparency = 0.1,
+	})
+	TweenService:Create(cap, TweenInfo.new(3.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(120, 70, 120),
+		Position = pos + Vector3.new(0, 118, 0),
+	}):Play()
+
+	task.delay(5.5, function()
+		fadeOut(stem, 3)
+		fadeOut(cap, 3)
+	end)
+
+	debris(pos, 16, 90, Color3.fromRGB(70, 65, 60))
+	shakeFromDistance(pos, 3.2, 2000, 2.2)
+end
+
+local function quadBezier(p0, p1, p2, t)
+	local a = p0:Lerp(p1, t)
+	local b = p1:Lerp(p2, t)
+	return a:Lerp(b, t)
+end
+
+local function buildRocketModel(isNuke)
+	local model = Instance.new("Model")
+	local body = anchoredPart({
+		Name = "Body",
+		Size = isNuke and Vector3.new(6, 6, 18) or Vector3.new(3, 3, 9),
+		Color = isNuke and Color3.fromRGB(60, 62, 68) or Color3.fromRGB(240, 240, 245),
+		Parent = model,
+	})
+	local nose = anchoredPart({
+		Name = "Nose",
+		Size = isNuke and Vector3.new(4, 4, 5) or Vector3.new(2, 2, 3),
+		Color = isNuke and Color3.fromRGB(180, 235, 60) or Color3.fromRGB(230, 60, 60),
+		Material = isNuke and Enum.Material.Neon or Enum.Material.SmoothPlastic,
+		Parent = model,
+	})
+	local att = Instance.new("Attachment")
+	att.Parent = body
+	local fire = Instance.new("ParticleEmitter")
+	fire.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 170, 60), Color3.fromRGB(120, 120, 120))
+	fire.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, isNuke and 6 or 3),
+		NumberSequenceKeypoint.new(1, isNuke and 12 or 6),
+	})
+	fire.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fire.Lifetime = NumberRange.new(0.6, 1.1)
+	fire.Rate = 40
+	fire.Speed = NumberRange.new(4, 8)
+	fire.Parent = att
+	model.PrimaryPart = body
+	return model, body, nose
+end
+
+local function flyMissile(payload)
+	local isNuke = payload.kind == "nuke"
+	local from = payload.from
+	local to = payload.to
+	local flight = payload.flight
+
+	local model, body, nose = buildRocketModel(isNuke)
+	model.Name = "MVC_Missile"
+	model.Parent = workspace
+
+	SoundBook.playAt("Launch", from, { PlaybackSpeed = isNuke and 0.5 or 0.8, RollOffMaxDistance = 1500 })
+
+	local apex = (from + to) / 2 + Vector3.new(0, isNuke and 340 or 180, 0)
+	local start = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = math.min((os.clock() - start) / flight, 1)
+		local pos = quadBezier(from, apex, to, t)
+		local ahead = quadBezier(from, apex, to, math.min(t + 0.02, 1))
+		local lookCF
+		if (ahead - pos).Magnitude &gt; 0.01 then
+			lookCF = CFrame.lookAt(pos, ahead)
+		else
+			lookCF = CFrame.new(pos)
+		end
+		body.CFrame = lookCF
+		nose.CFrame = lookCF * CFrame.new(0, 0, -(body.Size.Z / 2 + nose.Size.Z / 2 - 0.4))
+		if t &gt;= 1 then
+			conn:Disconnect()
+			model:Destroy()
+			if isNuke then
+				nukeFX(to)
+			else
+				explosionFX(to)
+			end
+		end
+	end)
+end
+
+local function shieldFX(plotIndex, _pos)
+	local center = Layout.plotCenter(plotIndex)
+	local dome = anchoredPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(20, 20, 20),
+		Position = Vector3.new(center.X, Layout.GroundY, center.Z),
+		Color = Color3.fromRGB(90, 180, 255),
+		Material = Enum.Material.ForceField,
+		Transparency = 0.2,
+	})
+	SoundBook.playAt("Glass", Vector3.new(center.X, Layout.GroundY + 20, center.Z), { RollOffMaxDistance = 900 })
+	TweenService:Create(dome, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = Vector3.new(300, 300, 300),
+	}):Play()
+	task.delay(1.6, function()
+		fadeOut(dome, 0.8)
+	end)
+end
+
+function FX.init()
+	Remotes.Events.MissileEvent.OnClientEvent:Connect(function(payload)
+		if type(payload) ~= "table" then
+			return
+		end
+		if typeof(payload.from) == "Vector3" and typeof(payload.to) == "Vector3" and type(payload.flight) == "number" then
+			flyMissile(payload)
+		end
+	end)
+	Remotes.Events.ShieldFX.OnClientEvent:Connect(function(plotIndex, pos)
+		if type(plotIndex) == "number" then
+			shieldFX(plotIndex, pos)
+		end
+	end)
+end
+
+return FX
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
+-- Cash smoothly counts up toward the real value for juice.
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local NumberFormat = require(Shared.NumberFormat)
+local UILib = require(script.Parent.UILib)
+
+local HUD = {}
+
+local displayedCash = 0
+local targetCash = 0
+
+function HUD.init(ctx)
+	local gui = UILib.screen("MVC_HUD", 5)
+
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(0.5, 0)
+	holder.Position = UDim2.new(0.5, 0, 0, 4)
+	holder.Size = UDim2.new(0, 620, 0, 96)
+	holder.Parent = gui
+
+	local gemsLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 24),
+		Position = UDim2.new(0, 0, 0, 0),
+		Text = "\u{1F48E} 0",
+		TextColor3 = Color3.fromRGB(220, 130, 250),
+	}, holder)
+
+	local cashLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 40),
+		Position = UDim2.new(0, 0, 0, 26),
+		Text = "\u{1F4B5} 0",
+		TextColor3 = Color3.fromRGB(140, 245, 120),
+	}, holder)
+
+	local incomeLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 20),
+		Position = UDim2.new(0, 0, 0, 68),
+		Text = "",
+		TextColor3 = Color3.fromRGB(200, 235, 190),
+	}, holder)
+
+	ctx.State.changed.Event:Connect(function(data)
+		targetCash = data.cash
+		gemsLabel.Text = "\u{1F48E} " .. NumberFormat.commas(data.gems)
+		incomeLabel.Text = "+" .. NumberFormat.abbrev(data.income) .. "/s"
+	end)
+
+	RunService.RenderStepped:Connect(function(dt)
+		if displayedCash ~= targetCash then
+			local diff = targetCash - displayedCash
+			if math.abs(diff) &lt; math.max(1, math.abs(targetCash) * 1e-9) then
+				displayedCash = targetCash
+			else
+				displayedCash += diff * math.min(dt * 6, 1)
+			end
+			cashLabel.Text = "\u{1F4B5} " .. NumberFormat.commas(displayedCash)
+		end
+	end)
+end
+
+return HUD
+</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
+
+local ClientState = require(script.Parent.ClientState)
+local Notifier = require(script.Parent.Notifier)
+local HUD = require(script.Parent.HUD)
+local SidePanel = require(script.Parent.SidePanel)
+local RocketPanel = require(script.Parent.RocketPanel)
+local AttackView = require(script.Parent.AttackView)
+local DailyRewardsUI = require(script.Parent.DailyRewardsUI)
+local AlarmUI = require(script.Parent.AlarmUI)
+local FX = require(script.Parent.FX)
+local CashPopups = require(script.Parent.CashPopups)
+local MusicPlayer = require(script.Parent.MusicPlayer)
+
+local ctx = {
+	State = ClientState,
+	Notifier = Notifier,
+	AttackView = AttackView,
+	DailyUI = DailyRewardsUI,
+}
+
+Notifier.init()
+HUD.init(ctx)
+AttackView.init(ctx)
+DailyRewardsUI.init(ctx)
+SidePanel.init(ctx)
+RocketPanel.init(ctx)
+AlarmUI.init()
+FX.init()
+CashPopups.init()
+MusicPlayer.init()
+
+ClientState.start()
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Background music playlist with a mute toggle (bottom-right).
+
+local SoundService = game:GetService("SoundService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local SoundBook = require(Shared.SoundBook)
+local UILib = require(script.Parent.UILib)
+
+local MusicPlayer = {}
+
+local muted = false
+local current = nil
+
+local function playLoop()
+	local trackIndex = 0
+	while true do
+		if #SoundBook.Music == 0 then
+			return
+		end
+		trackIndex = (trackIndex % #SoundBook.Music) + 1
+
+		local sound = Instance.new("Sound")
+		sound.Name = "MVC_Music"
+		sound.SoundId = "rbxassetid://" .. SoundBook.Music[trackIndex]
+		sound.Volume = muted and 0 or 0.2
+		sound.Parent = SoundService
+		current = sound
+		sound:Play()
+
+		-- Give it a moment to load; skip broken/moderated ids gracefully.
+		local waited = 0
+		while not sound.IsLoaded and waited &lt; 6 do
+			task.wait(0.5)
+			waited += 0.5
+		end
+		if sound.IsLoaded then
+			while sound.IsPlaying do
+				task.wait(1)
+			end
+		end
+		sound:Destroy()
+		current = nil
+		task.wait(2)
+	end
+end
+
+function MusicPlayer.init()
+	local gui = UILib.screen("MVC_Music", 4)
+	local toggle = UILib.button({
+		Size = UDim2.new(0, 44, 0, 44),
+		Position = UDim2.new(1, -56, 1, -110),
+		Text = "\u{1F50A}",
+		BackgroundColor3 = UILib.Colors.DarkGray,
+	}, gui, nil)
+	toggle.Activated:Connect(function()
+		muted = not muted
+		toggle.Text = muted and "\u{1F507}" or "\u{1F50A}"
+		if current then
+			current.Volume = muted and 0 or 0.2
+		end
+	end)
+
+	task.spawn(playLoop)
+end
+
+return MusicPlayer
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
+
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+local UILib = require(script.Parent.UILib)
+
+local Notifier = {}
+
+local KIND_STYLE = {
+	good = { color = UILib.Colors.Green, sound = "Good" },
+	bad = { color = UILib.Colors.Red, sound = "Bad" },
+	buy = { color = UILib.Colors.Green, sound = "Buy" },
+	victory = { color = UILib.Colors.Gold, sound = "Victory" },
+	info = { color = UILib.Colors.Blue, sound = "Click" },
+}
+
+local gui
+local holder
+
+function Notifier.show(msg, kind)
+	local style = KIND_STYLE[kind] or KIND_STYLE.info
+
+	local toast = UILib.frame({
+		Size = UDim2.new(1, 0, 0, 52),
+		BackgroundColor3 = style.color,
+		BackgroundTransparency = 0.05,
+	}, holder)
+	UILib.text({
+		Size = UDim2.new(1, -16, 1, -12),
+		Position = UDim2.new(0, 8, 0, 6),
+		Text = msg,
+		TextWrapped = true,
+	}, toast)
+
+	SoundBook.play(style.sound, UILib.playerGui())
+
+	toast.Position = UDim2.new(1, 40, 0, 0)
+	TweenService:Create(toast, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0, 0, 0, 0),
+	}):Play()
+
+	task.delay(4.5, function()
+		local out = TweenService:Create(toast, TweenInfo.new(0.3), {
+			Position = UDim2.new(1, 60, 0, 0),
+			BackgroundTransparency = 1,
+		})
+		out:Play()
+		out.Completed:Once(function()
+			toast:Destroy()
+		end)
+	end)
+end
+
+function Notifier.init()
+	gui = UILib.screen("MVC_Toasts", 50)
+	holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(1, 0)
+	holder.Position = UDim2.new(1, -12, 0, 70)
+	holder.Size = UDim2.new(0, 320, 1, -90)
+	holder.Parent = gui
+
+	local list = Instance.new("UIListLayout")
+	list.Padding = UDim.new(0, 8)
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = holder
+
+	Remotes.Events.Notify.OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" and type(payload.msg) == "string" then
+			Notifier.show(payload.msg, payload.kind)
+		end
+	end)
+end
+
+return Notifier
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
+-- Also routes the Nuke Island silo prompt into nuke attack mode.
+
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local RocketPanel = {}
+
+local ctx
+local gui
+local titleLabel
+local statsLabel
+local upgradeButton
+local launchButton
+
+local function refresh()
+	local state = ctx.State.get()
+	if not state then
+		return
+	end
+	titleLabel.Text = "\u{1F680} Rocket \u{00B7} Lv " .. state.rocketLevel
+	statsLabel.Text = "\u{1F4A5} Damage: " .. NumberFormat.abbrev(state.rocketDamage)
+		.. "   \u{1F4CD} Blast: " .. Config.Rocket.BlastRadius .. " studs"
+
+	local remaining = ctx.State.remaining("rocketRemaining")
+	if remaining &gt; 0 then
+		launchButton.Text = "\u{23F3} " .. NumberFormat.clock(remaining)
+	else
+		launchButton.Text = "Launch"
+	end
+
+	if state.rocketLevel &gt;= Config.Rocket.MaxLevel then
+		upgradeButton.Text = "MAX LEVEL"
+	else
+		upgradeButton.Text = "Upgrade  \u{1F4B5} " .. NumberFormat.abbrev(state.rocketCost)
+	end
+end
+
+function RocketPanel.init(context)
+	ctx = context
+
+	local panelGui, content = UILib.panel("MVC_RocketPanel", "\u{1F680} Rocket Silo", UDim2.new(0, 340, 0, 250), 15)
+	gui = panelGui
+
+	titleLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 34),
+		Position = UDim2.new(0, 0, 0, 8),
+		Text = "",
+	}, content)
+
+	statsLabel = UILib.text({
+		Size = UDim2.new(1, 0, 0, 20),
+		Position = UDim2.new(0, 0, 0, 44),
+		Text = "",
+		TextColor3 = Color3.fromRGB(200, 210, 230),
+	}, content)
+
+	launchButton = UILib.button({
+		Size = UDim2.new(1, -20, 0, 56),
+		Position = UDim2.new(0, 10, 0, 76),
+		Text = "Launch",
+		BackgroundColor3 = UILib.Colors.Green,
+	}, content, function()
+		if ctx.State.remaining("rocketRemaining") &gt; 0 then
+			ctx.Notifier.show("\u{1F680} Rocket is reloading!", "bad")
+			return
+		end
+		gui.Enabled = false
+		ctx.AttackView.open(false)
+	end)
+
+	upgradeButton = UILib.button({
+		Size = UDim2.new(1, -20, 0, 52),
+		Position = UDim2.new(0, 10, 0, 142),
+		Text = "Upgrade",
+		BackgroundColor3 = UILib.Colors.Green,
+	}, content, function()
+		Remotes.Events.UpgradeRocket:FireServer()
+	end)
+
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		if prompt.Name == "RocketPrompt" then
+			refresh()
+			gui.Enabled = true
+		elseif prompt.Name == "NukePrompt" then
+			local state = ctx.State.get()
+			if state and (state.nukeOwned or (state.nukeCharges or 0) &gt; 0) then
+				ctx.AttackView.open(true)
+			else
+				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad ("
+					.. "\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. ") or claim the Day 7 daily reward.", "bad")
+			end
+		end
+	end)
+
+	ctx.State.changed.Event:Connect(function()
+		if gui.Enabled then
+			refresh()
+		end
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			if gui.Enabled then
+				refresh()
+			end
+		end
+	end)
+end
+
+return RocketPanel
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
+-- and the gem shop panel.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local SidePanel = {}
+
+local ctx
+local giftButton
+local shopGui
+
+local function makeShop()
+	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} Shop", UDim2.new(0, 380, 0, 380), 12)
+	shopGui = panelGui
+
+	local items = {
+		{ id = "shield", text = "\u{1F6E1}\u{FE0F} Shield (blocks 1 missile) — \u{1F48E} " .. Config.Shop.ShieldGems },
+		{ id = "barrage", text = "\u{1F680}x3 Barrage — \u{1F48E} " .. Config.Shop.BarrageGems },
+		{ id = "repair_all", text = "\u{1F527} Instant Repair All — \u{1F48E} " .. Config.Shop.RepairAllGems },
+		{ id = "skip_cooldown", text = "\u{23E9} Skip Rocket Cooldown — \u{1F48E} " .. Config.Shop.SkipCooldownGems },
+		{ id = "pass_cash", text = "\u{1F4B5} 2X CASH (Gamepass)", color = UILib.Colors.Purple },
+		{ id = "pass_damage", text = "\u{1F4A5} 2X DAMAGE (Gamepass)", color = UILib.Colors.Purple },
+	}
+
+	for i, item in ipairs(items) do
+		UILib.button({
+			Size = UDim2.new(1, -16, 0, 48),
+			Position = UDim2.new(0, 8, 0, 10 + (i - 1) * 58),
+			Text = item.text,
+			BackgroundColor3 = item.color or UILib.Colors.Green,
+		}, content, function()
+			Remotes.Events.ShopBuy:FireServer(item.id)
+		end)
+	end
+end
+
+local function sideButton(holder, order, emoji, caption, color, onClick)
+	local frame = Instance.new("Frame")
+	frame.BackgroundTransparency = 1
+	frame.Size = UDim2.new(0, 76, 0, 88)
+	frame.LayoutOrder = order
+	frame.Parent = holder
+
+	local button = UILib.button({
+		Size = UDim2.new(0, 68, 0, 60),
+		Position = UDim2.new(0, 4, 0, 0),
+		Text = emoji,
+		BackgroundColor3 = color,
+	}, frame, onClick)
+
+	UILib.text({
+		Size = UDim2.new(1, 0, 0, 22),
+		Position = UDim2.new(0, 0, 0, 62),
+		Text = caption,
+	}, frame)
+
+	return button
+end
+
+function SidePanel.init(context)
+	ctx = context
+	makeShop()
+
+	local gui = UILib.screen("MVC_Side", 6)
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.Position = UDim2.new(0, 10, 0, 120)
+	holder.Size = UDim2.new(0, 90, 0, 460)
+	holder.Parent = gui
+
+	local list = Instance.new("UIListLayout")
+	list.Padding = UDim.new(0, 6)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = holder
+
+	giftButton = sideButton(holder, 1, "\u{1F381}", "Gift", UILib.Colors.Gold, function()
+		Remotes.Events.ClaimGift:FireServer()
+	end)
+	sideButton(holder, 2, "\u{1F4C5}", "Rewards", UILib.Colors.Red, function()
+		ctx.DailyUI.toggle()
+	end)
+	sideButton(holder, 3, "\u{1F6D2}", "Shop", UILib.Colors.Blue, function()
+		shopGui.Enabled = not shopGui.Enabled
+	end)
+	sideButton(holder, 4, "\u{1F4A3}", "Attack", UILib.Colors.Purple, function()
+		ctx.AttackView.open(false)
+	end)
+
+	-- Compact 2X gamepass buttons under the main column.
+	local passCash = UILib.button({
+		Size = UDim2.new(0, 84, 0, 30),
+		Text = "2X CASH",
+		BackgroundColor3 = UILib.Colors.Green,
+	}, nil, function()
+		Remotes.Events.ShopBuy:FireServer("pass_cash")
+	end)
+	passCash.LayoutOrder = 5
+	passCash.Parent = holder
+
+	local passDmg = UILib.button({
+		Size = UDim2.new(0, 84, 0, 30),
+		Text = "2X DAMAGE",
+		BackgroundColor3 = UILib.Colors.Green,
+	}, nil, function()
+		Remotes.Events.ShopBuy:FireServer("pass_damage")
+	end)
+	passDmg.LayoutOrder = 6
+	passDmg.Parent = holder
+
+	-- Gift button countdown.
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local remaining = ctx.State.remaining("giftRemaining")
+			if remaining &gt; 0 then
+				giftButton.Text = NumberFormat.clock(remaining)
+			else
+				giftButton.Text = "\u{1F381}"
+			end
+		end
+	end)
+end
+
+return SidePanel
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
+-- bright colors, FredokaOne everywhere. All panels share this look.
+
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local SoundBook = require(Shared.SoundBook)
+
+local UILib = {}
+
+UILib.Font = Enum.Font.FredokaOne
+UILib.Colors = {
+	Green = Color3.fromRGB(88, 200, 60),
+	DarkGreen = Color3.fromRGB(58, 160, 40),
+	Red = Color3.fromRGB(235, 60, 60),
+	Blue = Color3.fromRGB(60, 150, 240),
+	LightBlue = Color3.fromRGB(120, 200, 250),
+	Purple = Color3.fromRGB(150, 80, 220),
+	Gold = Color3.fromRGB(250, 200, 60),
+	Gray = Color3.fromRGB(120, 120, 128),
+	DarkGray = Color3.fromRGB(70, 70, 78),
+	Panel = Color3.fromRGB(44, 46, 56),
+}
+
+local player = Players.LocalPlayer
+
+function UILib.playerGui()
+	return player:WaitForChild("PlayerGui")
+end
+
+function UILib.screen(name, displayOrder)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = name
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = false
+	gui.DisplayOrder = displayOrder or 1
+	gui.Parent = UILib.playerGui()
+	return gui
+end
+
+function UILib.corner(parent, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius or 10)
+	c.Parent = parent
+	return c
+end
+
+function UILib.stroke(parent, thickness, color)
+	local s = Instance.new("UIStroke")
+	s.Thickness = thickness or 3
+	s.Color = color or Color3.new(0, 0, 0)
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = parent
+	return s
+end
+
+function UILib.frame(props, parent)
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	f.BackgroundColor3 = UILib.Colors.Panel
+	for k, v in pairs(props) do
+		f[k] = v
+	end
+	UILib.corner(f)
+	UILib.stroke(f)
+	f.Parent = parent
+	return f
+end
+
+function UILib.text(props, parent)
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Font = UILib.Font
+	t.TextScaled = true
+	t.TextColor3 = Color3.new(1, 1, 1)
+	t.TextStrokeColor3 = Color3.new(0, 0, 0)
+	t.TextStrokeTransparency = 0
+	for k, v in pairs(props) do
+		t[k] = v
+	end
+	t.Parent = parent
+	return t
+end
+
+function UILib.button(props, parent, onClick)
+	local b = Instance.new("TextButton")
+	b.BorderSizePixel = 0
+	b.Font = UILib.Font
+	b.TextScaled = true
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.TextStrokeColor3 = Color3.new(0, 0, 0)
+	b.TextStrokeTransparency = 0
+	b.AutoButtonColor = false
+	b.BackgroundColor3 = UILib.Colors.Green
+	for k, v in pairs(props) do
+		b[k] = v
+	end
+	UILib.corner(b)
+	local strokeObj = UILib.stroke(b)
+
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190))
+	gradient.Parent = b
+
+	-- Hover feedback via the outline so runtime BackgroundColor3 changes stay intact.
+	b.MouseEnter:Connect(function()
+		TweenService:Create(strokeObj, TweenInfo.new(0.08), {
+			Color = Color3.fromRGB(255, 255, 255),
+		}):Play()
+	end)
+	b.MouseLeave:Connect(function()
+		TweenService:Create(strokeObj, TweenInfo.new(0.08), { Color = Color3.new(0, 0, 0) }):Play()
+	end)
+	b.Activated:Connect(function()
+		SoundBook.play("Click", UILib.playerGui())
+		if onClick then
+			onClick()
+		end
+	end)
+	if parent then
+		b.Parent = parent
+	end
+	return b
+end
+
+-- Standard panel with the red header bar + X close button from the screenshots.
+function UILib.panel(name, title, size, displayOrder)
+	local gui = UILib.screen(name, displayOrder or 10)
+	gui.Enabled = false
+
+	local frame = UILib.frame({
+		Name = "Panel",
+		Size = size,
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+	}, gui)
+
+	local header = UILib.frame({
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 46),
+		Position = UDim2.new(0, 0, 0, -23),
+		BackgroundColor3 = UILib.Colors.Red,
+	}, frame)
+
+	UILib.text({
+		Name = "Title",
+		Size = UDim2.new(1, -70, 1, -10),
+		Position = UDim2.new(0, 14, 0, 5),
+		Text = title,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, header)
+
+	UILib.button({
+		Name = "Close",
+		Size = UDim2.new(0, 38, 0, 34),
+		Position = UDim2.new(1, -46, 0, 6),
+		Text = "X",
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		TextColor3 = UILib.Colors.Red,
+	}, header, function()
+		gui.Enabled = false
+	end)
+
+	local content = Instance.new("Frame")
+	content.Name = "Content"
+	content.BackgroundTransparency = 1
+	content.Size = UDim2.new(1, -20, 1, -46)
+	content.Position = UDim2.new(0, 10, 0, 32)
+	content.Parent = frame
+
+	return gui, content
+end
+
+return UILib
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX36"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>

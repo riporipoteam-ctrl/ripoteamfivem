@@ -1,0 +1,383 @@
+-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
+-- damage, destruction, rebuild timers and HP regen.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local BuildingDefs = require(Shared.BuildingDefs)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local PlotService = {}
+
+local ctx
+local slots
+local playerSlot = {} -- [player] = slot
+local touchDebounce = {} -- [player.UserId .. ":" .. zi] = last touch clock
+
+local function now()
+	return os.clock()
+end
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+function PlotService.getSlot(player)
+	return playerSlot[player]
+end
+
+function PlotService.slots()
+	return slots
+end
+
+local function renderZone(slot, zi)
+	local def = BuildingDefs.List[zi]
+	local zone = slot.zones[zi]
+	local center = Layout.zoneCenter(slot.index, zi)
+	ctx.Visuals.render(slot.zoneData[zi].buildings, def, zone.level, slot.index, zi, center, zone.destroyed)
+end
+
+function PlotService.updatePad(slot, zi)
+	local def = BuildingDefs.List[zi]
+	local zone = slot.zones[zi]
+	local data = slot.zoneData[zi]
+	local label = data.padLabel
+	local pad = data.pad
+
+	if not slot.owner then
+		label.Text = ""
+		pad.Color = Color3.fromRGB(140, 140, 140)
+		return
+	end
+
+	if zone.destroyed then
+		local remaining = math.max(0, math.ceil(zone.repairAt - now()))
+		label.Text = "\u{1F4A5} " .. def.name .. " destroyed!\nRebuilding " .. NumberFormat.clock(remaining)
+		pad.Color = Color3.fromRGB(120, 120, 120)
+	elseif zone.level <= 0 then
+		label.Text = "\u{1F3D7}\u{FE0F} Buy " .. def.name .. "\n\u{1F4B5} " .. NumberFormat.abbrev(BuildingDefs.upgradeCost(def, 1))
+		pad.Color = Color3.fromRGB(80, 235, 90)
+	elseif zone.level >= Config.BuildingMaxLevel then
+		label.Text = def.emoji .. " " .. def.name .. " Lv MAX"
+		pad.Color = Color3.fromRGB(250, 200, 60)
+	else
+		local maxHp = BuildingDefs.maxHp(def, zone.level)
+		local hpLine = ""
+		if zone.hp < maxHp then
+			hpLine = "\n\u{2764}\u{FE0F} " .. NumberFormat.commas(zone.hp) .. " / " .. NumberFormat.commas(maxHp) .. " HP"
+		end
+		label.Text = def.emoji .. " " .. def.name .. " Lv" .. zone.level
+			.. "\n\u{2B06}\u{FE0F} Upgrade \u{1F4B5} " .. NumberFormat.abbrev(BuildingDefs.upgradeCost(def, zone.level + 1))
+			.. hpLine
+		pad.Color = Color3.fromRGB(80, 235, 90)
+	end
+end
+
+local function onPadTouched(slot, zi, hit)
+	local character = hit.Parent
+	if not character then
+		return
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player and character.Parent then
+		player = Players:GetPlayerFromCharacter(character.Parent)
+	end
+	if not player or slot.owner ~= player then
+		return
+	end
+
+	local dKey = player.UserId .. ":" .. zi
+	if touchDebounce[dKey] and now() - touchDebounce[dKey] < 0.8 then
+		return
+	end
+	touchDebounce[dKey] = now()
+
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	local def = BuildingDefs.List[zi]
+	local zone = slot.zones[zi]
+
+	if zone.destroyed then
+		notify(player, "\u{1F4A5} " .. def.name .. " is rebuilding, hang tight!", "bad")
+		return
+	end
+	if zone.level >= Config.BuildingMaxLevel then
+		return
+	end
+
+	local targetLevel = zone.level + 1
+	local cost = BuildingDefs.upgradeCost(def, targetLevel)
+	if not ctx.Economy.trySpend(player, cost) then
+		notify(player, "Need \u{1F4B5} " .. NumberFormat.abbrev(cost) .. " for " .. def.name .. "!", "bad")
+		return
+	end
+
+	zone.level = targetLevel
+	zone.hp = BuildingDefs.maxHp(def, targetLevel)
+	profile.buildings[def.id] = targetLevel
+	renderZone(slot, zi)
+	PlotService.updatePad(slot, zi)
+	if targetLevel == 1 then
+		notify(player, def.emoji .. " Built " .. def.name .. "!", "buy")
+	else
+		notify(player, def.emoji .. " " .. def.name .. " upgraded to Lv" .. targetLevel .. "!", "buy")
+	end
+	ctx.Economy.pushState(player)
+end
+
+local function onNukePadTouched(hit)
+	local character = hit.Parent
+	if not character then
+		return
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return
+	end
+	local dKey = player.UserId .. ":nuke"
+	if touchDebounce[dKey] and now() - touchDebounce[dKey] < 1 then
+		return
+	end
+	touchDebounce[dKey] = now()
+
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+	if profile.nukeIsland then
+		notify(player, "\u{2622}\u{FE0F} You already own Nuke Access!", "info")
+		return
+	end
+	if not ctx.Economy.trySpend(player, Config.Nuke.IslandCost) then
+		notify(player, "Nuke Access costs \u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. "!", "bad")
+		return
+	end
+	profile.nukeIsland = true
+	notify(player, "\u{2622}\u{FE0F} NUKE ACCESS UNLOCKED! One nuke every 24 hours.", "victory")
+	Remotes.Events.Notify:FireAllClients({
+		msg = "\u{2622}\u{FE0F} " .. player.DisplayName .. " just bought NUKE ACCESS. Be afraid.",
+		kind = "info",
+	})
+	ctx.Economy.pushState(player)
+end
+
+function PlotService.assign(player)
+	local slot
+	for _, s in ipairs(slots) do
+		if not s.owner then
+			slot = s
+			break
+		end
+	end
+	if not slot then
+		player:Kick("Server is full (5 cities max). Please try another server!")
+		return nil
+	end
+
+	local profile = ctx.Data.get(player)
+	slot.owner = player
+	slot.immuneUntil = now() + Config.JoinImmunity
+	playerSlot[player] = slot
+
+	for zi, def in ipairs(BuildingDefs.List) do
+		local level = (profile.buildings and profile.buildings[def.id]) or 0
+		slot.zones[zi] = {
+			level = level,
+			hp = BuildingDefs.maxHp(def, math.max(level, 1)),
+			destroyed = false,
+			repairAt = 0,
+			lastHitAt = 0,
+		}
+		renderZone(slot, zi)
+		PlotService.updatePad(slot, zi)
+	end
+
+	slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
+
+	local function place(character)
+		local hrp = character:WaitForChild("HumanoidRootPart", 8)
+		if hrp and playerSlot[player] == slot then
+			task.wait(0.15)
+			character:PivotTo(CFrame.new(Layout.plotSpawn(slot.index)))
+		end
+	end
+	slot.charConn = player.CharacterAdded:Connect(place)
+	if player.Character then
+		task.spawn(place, player.Character)
+	end
+
+	return slot
+end
+
+function PlotService.release(player)
+	local slot = playerSlot[player]
+	if not slot then
+		return
+	end
+	if slot.charConn then
+		slot.charConn:Disconnect()
+		slot.charConn = nil
+	end
+	slot.owner = nil
+	slot.bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
+	for zi in ipairs(BuildingDefs.List) do
+		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0 }
+		renderZone(slot, zi)
+		PlotService.updatePad(slot, zi)
+	end
+	playerSlot[player] = nil
+end
+
+function PlotService.isImmune(slot)
+	return slot.immuneUntil and now() < slot.immuneUntil
+end
+
+-- Sum of invested value across intact buildings (used for nuke payouts).
+function PlotService.intactWorth(slot)
+	local worth = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level > 0 and not zone.destroyed then
+			worth += BuildingDefs.totalWorth(def, zone.level)
+		end
+	end
+	return worth
+end
+
+function PlotService.cityWorth(slot)
+	local worth = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level > 0 then
+			worth += BuildingDefs.totalWorth(def, zone.level)
+		end
+	end
+	return worth
+end
+
+function PlotService.destroyZone(slot, zi, repairAfter)
+	local zone = slot.zones[zi]
+	zone.destroyed = true
+	zone.repairAt = now() + repairAfter
+	renderZone(slot, zi)
+	PlotService.updatePad(slot, zi)
+end
+
+-- Missile blast: damages every intact building within the radius.
+-- Returns total worth destroyed and how many buildings fell.
+function PlotService.applyBlast(slot, pos, damage)
+	local worthDestroyed = 0
+	local destroyedCount = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level > 0 and not zone.destroyed then
+			local center = Layout.zoneCenter(slot.index, zi)
+			local dx = center.X - pos.X
+			local dz = center.Z - pos.Z
+			if math.sqrt(dx * dx + dz * dz) <= Config.Rocket.BlastRadius then
+				zone.hp -= damage
+				zone.lastHitAt = now()
+				if zone.hp <= 0 then
+					worthDestroyed += BuildingDefs.totalWorth(def, zone.level)
+					destroyedCount += 1
+					PlotService.destroyZone(slot, zi, Config.MissileRepairTime)
+				else
+					PlotService.updatePad(slot, zi)
+				end
+			end
+		end
+	end
+	return worthDestroyed, destroyedCount
+end
+
+-- Nuke: flattens the whole city, staggered rebuild, temporary immunity.
+function PlotService.nukeSlot(slot)
+	local worth = 0
+	local delayStep = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level > 0 and not zone.destroyed then
+			worth += BuildingDefs.totalWorth(def, zone.level)
+			delayStep += 1
+			PlotService.destroyZone(slot, zi, 60 + delayStep * 15)
+		end
+	end
+	slot.immuneUntil = now() + Config.Nuke.ImmunityAfter
+	return worth
+end
+
+function PlotService.repairAll(slot)
+	local repaired = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level > 0 and zone.destroyed then
+			zone.destroyed = false
+			zone.hp = BuildingDefs.maxHp(def, zone.level)
+			renderZone(slot, zi)
+			PlotService.updatePad(slot, zi)
+			repaired += 1
+		end
+	end
+	return repaired
+end
+
+local function maintenanceLoop()
+	while true do
+		task.wait(1)
+		for _, slot in ipairs(slots) do
+			if slot.owner then
+				for zi, def in ipairs(BuildingDefs.List) do
+					local zone = slot.zones[zi]
+					if zone.destroyed then
+						if now() >= zone.repairAt then
+							zone.destroyed = false
+							zone.hp = BuildingDefs.maxHp(def, zone.level)
+							renderZone(slot, zi)
+							PlotService.updatePad(slot, zi)
+							notify(slot.owner, "\u{2705} " .. def.name .. " rebuilt!", "good")
+						else
+							PlotService.updatePad(slot, zi) -- live countdown text
+						end
+					elseif zone.level > 0 then
+						local maxHp = BuildingDefs.maxHp(def, zone.level)
+						if zone.hp < maxHp and now() - zone.lastHitAt > Config.HpRegenDelay then
+							zone.hp = maxHp
+							PlotService.updatePad(slot, zi)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+function PlotService.init(context)
+	ctx = context
+	slots = ctx.World.slots
+
+	for _, slot in ipairs(slots) do
+		slot.zones = {}
+		for zi in ipairs(BuildingDefs.List) do
+			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0 }
+			PlotService.updatePad(slot, zi)
+		end
+		for zi in ipairs(BuildingDefs.List) do
+			local pad = slot.zoneData[zi].pad
+			pad.Touched:Connect(function(hit)
+				onPadTouched(slot, zi, hit)
+			end)
+		end
+	end
+
+	ctx.World.nukePad.Touched:Connect(onNukePadTouched)
+
+	task.spawn(maintenanceLoop)
+end
+
+return PlotService

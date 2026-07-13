@@ -1,0 +1,78 @@
+# 🚀 Missiles vs Cities
+
+A complete Roblox tycoon/battle game: build your city, earn cash, upgrade
+rockets, blow up other players' cities — and save up **$995 Trillion** for
+NUKE ACCESS to wipe someone's city off the map (once per day).
+
+Roblox hosts the game **for free, 24/7**, publicly joinable on PC, mobile,
+tablet and console.
+
+## ✨ Features
+
+- **5 players per server**, each with their own city island
+- **12 buildable zones** per city (Houses → Space Center), bought and
+  upgraded by **stepping on pads**, with income per second and floating `+$` popups
+- **Upgradeable rocket silo** (Launch / Upgrade panel) — blow up parts of other
+  players' cities from a **top-down BLOW UP attack view** and steal the value
+  of every building you destroy
+- **☢️ Nuke Island** — buy access for $995T (in-game cash, no Robux), launch
+  **one nuke per 24h**: the victim gets a flashing red alert + siren + beacon
+  marking the impact spot, then a mushroom cloud flattens their whole city and
+  you steal its entire worth. The city rebuilds itself over the next few minutes.
+- **Shields** (block a missile), **Barrage** (3 rockets at once), **spawn
+  protection**, auto-repair and HP regen
+- **Daily rewards** 7-day streak calendar (Day 7 = FREE NUKE), free gift every
+  15 minutes, gem shop
+- **Leaderstats** (Cash / City Worth), chunky cartoon UI, sound effects, music,
+  camera shake, explosions, debris — the works
+- **Data saving** via DataStores (cash, gems, buildings, rocket level, nuke
+  access, streaks)
+
+## 🕹️ How to publish (10 minutes, free)
+
+1. Install **Roblox Studio** (free): https://create.roblox.com
+2. Download `MissilesVsCities.rbxlx` from this repo and double-click it — it
+   opens directly in Studio.
+3. **File → Publish to Roblox** → give it a name → Publish.
+4. In Studio: **Home → Game Settings → Security** → enable
+   **"Allow Studio Access to API Services"** (this makes saving work).
+5. In **Game Settings → Basic Info** set **Max Players = 5** (the file
+   requests this already, but confirm it here).
+6. In **Game Settings → Permissions** set the experience to **Public** so
+   anyone can join.
+7. Press **Play** in Studio to test, then share your game's link!
+
+## 🔧 Tweaking the game
+
+Every balance number lives in `src/shared/Config.luau`: nuke price and
+cooldown, rocket damage/cost curves, building income, daily rewards, shop
+prices, etc.
+
+- **2X CASH / 2X DAMAGE buttons**: create two Game Passes for your experience
+  on the Roblox site, then put their IDs into `Config.GamePassCash2x` /
+  `Config.GamePassDamage2x`.
+- **Music / sounds**: edit `src/shared/SoundBook.luau`.
+- **Buildings**: edit `src/shared/BuildingDefs.luau`.
+
+## 🛠️ Developer workflow (optional)
+
+The source is a standard [Rojo](https://rojo.space) project
+(`default.project.json`). If you edit the `.luau` files, rebuild the place
+file with:
+
+```
+python3 tools/build_place.py
+```
+
+or sync live into Studio with `rojo serve`.
+
+## 📁 Layout
+
+```
+src/shared/   Config, building definitions, number formatting, world layout,
+              remotes, sounds (used by both server and client)
+src/server/   World generation, plots/buildings, economy, combat (missiles +
+              nukes), daily rewards, DataStore persistence
+src/client/   HUD, side buttons, rocket panel, attack view, daily rewards UI,
+              alarms, explosion/nuke FX, cash popups, music
+```
