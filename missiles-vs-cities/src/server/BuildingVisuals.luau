@@ -8,6 +8,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local DecorSets = require(Shared.DecorSets)
+local StoreModels = require(script.Parent.StoreModels)
 
 local BuildingVisuals = {}
 
@@ -255,20 +257,7 @@ local function renderTurbines(model, def, level, center, rng)
 	end
 end
 
-local function renderRubble(model, def, center, rng)
-	for i = 1, 5 do
-		local off = Vector3.new((rng:NextNumber() - 0.5) * 26, 0, (rng:NextNumber() - 0.5) * 26)
-		local size = Vector3.new(6 + rng:NextNumber() * 8, 2 + rng:NextNumber() * 3, 6 + rng:NextNumber() * 8)
-		part({
-			Name = "Rubble",
-			Size = size,
-			CFrame = CFrame.new(center + off + Vector3.new(0, size.Y / 2, 0))
-				* CFrame.Angles(0, rng:NextNumber() * math.pi, math.rad((rng:NextNumber() - 0.5) * 20)),
-			Color = (i % 2 == 0) and Color3.fromRGB(52, 50, 48) or Color3.fromRGB(72, 66, 60),
-			Material = Enum.Material.Slate,
-			Parent = model,
-		})
-	end
+local function addSmoke(model, center)
 	local smokePart = part({
 		Name = "SmokeSource",
 		Size = Vector3.new(4, 1, 4),
@@ -297,6 +286,90 @@ local function renderRubble(model, def, center, rng)
 	fire.Size = 8
 	fire.Heat = 10
 	fire.Parent = smokePart
+end
+
+-- Drop a Store-model clone so its feet touch the ground, facing the road.
+local function groundSnap(clone, x, z)
+	local bbCF, bbSize = clone:GetBoundingBox()
+	local pivotY = clone:GetPivot().Position.Y
+	local feet = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+	local pos = Vector3.new(x, Config.GroundY + feet, z)
+	clone:PivotTo(CFrame.lookAt(pos, Vector3.new(x, pos.Y, z + 60)))
+end
+
+-- Render with a real Creator Store model. Returns false to fall back to parts.
+local function renderStore(container, def, level, center, rng)
+	local set = DecorSets.Buildings[def.id]
+	if not set then
+		return false
+	end
+	local entry = StoreModels.get("bld_" .. def.id, set.ids, { size = set.size, byHeight = set.byHeight })
+	if not entry then
+		return false
+	end
+	-- Buildings physically grow as they level up.
+	local growth = 0.82 + 0.38 * math.min(level, Config.BuildingMaxLevel) / Config.BuildingMaxLevel
+	if set.mode == "single" then
+		local clone = entry.model:Clone()
+		local ok = pcall(function()
+			clone:ScaleTo(entry.scale * growth)
+		end)
+		if not ok then
+			clone:Destroy()
+			return false
+		end
+		clone.Parent = container
+		groundSnap(clone, center.X, center.Z)
+	else
+		local count = math.clamp(1 + math.floor(level / 12), 1, 4)
+		for i = 1, count do
+			local off = SUB_OFFSETS[i]
+			local clone = entry.model:Clone()
+			pcall(function()
+				clone:ScaleTo(entry.scale * growth * (0.9 + rng:NextNumber() * 0.2))
+			end)
+			clone.Parent = container
+			groundSnap(clone, center.X + off.X, center.Z + off.Z)
+		end
+	end
+	return true
+end
+
+local function renderStoreRubble(container, center)
+	local entry = StoreModels.get("rubble", DecorSets.Rubble, { size = 30 })
+	if not entry then
+		return false
+	end
+	local clone = entry.model:Clone()
+	clone.Parent = container
+	groundSnap(clone, center.X, center.Z)
+	addSmoke(container, center)
+	return true
+end
+
+-- Warm the template cache (called once at startup, off the main thread).
+function BuildingVisuals.preload()
+	for defId, set in pairs(DecorSets.Buildings) do
+		StoreModels.get("bld_" .. defId, set.ids, { size = set.size, byHeight = set.byHeight })
+	end
+	StoreModels.get("rubble", DecorSets.Rubble, { size = 30 })
+end
+
+local function renderRubble(model, def, center, rng)
+	for i = 1, 5 do
+		local off = Vector3.new((rng:NextNumber() - 0.5) * 26, 0, (rng:NextNumber() - 0.5) * 26)
+		local size = Vector3.new(6 + rng:NextNumber() * 8, 2 + rng:NextNumber() * 3, 6 + rng:NextNumber() * 8)
+		part({
+			Name = "Rubble",
+			Size = size,
+			CFrame = CFrame.new(center + off + Vector3.new(0, size.Y / 2, 0))
+				* CFrame.Angles(0, rng:NextNumber() * math.pi, math.rad((rng:NextNumber() - 0.5) * 20)),
+			Color = (i % 2 == 0) and Color3.fromRGB(52, 50, 48) or Color3.fromRGB(72, 66, 60),
+			Material = Enum.Material.Slate,
+			Parent = model,
+		})
+	end
+	addSmoke(model, center)
 	local _ = def
 end
 
@@ -305,8 +378,14 @@ function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, cen
 	local rng = Random.new(plotIndex * 1000 + zoneIndex * 17)
 	local ground = Vector3.new(center.X, Config.GroundY, center.Z)
 	if destroyed then
-		renderRubble(container, def, ground, rng)
+		if not renderStoreRubble(container, ground) then
+			renderRubble(container, def, ground, rng)
+		end
 	elseif level > 0 then
+		-- Real Creator Store buildings first; part-built visuals as fallback.
+		if renderStore(container, def, level, ground, rng) then
+			return
+		end
 		if def.style == "houses" then
 			renderHouses(container, def, level, ground, rng)
 		elseif def.style == "panels" then

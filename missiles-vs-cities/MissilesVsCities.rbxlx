@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX47"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX48"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX49"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX48"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX49"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX50"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
 
 local Config = require(script.Parent.Config)
 
@@ -206,6 +206,33 @@ DecorSets.TargetSize = {
 	rock = 5,
 	car = 13, -- length
 }
+
+-- Store models for the 16 tycoon buildings themselves, curated from
+-- create.roblox.com/store. mode "cluster" = several copies that multiply
+-- with level; "single" = one centerpiece that grows with level.
+-- size = target footprint (or height when byHeight). If every id in a
+-- category fails to load, the game falls back to its built-in part visuals.
+DecorSets.Buildings = {
+	house = { ids = { 18144266950, 105797187065697, 91447454268215 }, mode = "cluster", size = 15 },
+	apartments = { ids = { 15075550418, 15082419807 }, mode = "cluster", size = 16 },
+	shops = { ids = { 9642714623, 18828724532 }, mode = "cluster", size = 16 },
+	bank = { ids = { 76831024602896 }, mode = "cluster", size = 16 },
+	factory = { ids = { 11387823607, 78205505459731 }, mode = "single", size = 34 },
+	solar = { ids = { 11100628682, 15174071780 }, mode = "cluster", size = 12 },
+	downtown = { ids = { 12006622902, 85506482351178, 114750850222093 }, mode = "cluster", size = 16 },
+	stadium = { ids = { 107182109387966 }, mode = "single", size = 36 },
+	airport = { ids = { 137558548393747, 105826236392834 }, mode = "single", size = 34 },
+	military = { ids = { 120453129382585, 96964466281091 }, mode = "cluster", size = 14 },
+	wind = { ids = { 6221197459, 11464875249 }, mode = "cluster", size = 26, byHeight = true },
+	space = { ids = { 126157921427052, 11714293744 }, mode = "single", size = 28, byHeight = true },
+	techhub = { ids = { 13893512148, 5140904246 }, mode = "cluster", size = 16 },
+	casino = { ids = { 8984780407 }, mode = "single", size = 34 },
+	port = { ids = { 72746749225388, 92609497200026 }, mode = "single", size = 34 },
+	goldtower = { ids = { 8533751203, 119160909 }, mode = "single", size = 30, byHeight = true },
+}
+
+-- Destroyed-building rubble (replaces the part rubble when it loads).
+DecorSets.Rubble = { 8389261449, 95266753561513 }
 
 return DecorSets
 </ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Layout</string><ProtectedString name="Source">-- Deterministic world layout math, shared by server (to build the world)
@@ -605,7 +632,7 @@ function SoundBook.playAt(key, position, props)
 end
 
 return SoundBook
-</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX50"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX26"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX51"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX27"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
 --   houses   - little homes with pitched wedge roofs
 --   towers   - city blocks with glowing windows + rooftop details
 --   panels   - solar/container fields
@@ -615,6 +642,8 @@ return SoundBook
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local DecorSets = require(Shared.DecorSets)
+local StoreModels = require(script.Parent.StoreModels)
 
 local BuildingVisuals = {}
 
@@ -862,20 +891,7 @@ local function renderTurbines(model, def, level, center, rng)
 	end
 end
 
-local function renderRubble(model, def, center, rng)
-	for i = 1, 5 do
-		local off = Vector3.new((rng:NextNumber() - 0.5) * 26, 0, (rng:NextNumber() - 0.5) * 26)
-		local size = Vector3.new(6 + rng:NextNumber() * 8, 2 + rng:NextNumber() * 3, 6 + rng:NextNumber() * 8)
-		part({
-			Name = "Rubble",
-			Size = size,
-			CFrame = CFrame.new(center + off + Vector3.new(0, size.Y / 2, 0))
-				* CFrame.Angles(0, rng:NextNumber() * math.pi, math.rad((rng:NextNumber() - 0.5) * 20)),
-			Color = (i % 2 == 0) and Color3.fromRGB(52, 50, 48) or Color3.fromRGB(72, 66, 60),
-			Material = Enum.Material.Slate,
-			Parent = model,
-		})
-	end
+local function addSmoke(model, center)
 	local smokePart = part({
 		Name = "SmokeSource",
 		Size = Vector3.new(4, 1, 4),
@@ -904,6 +920,90 @@ local function renderRubble(model, def, center, rng)
 	fire.Size = 8
 	fire.Heat = 10
 	fire.Parent = smokePart
+end
+
+-- Drop a Store-model clone so its feet touch the ground, facing the road.
+local function groundSnap(clone, x, z)
+	local bbCF, bbSize = clone:GetBoundingBox()
+	local pivotY = clone:GetPivot().Position.Y
+	local feet = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+	local pos = Vector3.new(x, Config.GroundY + feet, z)
+	clone:PivotTo(CFrame.lookAt(pos, Vector3.new(x, pos.Y, z + 60)))
+end
+
+-- Render with a real Creator Store model. Returns false to fall back to parts.
+local function renderStore(container, def, level, center, rng)
+	local set = DecorSets.Buildings[def.id]
+	if not set then
+		return false
+	end
+	local entry = StoreModels.get("bld_" .. def.id, set.ids, { size = set.size, byHeight = set.byHeight })
+	if not entry then
+		return false
+	end
+	-- Buildings physically grow as they level up.
+	local growth = 0.82 + 0.38 * math.min(level, Config.BuildingMaxLevel) / Config.BuildingMaxLevel
+	if set.mode == "single" then
+		local clone = entry.model:Clone()
+		local ok = pcall(function()
+			clone:ScaleTo(entry.scale * growth)
+		end)
+		if not ok then
+			clone:Destroy()
+			return false
+		end
+		clone.Parent = container
+		groundSnap(clone, center.X, center.Z)
+	else
+		local count = math.clamp(1 + math.floor(level / 12), 1, 4)
+		for i = 1, count do
+			local off = SUB_OFFSETS[i]
+			local clone = entry.model:Clone()
+			pcall(function()
+				clone:ScaleTo(entry.scale * growth * (0.9 + rng:NextNumber() * 0.2))
+			end)
+			clone.Parent = container
+			groundSnap(clone, center.X + off.X, center.Z + off.Z)
+		end
+	end
+	return true
+end
+
+local function renderStoreRubble(container, center)
+	local entry = StoreModels.get("rubble", DecorSets.Rubble, { size = 30 })
+	if not entry then
+		return false
+	end
+	local clone = entry.model:Clone()
+	clone.Parent = container
+	groundSnap(clone, center.X, center.Z)
+	addSmoke(container, center)
+	return true
+end
+
+-- Warm the template cache (called once at startup, off the main thread).
+function BuildingVisuals.preload()
+	for defId, set in pairs(DecorSets.Buildings) do
+		StoreModels.get("bld_" .. defId, set.ids, { size = set.size, byHeight = set.byHeight })
+	end
+	StoreModels.get("rubble", DecorSets.Rubble, { size = 30 })
+end
+
+local function renderRubble(model, def, center, rng)
+	for i = 1, 5 do
+		local off = Vector3.new((rng:NextNumber() - 0.5) * 26, 0, (rng:NextNumber() - 0.5) * 26)
+		local size = Vector3.new(6 + rng:NextNumber() * 8, 2 + rng:NextNumber() * 3, 6 + rng:NextNumber() * 8)
+		part({
+			Name = "Rubble",
+			Size = size,
+			CFrame = CFrame.new(center + off + Vector3.new(0, size.Y / 2, 0))
+				* CFrame.Angles(0, rng:NextNumber() * math.pi, math.rad((rng:NextNumber() - 0.5) * 20)),
+			Color = (i % 2 == 0) and Color3.fromRGB(52, 50, 48) or Color3.fromRGB(72, 66, 60),
+			Material = Enum.Material.Slate,
+			Parent = model,
+		})
+	end
+	addSmoke(model, center)
 	local _ = def
 end
 
@@ -912,8 +1012,14 @@ function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, cen
 	local rng = Random.new(plotIndex * 1000 + zoneIndex * 17)
 	local ground = Vector3.new(center.X, Config.GroundY, center.Z)
 	if destroyed then
-		renderRubble(container, def, ground, rng)
+		if not renderStoreRubble(container, ground) then
+			renderRubble(container, def, ground, rng)
+		end
 	elseif level &gt; 0 then
+		-- Real Creator Store buildings first; part-built visuals as fallback.
+		if renderStore(container, def, level, ground, rng) then
+			return
+		end
 		if def.style == "houses" then
 			renderHouses(container, def, level, ground, rng)
 		elseif def.style == "panels" then
@@ -2635,6 +2741,12 @@ local world = WorldBuilder.build()
 task.spawn(function()
 	NPCBuilder.build(world) -- avatar loading yields; don't block startup
 end)
+task.spawn(function()
+	-- Warm the Store building templates, then upgrade any already-built
+	-- cities from part visuals to the real models.
+	BuildingVisuals.preload()
+	PlotService.rerenderAll()
+end)
 
 local ctx = {
 	Data = DataService,
@@ -3296,6 +3408,18 @@ function PlotService.resetBuildings(player)
 	end
 end
 
+-- Re-render every owned city (used after Store building models finish loading).
+function PlotService.rerenderAll()
+	for _, slot in ipairs(slots) do
+		if slot.owner then
+			for zi in ipairs(BuildingDefs.List) do
+				renderZone(slot, zi)
+				PlotService.updatePad(slot, zi)
+			end
+		end
+	end
+end
+
 function PlotService.repairAll(slot)
 	local repaired = 0
 	for zi, def in ipairs(BuildingDefs.List) do
@@ -3608,7 +3732,77 @@ function RewardsService.init(context)
 end
 
 return RewardsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map: 5 far-apart self-contained islands. Each island has the
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">StoreModels</string><ProtectedString name="Source">-- Shared loader for Creator Store assets: inserts, sanitizes (strips ALL
+-- scripts/sounds), normalizes scale, caches templates. Everything pcall'd —
+-- a broken id just means the caller falls back to part-built visuals.
+
+local InsertService = game:GetService("InsertService")
+
+local StoreModels = {}
+
+local cache = {} -- [key] = { model, scale } | false (known-failed)
+
+local function sanitize(model)
+	for _, obj in ipairs(model:GetDescendants()) do
+		if obj:IsA("LuaSourceContainer") or obj:IsA("Sound")
+			or obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+			obj:Destroy()
+		end
+	end
+	for _, obj in ipairs(model:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			obj.Anchored = true
+		end
+	end
+end
+
+-- opts: { size = studs, byHeight = bool }
+function StoreModels.get(key, ids, opts)
+	if cache[key] ~= nil then
+		return cache[key] or nil
+	end
+	for _, id in ipairs(ids or {}) do
+		local ok, asset = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if ok and asset then
+			local model = asset:FindFirstChildWhichIsA("Model")
+			if not model then
+				model = Instance.new("Model")
+				for _, child in ipairs(asset:GetChildren()) do
+					child.Parent = model
+				end
+			end
+			sanitize(model)
+			if #model:GetDescendants() &gt; 0 then
+				local okBB, bbSize = pcall(function()
+					local _, size = model:GetBoundingBox()
+					return size
+				end)
+				if okBB and bbSize and bbSize.Magnitude &gt; 0.5 then
+					local current = opts.byHeight and bbSize.Y or math.max(bbSize.X, bbSize.Z)
+					local factor = math.clamp((opts.size or 10) / math.max(current, 0.5), 0.01, 50)
+					local okScale = pcall(function()
+						model:ScaleTo(factor)
+					end)
+					if okScale then
+						model.Parent = nil
+						cache[key] = { model = model, scale = factor }
+						asset:Destroy()
+						return cache[key]
+					end
+				end
+			end
+			asset:Destroy()
+		end
+	end
+	warn("[MVC] Store asset unavailable for: " .. key .. " (using built-in visuals)")
+	cache[key] = false
+	return nil
+end
+
+return StoreModels
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map: 5 far-apart self-contained islands. Each island has the
 -- 4x4 city grid, rocket silo, nuke-access pad, and a front town square
 -- (spawn, shop stand, NPCs, leaderboard, rebirth shrine). No central island.
 
@@ -3724,6 +3918,30 @@ local function buildRoads(center, folder)
 			Position = Vector3.new(center.X + x, Config.GroundY + 0.1, center.Z),
 			Color = COLOR_ROAD,
 			Material = Enum.Material.Asphalt,
+			Parent = folder,
+		})
+		-- Center dashes on vertical roads too.
+		local zDash = -(Config.PlotSize / 2 - 16)
+		while zDash &lt;= Config.PlotSize / 2 - 16 do
+			part({
+				Name = "DashV",
+				Size = Vector3.new(1.6, 0.05, 6),
+				Position = Vector3.new(center.X + x, Config.GroundY + 0.22, center.Z + zDash),
+				Color = COLOR_DASH,
+				Material = Enum.Material.Neon,
+				Parent = folder,
+			})
+			zDash += 24
+		end
+	end
+
+	-- Zebra crosswalk where the main road meets the town square.
+	for i = 0, 5 do
+		part({
+			Name = "Zebra",
+			Size = Vector3.new(10, 0.05, 1.4),
+			Position = Vector3.new(center.X, Config.GroundY + 0.3, center.Z + Config.PlotSize / 2 + 4 + i * 2.6),
+			Color = Color3.fromRGB(240, 240, 245),
 			Parent = folder,
 		})
 	end
@@ -4172,7 +4390,7 @@ function WorldBuilder.build()
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX51"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX46"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX45"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX52"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX47"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX46"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
 -- and a red beacon beam marking exactly where the strike will land.
 
 local TweenService = game:GetService("TweenService")
@@ -4333,7 +4551,7 @@ function AlarmUI.init()
 end
 
 return AlarmUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
 -- tap anywhere on their plot to move the target crosshair, then BLOW UP.
 -- Also handles nuke mode (☢ button) and the barrage toggle.
 
@@ -4639,7 +4857,7 @@ function AttackView.init(context)
 end
 
 return AttackView
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4718,7 +4936,7 @@ function CashPopups.init()
 end
 
 return CashPopups
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -4804,7 +5022,7 @@ function CharacterShop.init(context)
 end
 
 return CharacterShop
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -4851,7 +5069,7 @@ function ClientState.start()
 end
 
 return ClientState
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
 -- rainbow Day 7 card (free nuke), just like the reference screenshots.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5006,7 +5224,7 @@ function DailyRewardsUI.init(context)
 end
 
 return DailyRewardsUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
 -- and an action button on the last line (open shop, view quests, ...).
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -5182,7 +5400,7 @@ function Dialogue.init(context)
 end
 
 return Dialogue
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
 -- the full nuke sequence (flash, fireball, mushroom cloud, shockwave),
 -- shield domes and camera shake. Purely cosmetic — damage is server-side.
 
@@ -5518,7 +5736,7 @@ function FX.init()
 end
 
 return FX
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
 -- and a live countdown for timed events.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5599,7 +5817,7 @@ function GameEvents.init()
 end
 
 return GameEvents
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
 -- Cash smoothly counts up toward the real value for juice.
 
 local RunService = game:GetService("RunService")
@@ -5700,7 +5918,7 @@ function HUD.init(ctx)
 end
 
 return HUD
-</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
+</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX38"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
 
 local ClientState = require(script.Parent.ClientState)
 local Notifier = require(script.Parent.Notifier)
@@ -5746,7 +5964,7 @@ GameEvents.init()
 MusicPlayer.init()
 
 ClientState.start()
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
 -- then loops it forever. Mute toggle bottom-right.
 
 local SoundService = game:GetService("SoundService")
@@ -5805,7 +6023,7 @@ function MusicPlayer.init()
 end
 
 return MusicPlayer
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5885,7 +6103,7 @@ function Notifier.init()
 end
 
 return Notifier
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -5999,7 +6217,7 @@ function QuestUI.init(context)
 end
 
 return QuestUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6068,7 +6286,7 @@ function RebirthUI.init(context)
 end
 
 return RebirthUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
 -- Also routes the Nuke Island silo prompt into nuke attack mode.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -6185,7 +6403,7 @@ function RocketPanel.init(context)
 end
 
 return RocketPanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
 -- and the gem shop panel.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6330,7 +6548,7 @@ function SidePanel.init(context)
 end
 
 return SidePanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
 -- bright colors, FredokaOne everywhere. All panels share this look.
 
 local TweenService = game:GetService("TweenService")
@@ -6628,4 +6846,4 @@ function UILib.panel(name, title, size, displayOrder)
 end
 
 return UILib
-</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX52"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX53"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>

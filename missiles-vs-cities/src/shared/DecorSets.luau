@@ -30,4 +30,31 @@ DecorSets.TargetSize = {
 	car = 13, -- length
 }
 
+-- Store models for the 16 tycoon buildings themselves, curated from
+-- create.roblox.com/store. mode "cluster" = several copies that multiply
+-- with level; "single" = one centerpiece that grows with level.
+-- size = target footprint (or height when byHeight). If every id in a
+-- category fails to load, the game falls back to its built-in part visuals.
+DecorSets.Buildings = {
+	house = { ids = { 18144266950, 105797187065697, 91447454268215 }, mode = "cluster", size = 15 },
+	apartments = { ids = { 15075550418, 15082419807 }, mode = "cluster", size = 16 },
+	shops = { ids = { 9642714623, 18828724532 }, mode = "cluster", size = 16 },
+	bank = { ids = { 76831024602896 }, mode = "cluster", size = 16 },
+	factory = { ids = { 11387823607, 78205505459731 }, mode = "single", size = 34 },
+	solar = { ids = { 11100628682, 15174071780 }, mode = "cluster", size = 12 },
+	downtown = { ids = { 12006622902, 85506482351178, 114750850222093 }, mode = "cluster", size = 16 },
+	stadium = { ids = { 107182109387966 }, mode = "single", size = 36 },
+	airport = { ids = { 137558548393747, 105826236392834 }, mode = "single", size = 34 },
+	military = { ids = { 120453129382585, 96964466281091 }, mode = "cluster", size = 14 },
+	wind = { ids = { 6221197459, 11464875249 }, mode = "cluster", size = 26, byHeight = true },
+	space = { ids = { 126157921427052, 11714293744 }, mode = "single", size = 28, byHeight = true },
+	techhub = { ids = { 13893512148, 5140904246 }, mode = "cluster", size = 16 },
+	casino = { ids = { 8984780407 }, mode = "single", size = 34 },
+	port = { ids = { 72746749225388, 92609497200026 }, mode = "single", size = 34 },
+	goldtower = { ids = { 8533751203, 119160909 }, mode = "single", size = 30, byHeight = true },
+}
+
+-- Destroyed-building rubble (replaces the part rubble when it loads).
+DecorSets.Rubble = { 8389261449, 95266753561513 }
+
 return DecorSets

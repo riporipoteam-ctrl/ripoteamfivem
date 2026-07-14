@@ -31,6 +31,12 @@ local world = WorldBuilder.build()
 task.spawn(function()
 	NPCBuilder.build(world) -- avatar loading yields; don't block startup
 end)
+task.spawn(function()
+	-- Warm the Store building templates, then upgrade any already-built
+	-- cities from part visuals to the real models.
+	BuildingVisuals.preload()
+	PlotService.rerenderAll()
+end)
 
 local ctx = {
 	Data = DataService,

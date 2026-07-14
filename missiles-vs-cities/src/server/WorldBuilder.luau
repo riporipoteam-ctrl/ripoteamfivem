@@ -116,6 +116,30 @@ local function buildRoads(center, folder)
 			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
+		-- Center dashes on vertical roads too.
+		local zDash = -(Config.PlotSize / 2 - 16)
+		while zDash <= Config.PlotSize / 2 - 16 do
+			part({
+				Name = "DashV",
+				Size = Vector3.new(1.6, 0.05, 6),
+				Position = Vector3.new(center.X + x, Config.GroundY + 0.22, center.Z + zDash),
+				Color = COLOR_DASH,
+				Material = Enum.Material.Neon,
+				Parent = folder,
+			})
+			zDash += 24
+		end
+	end
+
+	-- Zebra crosswalk where the main road meets the town square.
+	for i = 0, 5 do
+		part({
+			Name = "Zebra",
+			Size = Vector3.new(10, 0.05, 1.4),
+			Position = Vector3.new(center.X, Config.GroundY + 0.3, center.Z + Config.PlotSize / 2 + 4 + i * 2.6),
+			Color = Color3.fromRGB(240, 240, 245),
+			Parent = folder,
+		})
 	end
 	local dashLimit = Config.PlotSize / 2 - 16
 	for _, z in ipairs(Layout.RoadZs) do

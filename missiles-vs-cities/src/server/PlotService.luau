@@ -411,6 +411,18 @@ function PlotService.resetBuildings(player)
 	end
 end
 
+-- Re-render every owned city (used after Store building models finish loading).
+function PlotService.rerenderAll()
+	for _, slot in ipairs(slots) do
+		if slot.owner then
+			for zi in ipairs(BuildingDefs.List) do
+				renderZone(slot, zi)
+				PlotService.updatePad(slot, zi)
+			end
+		end
+	end
+end
+
 function PlotService.repairAll(slot)
 	local repaired = 0
 	for zi, def in ipairs(BuildingDefs.List) do
