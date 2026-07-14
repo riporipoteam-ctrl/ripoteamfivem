@@ -272,6 +272,7 @@ function PlotService.assign(player)
 	end
 
 	slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
+	PlotService.updateSilos(slot, profile.siloCount or 1)
 
 	local function place(character)
 		local hrp = character:WaitForChild("HumanoidRootPart", 8)
@@ -299,6 +300,7 @@ function PlotService.release(player)
 	end
 	slot.owner = nil
 	slot.bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
+	PlotService.updateSilos(slot, 1)
 	for zi in ipairs(BuildingDefs.List) do
 		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
 		setZoneGround(slot, zi, true)
@@ -384,6 +386,29 @@ function PlotService.nukeSlot(slot)
 	end
 	slot.immuneUntil = now() + Config.Nuke.ImmunityAfter
 	return worth
+end
+
+-- Show/hide extra silo models to match how many the player owns.
+function PlotService.updateSilos(slot, count)
+	for i = 2, #slot.siloGroups do
+		local group = slot.siloGroups[i]
+		if i <= count then
+			group.model.Parent = slot.folder
+		else
+			group.model.Parent = nil
+		end
+	end
+end
+
+-- Hide/show a silo's decorative rocket (during launches).
+function PlotService.setSiloRocket(slot, siloIndex, visible)
+	local group = slot.siloGroups[siloIndex]
+	if not group then
+		return
+	end
+	for _, p in ipairs(group.rocketParts) do
+		p.Transparency = visible and 0 or 1
+	end
 end
 
 -- Rebirth: wipe the city back to a single house (visuals + profile).

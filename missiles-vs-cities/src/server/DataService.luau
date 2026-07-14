@@ -31,6 +31,7 @@ local function defaultProfile()
 		buildings = { house = 1 },
 		unlocked = 1, -- how many zone areas of the island are unlocked
 		rocketLevel = 1,
+		siloCount = 1,
 		shields = 0,
 		barrage = 0,
 		nukeIsland = false,

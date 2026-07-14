@@ -147,11 +147,9 @@ local function nukeFX(pos)
 		gui:Destroy()
 	end)
 
-	SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.35, Volume = 1, RollOffMaxDistance = 3000 })
+	SoundBook.playAt("Nuke", pos, { RollOffMaxDistance = 3000 })
+	SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.35, Volume = 0.8, RollOffMaxDistance = 3000 })
 	SoundBook.playAt("Flash", pos, { RollOffMaxDistance = 3000 })
-	task.delay(0.5, function()
-		SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.28, Volume = 1, RollOffMaxDistance = 3000 })
-	end)
 
 	-- Fireball.
 	local fireball = anchoredPart({
@@ -259,8 +257,39 @@ local function buildRocketModel(isNuke)
 	return model, body, nose
 end
 
+local function launchPadSmoke(pos)
+	local holder = anchoredPart({
+		Size = Vector3.new(2, 1, 2),
+		Position = pos + Vector3.new(0, 1, 0),
+		Transparency = 1,
+	})
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(Color3.fromRGB(230, 230, 230), Color3.fromRGB(150, 150, 150))
+	smoke.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 4),
+		NumberSequenceKeypoint.new(1, 10),
+	})
+	smoke.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	smoke.Lifetime = NumberRange.new(0.8, 1.6)
+	smoke.Rate = 60
+	smoke.Speed = NumberRange.new(8, 16)
+	smoke.SpreadAngle = Vector2.new(80, 80)
+	smoke.Parent = holder
+	task.delay(2, function()
+		smoke.Enabled = false
+	end)
+	task.delay(4, function()
+		holder:Destroy()
+	end)
+end
+
 local function flyMissile(payload)
 	local isNuke = payload.kind == "nuke"
+	local isMeteor = payload.kind == "meteor"
 	local from = payload.from
 	local to = payload.to
 	local flight = payload.flight
@@ -269,15 +298,44 @@ local function flyMissile(payload)
 	model.Name = "MVC_Missile"
 	model.Parent = workspace
 
-	SoundBook.playAt("Launch", from, { PlaybackSpeed = isNuke and 0.5 or 0.8, RollOffMaxDistance = 1500 })
+	-- LIFT OFF: vertical rise off the pad, then arc over to the target city.
+	local riseTime = isMeteor and 0 or (isNuke and 2.4 or 1.6)
+	local riseHeight = isNuke and 110 or 70
+	local liftTop = from + Vector3.new(0, riseHeight, 0)
+	local apex = (liftTop + to) / 2 + Vector3.new(0, isNuke and 340 or 190, 0)
 
-	local apex = (from + to) / 2 + Vector3.new(0, isNuke and 340 or 180, 0)
+	if not isMeteor then
+		SoundBook.playAt("Launch", from, { PlaybackSpeed = isNuke and 0.75 or 1, RollOffMaxDistance = 1500 })
+		launchPadSmoke(from)
+		shakeFromDistance(from, 1.2, 220, riseTime)
+	end
+
 	local start = os.clock()
 	local conn
 	conn = RunService.RenderStepped:Connect(function()
-		local t = math.min((os.clock() - start) / flight, 1)
-		local pos = quadBezier(from, apex, to, t)
-		local ahead = quadBezier(from, apex, to, math.min(t + 0.02, 1))
+		local elapsed = os.clock() - start
+		local pos, ahead
+		if elapsed < riseTime then
+			-- Accelerating vertical climb.
+			local tt = elapsed / riseTime
+			local eased = tt * tt
+			pos = from:Lerp(liftTop, eased)
+			ahead = pos + Vector3.new(0, 5, 0)
+		else
+			local t = math.min((elapsed - riseTime) / math.max(flight - riseTime, 0.1), 1)
+			pos = quadBezier(liftTop, apex, to, t)
+			ahead = quadBezier(liftTop, apex, to, math.min(t + 0.02, 1))
+			if t >= 1 then
+				conn:Disconnect()
+				model:Destroy()
+				if isNuke then
+					nukeFX(to)
+				else
+					explosionFX(to)
+				end
+				return
+			end
+		end
 		local lookCF
 		if (ahead - pos).Magnitude > 0.01 then
 			lookCF = CFrame.lookAt(pos, ahead)
@@ -286,15 +344,6 @@ local function flyMissile(payload)
 		end
 		body.CFrame = lookCF
 		nose.CFrame = lookCF * CFrame.new(0, 0, -(body.Size.Z / 2 + nose.Size.Z / 2 - 0.4))
-		if t >= 1 then
-			conn:Disconnect()
-			model:Destroy()
-			if isNuke then
-				nukeFX(to)
-			else
-				explosionFX(to)
-			end
-		end
 	end)
 end
 

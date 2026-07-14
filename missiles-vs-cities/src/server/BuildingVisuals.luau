@@ -54,6 +54,28 @@ local function lighten(color, amt)
 	return Color3.new(math.min(color.R + amt, 1), math.min(color.G + amt, 1), math.min(color.B + amt, 1))
 end
 
+-- Classic stud overlay for the brick-built look.
+local SIDE_FACES = { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }
+local function studBrick(p, includeTop)
+	for _, face in ipairs(SIDE_FACES) do
+		local tex = Instance.new("Texture")
+		tex.Texture = Config.StudTexture
+		tex.Face = face
+		tex.StudsPerTileU = 4
+		tex.StudsPerTileV = 4
+		tex.Parent = p
+	end
+	if includeTop then
+		local tex = Instance.new("Texture")
+		tex.Texture = Config.StudTexture
+		tex.Face = Enum.NormalId.Top
+		tex.StudsPerTileU = 4
+		tex.StudsPerTileV = 4
+		tex.Parent = p
+	end
+	return p
+end
+
 local function darken(color, amt)
 	return Color3.new(math.max(color.R - amt, 0), math.max(color.G - amt, 0), math.max(color.B - amt, 0))
 end
@@ -74,14 +96,14 @@ local function renderHouses(model, def, level, center, rng)
 		local yaw = (i % 2 == 0) and math.rad(90) or 0
 		local cf = CFrame.new(base) * CFrame.Angles(0, yaw, 0)
 
-		part({
+		studBrick(part({
 			Name = "HouseBody",
 			Size = Vector3.new(w, h, w),
 			CFrame = cf * CFrame.new(0, h / 2, 0),
 			Color = def.color,
 			Material = materialOf(def),
 			Parent = model,
-		})
+		}))
 		-- Pitched roof from two wedges.
 		wedge({
 			Name = "RoofA",
@@ -126,7 +148,7 @@ local function renderTowers(model, def, level, center, rng)
 		local h = 9 + math.min(level, Config.BuildingMaxLevel) * 0.5 * (0.8 + rng:NextNumber() * 0.4)
 		local base = Vector3.new(center.X + off.X, Config.GroundY, center.Z + off.Z)
 
-		part({
+		studBrick(part({
 			Name = "Tower",
 			Size = Vector3.new(15, h, 15),
 			Position = base + Vector3.new(0, h / 2, 0),
@@ -134,7 +156,7 @@ local function renderTowers(model, def, level, center, rng)
 			Material = materialOf(def),
 			Reflectance = def.material == "Glass" and 0.15 or 0,
 			Parent = model,
-		})
+		}), true)
 		-- Glowing window strips on two faces.
 		for _, face in ipairs({ CFrame.new(0, 0, 7.7), CFrame.new(7.7, 0, 0) * CFrame.Angles(0, math.rad(90), 0) }) do
 			part({
@@ -299,6 +321,9 @@ end
 
 -- Render with a real Creator Store model. Returns false to fall back to parts.
 local function renderStore(container, def, level, center, rng)
+	if not Config.UseStoreBuildings then
+		return false
+	end
 	local set = DecorSets.Buildings[def.id]
 	if not set then
 		return false
@@ -336,6 +361,9 @@ local function renderStore(container, def, level, center, rng)
 end
 
 local function renderStoreRubble(container, center)
+	if not Config.UseStoreBuildings then
+		return false
+	end
 	local entry = StoreModels.get("rubble", DecorSets.Rubble, { size = 30 })
 	if not entry then
 		return false
@@ -349,6 +377,9 @@ end
 
 -- Warm the template cache (called once at startup, off the main thread).
 function BuildingVisuals.preload()
+	if not Config.UseStoreBuildings then
+		return
+	end
 	for defId, set in pairs(DecorSets.Buildings) do
 		StoreModels.get("bld_" .. defId, set.ids, { size = set.size, byHeight = set.byHeight })
 	end

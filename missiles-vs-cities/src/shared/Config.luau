@@ -5,9 +5,21 @@ local Config = {}
 
 Config.MaxPlayers = 5
 
--- Insert curated Creator Store models (trees, benches, fountain, skybox...)
--- at runtime. Set false to keep only the built-in part decorations.
-Config.UseStoreDecor = true
+-- Visual style switches. The default look is classic blocky "stud brick"
+-- (like the reference game / old Roblox). Flip these to true to use inserted
+-- Creator Store mesh models instead.
+Config.UseStoreDecor = false -- Store trees/benches/fountains vs blocky ones
+Config.UseStoreBuildings = false -- Store buildings vs stud-brick towers
+Config.UseStoreSky = true -- community skybox (9.7k upvotes)
+
+-- Classic stud overlay texture (transparent, tints with the brick color).
+Config.StudTexture = "rbxassetid://8890102519"
+
+-- Extra rocket silos: fire one rocket per silo, per launch.
+Config.Silos = {
+	Max = 3,
+	Costs = { 0, 25e6, 25e9 }, -- silo 1 free, then 25M, then 25B
+}
 
 -- World layout
 Config.PlotCount = 5
@@ -33,7 +45,7 @@ Config.Rocket = {
 	BaseUpgradeCost = 2500,
 	CostGrowth = 1.42,
 	Cooldown = 45,
-	FlightTime = 6,
+	FlightTime = 8, -- includes the vertical lift-off phase
 	BlastRadius = 34,
 }
 
@@ -41,7 +53,7 @@ Config.Rocket = {
 Config.Nuke = {
 	IslandCost = 995e12, -- $995 Trillion for nuke access
 	Cooldown = 24 * 60 * 60, -- one nuke per day
-	FlightTime = 12,
+	FlightTime = 13, -- includes the vertical lift-off phase
 	ImmunityAfter = 180, -- seconds of protection after being nuked
 }
 

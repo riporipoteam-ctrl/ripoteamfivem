@@ -64,12 +64,18 @@ local function runSiren(duration)
 	sound.Parent = player:WaitForChild("PlayerGui")
 	sound:Play()
 	task.spawn(function()
-		local elapsed = 0
+		task.wait(0.8)
+		-- Real air-raid siren loaded? Let it wail naturally. Otherwise
+		-- pitch-modulate the fallback bass into a siren.
+		local isRealSiren = sound.IsLoaded and sound.TimeLength > 3
+		local elapsed = 0.8
 		local up = true
 		while elapsed < duration do
-			local target = up and 1.4 or 0.55
-			TweenService:Create(sound, TweenInfo.new(0.45), { PlaybackSpeed = target }):Play()
-			up = not up
+			if not isRealSiren then
+				local target = up and 1.4 or 0.55
+				TweenService:Create(sound, TweenInfo.new(0.45), { PlaybackSpeed = target }):Play()
+				up = not up
+			end
 			task.wait(0.45)
 			elapsed += 0.45
 		end

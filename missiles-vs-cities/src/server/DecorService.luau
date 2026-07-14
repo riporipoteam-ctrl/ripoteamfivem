@@ -155,10 +155,12 @@ local function applySky()
 end
 
 function DecorService.init(ctx)
+	if Config.UseStoreSky then
+		task.spawn(applySky)
+	end
 	if Config.UseStoreDecor == false then
 		return
 	end
-	task.spawn(applySky)
 	task.spawn(function()
 		local folder = Instance.new("Folder")
 		folder.Name = "StoreDecor"

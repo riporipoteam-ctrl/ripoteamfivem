@@ -11,6 +11,7 @@ local SoundBook = require(Shared.SoundBook)
 local UILib = {}
 
 UILib.Font = Enum.Font.FredokaOne
+UILib.TitleFont = Enum.Font.Arcade -- blocky pixel font for titles/captions
 UILib.Colors = {
 	Green = Color3.fromRGB(88, 200, 60),
 	DarkGreen = Color3.fromRGB(58, 160, 40),
@@ -42,7 +43,7 @@ end
 
 function UILib.corner(parent, radius)
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 10)
+	c.CornerRadius = UDim.new(0, radius or 6) -- blockier, old-Roblox feel
 	c.Parent = parent
 	return c
 end
@@ -268,11 +269,24 @@ function UILib.panel(name, title, size, displayOrder)
 
 	UILib.text({
 		Name = "Title",
-		Size = UDim2.new(1, -70, 1, -10),
-		Position = UDim2.new(0, 14, 0, 5),
+		Size = UDim2.new(1, -70, 1, -14),
+		Position = UDim2.new(0, 14, 0, 7),
 		Text = title,
+		Font = UILib.TitleFont,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, header)
+
+	-- Stud dots along the header, like classic brick UI.
+	for i = 1, 5 do
+		local stud = Instance.new("Frame")
+		stud.Size = UDim2.new(0, 7, 0, 7)
+		stud.Position = UDim2.new(1, -60 - i * 14, 0, 4)
+		stud.BackgroundColor3 = Color3.new(1, 1, 1)
+		stud.BackgroundTransparency = 0.75
+		stud.BorderSizePixel = 0
+		UILib.corner(stud, 3)
+		stud.Parent = header
+	end
 
 	UILib.button({
 		Name = "Close",

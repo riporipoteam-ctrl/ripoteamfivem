@@ -133,6 +133,8 @@ function EconomyService.pushState(player)
 		rocketDamage = math.floor(Config.Rocket.BaseDamage * Config.Rocket.DamageGrowth ^ (rocketLevel - 1))
 			* EconomyService.damageMultiplier(player),
 		rocketRemaining = math.max(0, (session.rocketReadyAt or 0) - now()),
+		siloCount = profile.siloCount or 1,
+		nextSiloCost = Config.Silos.Costs[(profile.siloCount or 1) + 1] or 0,
 		nukeOwned = profile.nukeIsland,
 		nukeCharges = profile.nukeCharges,
 		nukeRemaining = math.max(0, profile.lastNukeAt + Config.Nuke.Cooldown - os.time()),
@@ -271,6 +273,24 @@ local function onShopBuy(player, itemId)
 		end
 		profile.barrage += 1
 		notify(player, "\u{1F680}\u{1F680}\u{1F680} Barrage loaded! Your next launch fires 3 rockets.", "good")
+	elseif itemId == "buy_silo" then
+		local count = profile.siloCount or 1
+		local cost = Config.Silos.Costs[count + 1]
+		if not cost then
+			notify(player, "\u{1F680} You already have the maximum " .. Config.Silos.Max .. " silos!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Silo " .. (count + 1) .. " costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.siloCount = count + 1
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			ctx.Plot.updateSilos(slot, profile.siloCount)
+		end
+		notify(player, "\u{1F680} SILO " .. profile.siloCount .. " BUILT! You now fire "
+			.. profile.siloCount .. " rockets per launch!", "victory")
 	elseif itemId == "pass_cash" then
 		if Config.GamePassCash2x > 0 then
 			MarketplaceService:PromptGamePassPurchase(player, Config.GamePassCash2x)

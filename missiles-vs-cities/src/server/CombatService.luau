@@ -26,9 +26,16 @@ local function notifyAll(msg, kind)
 	Remotes.Events.Notify:FireAllClients({ msg = msg, kind = kind or "info" })
 end
 
-local function siloLaunchPos(plotIndex)
-	return Layout.siloPos(plotIndex) + Vector3.new(0, 22, 0)
+local function siloLaunchPos(plotIndex, siloIndex)
+	return Layout.siloPos(plotIndex, siloIndex or 1) + Vector3.new(0, 16, 0)
 end
+
+-- Spread pattern for multi-rocket volleys.
+local SALVO_OFFSETS = {
+	Vector3.new(0, 0, 0), Vector3.new(18, 0, 10), Vector3.new(-16, 0, 14),
+	Vector3.new(10, 0, -16), Vector3.new(-14, 0, -12), Vector3.new(24, 0, -4),
+	Vector3.new(-24, 0, 2), Vector3.new(4, 0, 22), Vector3.new(-6, 0, -24),
+}
 
 local function rocketDamage(player)
 	local profile = ctx.Data.get(player)
@@ -136,7 +143,7 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 	end
 
 	local pos = Layout.clampToPlot(targetSlot.index, Vector3.new(x, 0, z))
-	local fromPos = siloLaunchPos(mySlot.index)
+	local fromPos = siloLaunchPos(mySlot.index, 1)
 
 	if useNuke then
 		local canNuke = profile.nukeIsland or profile.nukeCharges > 0
@@ -168,6 +175,12 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 		notifyAll("\u{2622}\u{FE0F} " .. player.DisplayName .. " has launched a NUKE at "
 			.. target.DisplayName .. "'s city!", "bad")
 		task.delay(flight, impactNuke, player.UserId, target.UserId)
+		ctx.Plot.setSiloRocket(mySlot, 1, false)
+		task.delay(flight + 4, function()
+			if ctx.Plot.getSlot(player) == mySlot then
+				ctx.Plot.setSiloRocket(mySlot, 1, true)
+			end
+		end)
 		if ctx.Quests then
 			ctx.Quests.onEvent(player, "nuke", 1)
 		end
@@ -179,25 +192,38 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 		end
 		session.rocketReadyAt = now() + Config.Rocket.Cooldown
 
-		local salvo = 1
+		-- One rocket per owned silo; barrage triples the volley.
+		local siloCount = math.clamp(profile.siloCount or 1, 1, Config.Silos.Max)
+		local salvo = siloCount
 		if useBarrage and profile.barrage > 0 then
 			profile.barrage -= 1
-			salvo = 3
+			salvo = math.min(siloCount * 3, #SALVO_OFFSETS)
 		end
 		local damage = rocketDamage(player)
-		local offsets = { Vector3.new(0, 0, 0), Vector3.new(18, 0, 10), Vector3.new(-16, 0, 14) }
 		for s = 1, salvo do
-			local hitPos = Layout.clampToPlot(targetSlot.index, pos + offsets[s])
+			local siloIndex = ((s - 1) % siloCount) + 1
+			local hitPos = Layout.clampToPlot(targetSlot.index, pos + SALVO_OFFSETS[s])
 			local flight = Config.Rocket.FlightTime + (s - 1) * 0.7
 			Remotes.Events.MissileEvent:FireAllClients({
 				kind = "rocket",
-				from = fromPos,
+				from = siloLaunchPos(mySlot.index, siloIndex),
 				to = hitPos,
 				flight = flight,
 				attacker = player.DisplayName,
 			})
 			task.delay(flight, impactRocket, player.UserId, target.UserId, hitPos, damage)
 		end
+		-- The decorative silo rockets "lift off": hide, then respawn later.
+		for i = 1, siloCount do
+			ctx.Plot.setSiloRocket(mySlot, i, false)
+		end
+		task.delay(Config.Rocket.FlightTime + 4, function()
+			if ctx.Plot.getSlot(player) == mySlot then
+				for i = 1, siloCount do
+					ctx.Plot.setSiloRocket(mySlot, i, true)
+				end
+			end
+		end)
 		profile.stats.missilesFired += salvo
 		if ctx.Quests then
 			ctx.Quests.onEvent(player, "missile_launch", 1)

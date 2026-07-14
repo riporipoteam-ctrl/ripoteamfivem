@@ -18,6 +18,7 @@ local titleLabel
 local statsLabel
 local upgradeButton
 local launchButton
+local siloButton
 
 local function refresh()
 	local state = ctx.State.get()
@@ -25,6 +26,7 @@ local function refresh()
 		return
 	end
 	titleLabel.Text = "\u{1F680} Rocket \u{00B7} Lv " .. state.rocketLevel
+		.. "  (" .. (state.siloCount or 1) .. " silo" .. ((state.siloCount or 1) > 1 and "s" or "") .. ")"
 	statsLabel.Text = "\u{1F4A5} Damage: " .. NumberFormat.abbrev(state.rocketDamage)
 		.. "   \u{1F4CD} Blast: " .. Config.Rocket.BlastRadius .. " studs"
 
@@ -32,7 +34,7 @@ local function refresh()
 	if remaining > 0 then
 		launchButton.Text = "\u{23F3} " .. NumberFormat.clock(remaining)
 	else
-		launchButton.Text = "Launch"
+		launchButton.Text = "LAUNCH x" .. (state.siloCount or 1)
 	end
 
 	if state.rocketLevel >= Config.Rocket.MaxLevel then
@@ -40,12 +42,20 @@ local function refresh()
 	else
 		upgradeButton.Text = "Upgrade  \u{1F4B5} " .. NumberFormat.abbrev(state.rocketCost)
 	end
+
+	if (state.nextSiloCost or 0) > 0 then
+		siloButton.Visible = true
+		siloButton.Text = "Build Silo " .. ((state.siloCount or 1) + 1)
+			.. "  \u{1F4B5} " .. NumberFormat.abbrev(state.nextSiloCost)
+	else
+		siloButton.Visible = false
+	end
 end
 
 function RocketPanel.init(context)
 	ctx = context
 
-	local panelGui, content = UILib.panel("MVC_RocketPanel", "\u{1F680} Rocket Silo", UDim2.new(0, 340, 0, 250), 15)
+	local panelGui, content = UILib.panel("MVC_RocketPanel", "\u{1F680} Rocket Silo", UDim2.new(0, 340, 0, 310), 15)
 	gui = panelGui
 
 	titleLabel = UILib.text({
@@ -82,6 +92,15 @@ function RocketPanel.init(context)
 		BackgroundColor3 = UILib.Colors.Green,
 	}, content, function()
 		Remotes.Events.UpgradeRocket:FireServer()
+	end)
+
+	siloButton = UILib.button({
+		Size = UDim2.new(1, -20, 0, 52),
+		Position = UDim2.new(0, 10, 0, 202),
+		Text = "Build Silo",
+		BackgroundColor3 = UILib.Colors.Purple,
+	}, content, function()
+		Remotes.Events.ShopBuy:FireServer("buy_silo")
 	end)
 
 	ProximityPromptService.PromptTriggered:Connect(function(prompt)

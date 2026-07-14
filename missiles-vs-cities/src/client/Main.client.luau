@@ -17,6 +17,10 @@ local CharacterShop = require(script.Parent.CharacterShop)
 local GameEvents = require(script.Parent.GameEvents)
 local RebirthUI = require(script.Parent.RebirthUI)
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundBook = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBook"))
+SoundBook.preload() -- warm the Store SFX so first plays are instant
+
 local ctx = {
 	State = ClientState,
 	Notifier = Notifier,

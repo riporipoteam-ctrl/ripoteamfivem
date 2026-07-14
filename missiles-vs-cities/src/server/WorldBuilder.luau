@@ -1,6 +1,7 @@
--- Builds the map: 5 far-apart self-contained islands. Each island has the
--- 4x4 city grid, rocket silo, nuke-access pad, and a front town square
--- (spawn, shop stand, NPCs, leaderboard, rebirth shrine). No central island.
+-- Builds the map in classic stud-brick style: 5 far-apart islands, each with
+-- the 4x4 expandable city grid, up to 3 rocket silos RIGHT BY SPAWN on the
+-- town square (shop, NPCs, leaderboard, rebirth shrine), a park strip at the
+-- back, and decorative filler islands so the ocean isn't empty.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
@@ -17,7 +18,6 @@ local COLOR_GRASS = Color3.fromRGB(96, 186, 78)
 local COLOR_SAND = Color3.fromRGB(226, 200, 140)
 local COLOR_ROAD = Color3.fromRGB(48, 48, 54)
 local COLOR_DASH = Color3.fromRGB(248, 214, 62)
-local COLOR_ZONE = Color3.fromRGB(116, 202, 94)
 local COLOR_SIDEWALK = Color3.fromRGB(168, 168, 172)
 local COLOR_PLAZA = Color3.fromRGB(196, 190, 178)
 
@@ -32,6 +32,19 @@ local function part(props)
 		end
 	end
 	p.Parent = props.Parent
+	return p
+end
+
+-- Classic stud overlay on chosen faces (transparent texture tints with color).
+local function studs(p, faces, tile)
+	for _, face in ipairs(faces) do
+		local tex = Instance.new("Texture")
+		tex.Texture = Config.StudTexture
+		tex.Face = face
+		tex.StudsPerTileU = tile or 4
+		tex.StudsPerTileV = tile or 4
+		tex.Parent = p
+	end
 	return p
 end
 
@@ -55,31 +68,24 @@ local function billboard(adornee, sizeX, sizeY, offsetY, maxDistance)
 	return gui, label
 end
 
-local function buildTree(pos, parent)
-	part({
+-- Minecraft-style blocky tree: stud trunk + cube canopy.
+local function buildTree(pos, parent, big)
+	local h = big and 9 or 7
+	studs(part({
 		Name = "Trunk",
-		Size = Vector3.new(1.8, 6, 1.8),
-		Position = pos + Vector3.new(0, 3, 0),
+		Size = Vector3.new(2, h, 2),
+		Position = pos + Vector3.new(0, h / 2, 0),
 		Color = Color3.fromRGB(118, 84, 50),
-		Material = Enum.Material.Wood,
 		Parent = parent,
-	})
-	part({
+	}), { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }, 2)
+	local canopy = big and 9 or 7
+	studs(part({
 		Name = "Leaves",
-		Size = Vector3.new(6.5, 4.5, 6.5),
-		Position = pos + Vector3.new(0, 8, 0),
+		Size = Vector3.new(canopy, canopy - 2, canopy),
+		Position = pos + Vector3.new(0, h + (canopy - 2) / 2 - 0.5, 0),
 		Color = Color3.fromRGB(62, 158, 62),
-		Material = Enum.Material.Grass,
 		Parent = parent,
-	})
-	part({
-		Name = "Leaves2",
-		Size = Vector3.new(4.5, 3, 4.5),
-		Position = pos + Vector3.new(0, 11, 0),
-		Color = Color3.fromRGB(74, 176, 70),
-		Material = Enum.Material.Grass,
-		Parent = parent,
-	})
+	}), { Enum.NormalId.Top, Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }, 3)
 end
 
 local function buildLamp(pos, parent)
@@ -107,6 +113,7 @@ local function buildLamp(pos, parent)
 end
 
 local function buildRoads(center, folder)
+	local dashLimit = Config.PlotSize / 2 - 16
 	for _, x in ipairs(Layout.RoadXs) do
 		part({
 			Name = "RoadV",
@@ -116,9 +123,8 @@ local function buildRoads(center, folder)
 			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
-		-- Center dashes on vertical roads too.
-		local zDash = -(Config.PlotSize / 2 - 16)
-		while zDash <= Config.PlotSize / 2 - 16 do
+		local zDash = -dashLimit
+		while zDash <= dashLimit do
 			part({
 				Name = "DashV",
 				Size = Vector3.new(1.6, 0.05, 6),
@@ -130,18 +136,6 @@ local function buildRoads(center, folder)
 			zDash += 24
 		end
 	end
-
-	-- Zebra crosswalk where the main road meets the town square.
-	for i = 0, 5 do
-		part({
-			Name = "Zebra",
-			Size = Vector3.new(10, 0.05, 1.4),
-			Position = Vector3.new(center.X, Config.GroundY + 0.3, center.Z + Config.PlotSize / 2 + 4 + i * 2.6),
-			Color = Color3.fromRGB(240, 240, 245),
-			Parent = folder,
-		})
-	end
-	local dashLimit = Config.PlotSize / 2 - 16
 	for _, z in ipairs(Layout.RoadZs) do
 		part({
 			Name = "RoadH",
@@ -163,6 +157,16 @@ local function buildRoads(center, folder)
 			})
 			x += 24
 		end
+	end
+	-- Zebra crosswalk into the town square.
+	for i = 0, 5 do
+		part({
+			Name = "Zebra",
+			Size = Vector3.new(10, 0.05, 1.4),
+			Position = Vector3.new(center.X, Config.GroundY + 0.3, center.Z + Config.PlotSize / 2 + 4 + i * 2.6),
+			Color = Color3.fromRGB(240, 240, 245),
+			Parent = folder,
+		})
 	end
 end
 
@@ -191,90 +195,126 @@ local function buildFence(center, folder)
 	end
 end
 
-local function buildSilo(plotIndex, folder)
-	local pos = Layout.siloPos(plotIndex)
+-- One rocket silo (hazard pad + scaffold + blocky rocket). Only silo 1 gets
+-- the ProximityPrompt; extra silos are visual + extra firepower.
+local function buildSiloGroup(plotIndex, siloIndex, parent)
+	local pos = Layout.siloPos(plotIndex, siloIndex)
+	local model = Instance.new("Model")
+	model.Name = "Silo" .. siloIndex
 
-	part({
+	studs(part({
 		Name = "SiloPad",
-		Size = Vector3.new(36, 0.4, 36),
+		Size = Vector3.new(24, 0.4, 24),
 		Position = pos + Vector3.new(0, 0.2, 0),
 		Color = Color3.fromRGB(240, 200, 40),
 		Material = Enum.Material.DiamondPlate,
-		Parent = folder,
-	})
+		Parent = model,
+	}), { Enum.NormalId.Top }, 3)
 	for i = -1, 1 do
 		part({
 			Name = "SiloStripe",
-			Size = Vector3.new(4, 0.1, 36),
-			Position = pos + Vector3.new(i * 12, 0.5, 0),
+			Size = Vector3.new(3, 0.1, 24),
+			Position = pos + Vector3.new(i * 8, 0.5, 0),
 			Color = Color3.fromRGB(30, 30, 30),
-			Parent = folder,
+			Parent = model,
 		})
 	end
-
-	for _, corner in ipairs({ Vector3.new(-8, 0, -8), Vector3.new(8, 0, -8), Vector3.new(-8, 0, 8), Vector3.new(8, 0, 8) }) do
+	for _, corner in ipairs({ Vector3.new(-6, 0, -6), Vector3.new(6, 0, -6), Vector3.new(-6, 0, 6), Vector3.new(6, 0, 6) }) do
 		part({
 			Name = "SiloColumn",
-			Size = Vector3.new(2, 26, 2),
-			Position = pos + corner + Vector3.new(0, 13, 0),
+			Size = Vector3.new(1.6, 22, 1.6),
+			Position = pos + corner + Vector3.new(0, 11, 0),
 			Color = Color3.fromRGB(150, 150, 158),
 			Material = Enum.Material.Metal,
-			Parent = folder,
+			Parent = model,
 		})
 	end
-	part({
-		Name = "SiloTop",
-		Size = Vector3.new(20, 2, 20),
-		Position = pos + Vector3.new(0, 27, 0),
-		Color = Color3.fromRGB(110, 110, 118),
-		Material = Enum.Material.DiamondPlate,
-		Parent = folder,
-	})
 
+	local rocketParts = {}
 	local body = part({
 		Name = "SiloRocket",
-		Size = Vector3.new(5, 16, 5),
-		Position = pos + Vector3.new(0, 9, 0),
+		Size = Vector3.new(4.4, 14, 4.4),
+		Position = pos + Vector3.new(0, 8, 0),
 		Color = Color3.fromRGB(240, 240, 245),
-		Material = Enum.Material.SmoothPlastic,
-		Parent = folder,
+		Parent = model,
 	})
-	part({
+	studs(body, { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }, 3)
+	rocketParts[#rocketParts + 1] = body
+	rocketParts[#rocketParts + 1] = part({
 		Name = "SiloRocketNose",
-		Size = Vector3.new(3.4, 4, 3.4),
-		Position = pos + Vector3.new(0, 19, 0),
+		Size = Vector3.new(3, 3.6, 3),
+		Position = pos + Vector3.new(0, 16.8, 0),
 		Color = Color3.fromRGB(230, 60, 60),
-		Parent = folder,
+		Parent = model,
 	})
-	for _, off in ipairs({ Vector3.new(-3.2, 0, 0), Vector3.new(3.2, 0, 0), Vector3.new(0, 0, -3.2), Vector3.new(0, 0, 3.2) }) do
-		part({
+	for _, off in ipairs({ Vector3.new(-2.8, 0, 0), Vector3.new(2.8, 0, 0), Vector3.new(0, 0, -2.8), Vector3.new(0, 0, 2.8) }) do
+		rocketParts[#rocketParts + 1] = part({
 			Name = "SiloFin",
-			Size = Vector3.new(1.4, 5, 1.4),
-			Position = pos + off + Vector3.new(0, 2.5, 0),
+			Size = Vector3.new(1.2, 4.4, 1.2),
+			Position = pos + off + Vector3.new(0, 2.2, 0),
 			Color = Color3.fromRGB(230, 60, 60),
-			Parent = folder,
+			Parent = model,
 		})
 	end
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "RocketPrompt"
-	prompt.ActionText = "Rocket Controls"
-	prompt.ObjectText = "Rocket Silo"
-	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = 16
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = body
+	if siloIndex == 1 then
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "RocketPrompt"
+		prompt.ActionText = "Rocket Controls"
+		prompt.ObjectText = "Rocket Silo"
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 18
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = body
+		local _, label = billboard(body, 18, 6, 14, 300)
+		label.Text = "\u{1F680} Rocket Silo"
+	end
 
-	local _, label = billboard(body, 18, 6, 16, 300)
-	label.Text = "\u{1F680} Rocket Silo"
+	model.Parent = parent
+	return { model = model, rocketParts = rocketParts, parent = parent }
+end
 
-	-- Nuke-access pad right next to the silo.
-	local nukePadPos = pos + Vector3.new(42, 0.4, 0)
+local function buildTownSquare(plotIndex, folder)
+	local c = Layout.plotCenter(plotIndex)
+	local half = Config.PlotSize / 2
+	local townZ = c.Z + half
+
+	studs(part({
+		Name = "Plaza",
+		Size = Vector3.new(Config.PlotSize, 0.3, Layout.TownDepth - 4),
+		Position = Vector3.new(c.X, Config.GroundY + 0.15, townZ + Layout.TownDepth / 2),
+		Color = COLOR_PLAZA,
+		Material = Enum.Material.Concrete,
+		Parent = folder,
+	}), { Enum.NormalId.Top }, 4)
+
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn" .. plotIndex
+	spawn.Size = Vector3.new(12, 1, 12)
+	spawn.Position = Vector3.new(c.X, Config.GroundY + 0.6, townZ + 16)
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.TopSurface = Enum.SurfaceType.Smooth
+	spawn.Color = Color3.fromRGB(90, 160, 240)
+	spawn.Parent = folder
+
+	-- Rocket silos (left of spawn). Extra silos start hidden.
+	local siloGroups = {}
+	for i = 1, Config.Silos.Max do
+		siloGroups[i] = buildSiloGroup(plotIndex, i, folder)
+		if i > 1 then
+			siloGroups[i].model.Parent = nil
+		end
+	end
+
+	-- Nuke-access pad beside the silos.
+	local nukePadPos = Layout.nukePadPos(plotIndex)
 	local nukePad = part({
 		Name = "NukeBuyPad",
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.6, 12, 12),
-		CFrame = CFrame.new(nukePadPos) * CFrame.Angles(0, 0, math.rad(90)),
+		CFrame = CFrame.new(nukePadPos + Vector3.new(0, 0.4, 0)) * CFrame.Angles(0, 0, math.rad(90)),
 		Color = Color3.fromRGB(190, 90, 240),
 		Material = Enum.Material.Neon,
 		Parent = folder,
@@ -291,37 +331,9 @@ local function buildSilo(plotIndex, folder)
 	nukePrompt.RequiresLineOfSight = false
 	nukePrompt.Parent = nukePad
 
-	return body, nukePad
-end
-
-local function buildTownSquare(plotIndex, folder)
-	local c = Layout.plotCenter(plotIndex)
-	local half = Config.PlotSize / 2
-
-	-- Plaza pavement across the town strip.
-	part({
-		Name = "Plaza",
-		Size = Vector3.new(Config.PlotSize, 0.3, Layout.TownDepth - 4),
-		Position = Vector3.new(c.X, Config.GroundY + 0.15, c.Z + half + Layout.TownDepth / 2),
-		Color = COLOR_PLAZA,
-		Material = Enum.Material.Concrete,
-		Parent = folder,
-	})
-
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Spawn" .. plotIndex
-	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.Position = Vector3.new(c.X, Config.GroundY + 0.6, c.Z + half + 16)
-	spawn.Anchored = true
-	spawn.Neutral = true
-	spawn.Duration = 0
-	spawn.TopSurface = Enum.SurfaceType.Smooth
-	spawn.Color = Color3.fromRGB(90, 160, 240)
-	spawn.Parent = folder
-
-	-- Benny's shop stand.
+	-- Benny's shop stand (right side).
 	local standX = c.X + 80
-	local standZ = c.Z + half + 34
+	local standZ = townZ + 34
 	part({
 		Name = "Counter",
 		Size = Vector3.new(10, 3.2, 2),
@@ -358,10 +370,10 @@ local function buildTownSquare(plotIndex, folder)
 		})
 	end
 
-	-- Rebirth shrine.
+	-- Rebirth shrine (far right).
 	local shrineX = c.X + 118
-	local shrineZ = c.Z + half + 44
-	local pedestal = part({
+	local shrineZ = townZ + 44
+	local pedestal = studs(part({
 		Name = "Pedestal",
 		Size = Vector3.new(7, 2, 7),
 		Position = Vector3.new(shrineX, Config.GroundY + 1, shrineZ),
@@ -369,7 +381,7 @@ local function buildTownSquare(plotIndex, folder)
 		Color = Color3.fromRGB(255, 215, 80),
 		Material = Enum.Material.Metal,
 		Parent = folder,
-	})
+	}), { Enum.NormalId.Top }, 3)
 	local orb = part({
 		Name = "Orb",
 		Shape = Enum.PartType.Ball,
@@ -399,16 +411,15 @@ local function buildTownSquare(plotIndex, folder)
 	shrinePrompt.Parent = pedestal
 
 	-- Decorations.
-	buildTree(Vector3.new(c.X - 122, Config.GroundY, c.Z + half + 14), folder)
-	buildTree(Vector3.new(c.X + 122, Config.GroundY, c.Z + half + 12), folder)
-	buildLamp(Vector3.new(c.X - 30, Config.GroundY, c.Z + half + 12), folder)
-	buildLamp(Vector3.new(c.X + 30, Config.GroundY, c.Z + half + 12), folder)
+	buildTree(Vector3.new(c.X + 122, Config.GroundY, townZ + 10), folder)
+	buildLamp(Vector3.new(c.X - 30, Config.GroundY, townZ + 10), folder)
+	buildLamp(Vector3.new(c.X + 30, Config.GroundY, townZ + 10), folder)
 
-	-- Owner banner pole.
+	-- Owner banner pole (right of spawn).
 	local pole = part({
 		Name = "BannerPole",
 		Size = Vector3.new(1, 12, 1),
-		Position = Vector3.new(c.X - 118, Config.GroundY + 6, c.Z + half + 40),
+		Position = Vector3.new(c.X + 118, Config.GroundY + 6, townZ + 14),
 		Color = Color3.fromRGB(120, 120, 128),
 		Material = Enum.Material.Metal,
 		Parent = folder,
@@ -417,20 +428,37 @@ local function buildTownSquare(plotIndex, folder)
 	bannerGui.AlwaysOnTop = true
 	bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
 
-	-- Leaderboard placement info for LeaderboardService.
-	local boardPos = Vector3.new(c.X, Config.GroundY, c.Z + half + Layout.TownDepth - 6)
-
 	return {
 		bannerLabel = bannerLabel,
-		boardPos = boardPos,
+		boardPos = Vector3.new(c.X, Config.GroundY, townZ + Layout.TownDepth - 6),
+		siloGroups = siloGroups,
+		nukePad = nukePad,
 		npcAnchors = {
 			shopkeeper = Vector3.new(standX, Config.GroundY, standZ + 2.5),
-			tailor = Vector3.new(c.X - 80, Config.GroundY, c.Z + half + 34),
-			mayor = Vector3.new(c.X + 32, Config.GroundY, c.Z + half + 46),
-			general = Vector3.new(c.X - 32, Config.GroundY, c.Z + half + 46),
+			tailor = Vector3.new(c.X + 45, Config.GroundY, townZ + 30),
+			mayor = Vector3.new(c.X + 26, Config.GroundY, townZ + 50),
+			general = Vector3.new(c.X - 26, Config.GroundY, townZ + 50),
 		},
-		npcLookAt = Vector3.new(c.X, Config.GroundY, c.Z + half + 16),
+		npcLookAt = Vector3.new(c.X, Config.GroundY, townZ + 16),
 	}
+end
+
+-- Back strip where silos used to live: now a little stud park.
+local function buildPark(plotIndex, folder)
+	local c = Layout.plotCenter(plotIndex)
+	local z = c.Z - 110
+	buildTree(Vector3.new(c.X - 90, Config.GroundY, z), folder, true)
+	buildTree(Vector3.new(c.X - 30, Config.GroundY, z + 8), folder)
+	buildTree(Vector3.new(c.X + 34, Config.GroundY, z - 6), folder, true)
+	buildTree(Vector3.new(c.X + 96, Config.GroundY, z + 4), folder)
+	studs(part({
+		Name = "ParkRock",
+		Size = Vector3.new(6, 3, 5),
+		Position = Vector3.new(c.X + 62, Config.GroundY + 1.5, z - 8),
+		Color = Color3.fromRGB(130, 130, 136),
+		Material = Enum.Material.Slate,
+		Parent = folder,
+	}), { Enum.NormalId.Top }, 2)
 end
 
 local function buildPlot(plotIndex, root)
@@ -439,21 +467,21 @@ local function buildPlot(plotIndex, root)
 	folder.Name = "Plot" .. plotIndex
 	folder.Parent = root
 
-	local half = Config.PlotSize / 2
 	local depthZ = Config.PlotSize + Layout.TownDepth
 	local islandCenterZ = center.Z + Layout.TownDepth / 2
 
-	part({
+	studs(part({
 		Name = "Island",
 		Size = Vector3.new(Config.PlotSize, 10, depthZ),
 		Position = Vector3.new(center.X, -1, islandCenterZ),
 		Color = COLOR_GRASS,
 		Material = Enum.Material.Grass,
 		Parent = folder,
-	})
+	}), { Enum.NormalId.Top }, 4)
+	-- Big sandy shelf makes each island feel larger.
 	part({
 		Name = "IslandRim",
-		Size = Vector3.new(Config.PlotSize + 18, 8, depthZ + 18),
+		Size = Vector3.new(Config.PlotSize + 44, 8, depthZ + 44),
 		Position = Vector3.new(center.X, -1.5, islandCenterZ),
 		Color = COLOR_SAND,
 		Material = Enum.Material.Sand,
@@ -462,6 +490,7 @@ local function buildPlot(plotIndex, root)
 
 	buildRoads(center, folder)
 	buildFence(center, folder)
+	buildPark(plotIndex, folder)
 
 	local town = buildTownSquare(plotIndex, folder)
 
@@ -474,17 +503,17 @@ local function buildPlot(plotIndex, root)
 			Position = Vector3.new(zCenter.X, Config.GroundY + 0.12, zCenter.Z),
 			Color = COLOR_SIDEWALK,
 			Material = Enum.Material.Concrete,
-			Transparency = 1, -- appears when the area is unlocked
+			Transparency = 1,
 			Parent = folder,
 		})
-		local plate = part({
+		local plate = studs(part({
 			Name = "ZonePlate",
 			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
 			Position = Vector3.new(zCenter.X, Config.GroundY + 0.18, zCenter.Z),
-			Color = COLOR_SAND, -- locked look until unlocked
+			Color = COLOR_SAND,
 			Material = Enum.Material.Sand,
 			Parent = folder,
-		})
+		}), { Enum.NormalId.Top }, 4)
 
 		local buildings = Instance.new("Model")
 		buildings.Name = "Buildings" .. zi
@@ -513,19 +542,50 @@ local function buildPlot(plotIndex, root)
 		}
 	end
 
-	local siloBody, nukePad = buildSilo(plotIndex, folder)
-
 	return {
 		index = plotIndex,
 		folder = folder,
 		zoneData = zoneData,
 		bannerLabel = town.bannerLabel,
-		siloBody = siloBody,
-		nukePad = nukePad,
+		siloGroups = town.siloGroups,
+		nukePad = town.nukePad,
 		boardPos = town.boardPos,
 		npcAnchors = town.npcAnchors,
 		npcLookAt = town.npcLookAt,
 	}
+end
+
+-- Small scenic islands scattered between the player islands.
+local function buildFillerIsland(pos, size, root)
+	local folder = Instance.new("Folder")
+	folder.Name = "FillerIsland"
+	folder.Parent = root
+	part({
+		Name = "FillerSand",
+		Size = Vector3.new(size + 14, 7, size + 14),
+		Position = pos + Vector3.new(0, -2, 0),
+		Color = COLOR_SAND,
+		Material = Enum.Material.Sand,
+		Parent = folder,
+	})
+	studs(part({
+		Name = "FillerGrass",
+		Size = Vector3.new(size, 8, size),
+		Position = pos + Vector3.new(0, 0, 0),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = folder,
+	}), { Enum.NormalId.Top }, 4)
+	buildTree(pos + Vector3.new(-size / 5, Config.GroundY, -size / 6), folder, true)
+	buildTree(pos + Vector3.new(size / 4, Config.GroundY, size / 5), folder)
+	studs(part({
+		Name = "FillerRock",
+		Size = Vector3.new(5, 2.5, 4),
+		Position = pos + Vector3.new(size / 4, Config.GroundY + 1.25, -size / 4),
+		Color = Color3.fromRGB(130, 130, 136),
+		Material = Enum.Material.Slate,
+		Parent = folder,
+	}), { Enum.NormalId.Top }, 2)
 end
 
 function WorldBuilder.build()
@@ -541,6 +601,14 @@ function WorldBuilder.build()
 		slots[i] = buildPlot(i, root)
 	end
 
+	-- Fill the sea between islands with scenery.
+	for i = 1, 5 do
+		local angle = math.rad(-18 + (i - 1) * 72)
+		local pos = Vector3.new(math.cos(angle) * 400, 0, math.sin(angle) * 400)
+		buildFillerIsland(pos, 46 + (i % 3) * 14, root)
+	end
+	buildFillerIsland(Vector3.new(0, 0, 0), 70, root)
+
 	-- Bright cartoon lighting with modern rendering.
 	Lighting.Brightness = 3
 	Lighting.ClockTime = 13.5
@@ -555,13 +623,11 @@ function WorldBuilder.build()
 	atmosphere.Haze = 1.2
 	atmosphere.Parent = Lighting
 
-	-- Volumetric clouds (puffier).
 	local clouds = Instance.new("Clouds")
 	clouds.Cover = 0.58
 	clouds.Density = 0.85
 	clouds.Parent = workspace.Terrain
 
-	-- Post-processing: subtle bloom, sun rays and color grading.
 	local bloom = Instance.new("BloomEffect")
 	bloom.Intensity = 0.4
 	bloom.Size = 24

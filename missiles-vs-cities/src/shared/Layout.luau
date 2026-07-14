@@ -39,9 +39,16 @@ function Layout.padPos(plotIndex, zoneIndex)
 	return Layout.zoneCenter(plotIndex, zoneIndex) + Vector3.new(0, 0, 26)
 end
 
-function Layout.siloPos(plotIndex)
+-- Silos live on the town square, right next to spawn. Up to 3 in a row.
+function Layout.siloPos(plotIndex, siloIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY, c.Z - 110)
+	local townZ = c.Z + Config.PlotSize / 2
+	return Vector3.new(c.X - 66 - ((siloIndex or 1) - 1) * 32, Config.GroundY, townZ + 36)
+end
+
+function Layout.nukePadPos(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X - 38, Config.GroundY, c.Z + Config.PlotSize / 2 + 36)
 end
 
 function Layout.plotSpawn(plotIndex)
