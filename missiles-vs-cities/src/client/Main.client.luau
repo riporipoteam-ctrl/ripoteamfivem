@@ -15,7 +15,6 @@ local Dialogue = require(script.Parent.Dialogue)
 local QuestUI = require(script.Parent.QuestUI)
 local CharacterShop = require(script.Parent.CharacterShop)
 local GameEvents = require(script.Parent.GameEvents)
-local Citizens = require(script.Parent.Citizens)
 local RebirthUI = require(script.Parent.RebirthUI)
 
 local ctx = {
@@ -42,7 +41,6 @@ AlarmUI.init()
 FX.init()
 CashPopups.init()
 GameEvents.init()
-Citizens.init(ctx)
 MusicPlayer.init()
 
 ClientState.start()

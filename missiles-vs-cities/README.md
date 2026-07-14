@@ -9,13 +9,14 @@ tablet and console.
 
 ## ✨ Features
 
-- **5 players per server**, each with their own city island
+- **5 players per server**, each with their own far-apart island — spawn, shop,
+  NPCs, leaderboard and rebirth shrine are all on YOUR island (no hub, no bridges)
 - **12 buildable zones** per city (Houses → Space Center), bought and
   upgraded by **stepping on pads**, with income per second and floating `+$` popups
 - **Upgradeable rocket silo** (Launch / Upgrade panel) — blow up parts of other
   players' cities from a **top-down BLOW UP attack view** and steal the value
   of every building you destroy
-- **☢️ Nuke Island** — buy access for $995T (in-game cash, no Robux), launch
+- **☢️ Nuke Access** — buy it on the purple pad next to your own silo for $995T (in-game cash, no Robux), launch
   **one nuke per 24h**: the victim gets a flashing red alert + siren + beacon
   marking the impact spot, then a mushroom cloud flattens their whole city and
   you steal its entire worth. The city rebuilds itself over the next few minutes.
@@ -27,7 +28,7 @@ tablet and console.
   camera shake, explosions, debris — the works
 - **Data saving** via DataStores (cash, gems, buildings, rocket level, nuke
   access, streaks, rebirths, cosmetics, quest progress)
-- **Lobby NPCs with dialogue**: Benny the Shopkeeper (shop stand), Tilly the
+- **NPCs on YOUR island** (real Roblox avatars with dialogue): Benny the Shopkeeper (shop stand), Tilly the
   Tailor (character shop: speed/jump boosts, titles, rainbow trail), plus
   **quest givers** Mayor Penny (building quests) and General Boom (combat
   quests) — with endless repeatable end-quests
@@ -35,9 +36,9 @@ tablet and console.
   **🌟 Rebirth Shrine**: reset your city for a permanent, stacking income
   multiplier — the game literally never ends
 - **Random world events**: Cash Frenzy, Gem Rain, Meteor Showers, Supply Drops
-- **Global leaderboard** in the lobby: Richest Cities of All Time (saved
+- **Global leaderboard on every island**: Richest Cities of All Time (saved
   across all servers)
-- **Little citizens** wandering around every active city, volumetric clouds,
+- **Small citizen avatars** walking the roads of every active city, volumetric clouds,
   and SFX on every interaction (buttons, panels, dialogue typewriter, quests,
   events, purchases, explosions...)
 

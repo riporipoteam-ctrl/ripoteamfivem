@@ -20,33 +20,50 @@ function HUD.init(ctx)
 	holder.BackgroundTransparency = 1
 	holder.AnchorPoint = Vector2.new(0.5, 0)
 	holder.Position = UDim2.new(0.5, 0, 0, 4)
-	holder.Size = UDim2.new(0, 620, 0, 96)
+	holder.Size = UDim2.new(0, 620, 0, 120)
 	holder.Parent = gui
 
+	-- Rounded dark "pill" backdrops keep the counters readable on any scene.
+	local function pill(width, height, y)
+		local frame = Instance.new("Frame")
+		frame.AnchorPoint = Vector2.new(0.5, 0)
+		frame.Position = UDim2.new(0.5, 0, 0, y)
+		frame.Size = UDim2.new(0, width, 0, height)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
+		frame.BackgroundTransparency = 0.35
+		frame.BorderSizePixel = 0
+		UILib.corner(frame, height / 2)
+		frame.Parent = holder
+		return frame
+	end
+
+	local gemsPill = pill(150, 26, 0)
 	local gemsLabel = UILib.text({
-		Size = UDim2.new(1, 0, 0, 24),
-		Position = UDim2.new(0, 0, 0, 0),
+		Size = UDim2.new(1, -16, 1, -6),
+		Position = UDim2.new(0, 8, 0, 3),
 		Text = "\u{1F48E} 0",
 		TextColor3 = Color3.fromRGB(220, 130, 250),
-	}, holder)
+	}, gemsPill)
 
+	local cashPill = pill(430, 42, 30)
 	local cashLabel = UILib.text({
-		Size = UDim2.new(1, 0, 0, 40),
-		Position = UDim2.new(0, 0, 0, 26),
+		Size = UDim2.new(1, -20, 1, -8),
+		Position = UDim2.new(0, 10, 0, 4),
 		Text = "\u{1F4B5} 0",
 		TextColor3 = Color3.fromRGB(140, 245, 120),
-	}, holder)
+	}, cashPill)
 
+	local incomePill = pill(170, 24, 76)
 	local incomeLabel = UILib.text({
-		Size = UDim2.new(1, 0, 0, 20),
-		Position = UDim2.new(0, 0, 0, 68),
+		Size = UDim2.new(1, -16, 1, -6),
+		Position = UDim2.new(0, 8, 0, 3),
 		Text = "",
 		TextColor3 = Color3.fromRGB(200, 235, 190),
-	}, holder)
+	}, incomePill)
 
 	local rebirthLabel = UILib.text({
 		Size = UDim2.new(1, 0, 0, 18),
-		Position = UDim2.new(0, 0, 0, 90),
+		Position = UDim2.new(0, 0, 0, 102),
 		Text = "",
 		TextColor3 = Color3.fromRGB(255, 230, 120),
 	}, holder)

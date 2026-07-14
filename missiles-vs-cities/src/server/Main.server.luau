@@ -20,13 +20,16 @@ local QuestService = require(script.Parent.QuestService)
 local EventsService = require(script.Parent.EventsService)
 local CosmeticsService = require(script.Parent.CosmeticsService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local CitizensService = require(script.Parent.CitizensService)
 local NPCBuilder = require(script.Parent.NPCBuilder)
 
-StarterPlayer.CameraMaxZoomDistance = 400
+StarterPlayer.CameraMaxZoomDistance = 500
 Players.RespawnTime = 3
 
 local world = WorldBuilder.build()
-NPCBuilder.build(world.root)
+task.spawn(function()
+	NPCBuilder.build(world) -- avatar loading yields; don't block startup
+end)
 
 local ctx = {
 	Data = DataService,
@@ -52,6 +55,9 @@ QuestService.init(ctx)
 CosmeticsService.init(ctx)
 EventsService.init(ctx)
 LeaderboardService.init(ctx)
+CitizensService.init(ctx)
+
+local Remotes = require(Shared.Remotes)
 
 local function onPlayerAdded(player)
 	ctx.session[player] = {}
@@ -62,6 +68,20 @@ local function onPlayerAdded(player)
 	EconomyService.onJoin(player)
 	PlotService.assign(player)
 	EconomyService.pushState(player)
+
+	-- Make it obvious when progress can't be saved (unpublished / API off).
+	local profile = DataService.get(player)
+	if profile and (profile.__noSave or not DataService.available()) then
+		task.delay(6, function()
+			if player.Parent then
+				Remotes.Events.Notify:FireClient(player, {
+					msg = "\u{26A0}\u{FE0F} SAVING IS OFF! Publish the game, then enable "
+						.. "Game Settings \u{2192} Security \u{2192} Allow Studio Access to API Services.",
+					kind = "bad",
+				})
+			end
+		end)
+	end
 end
 
 local function onPlayerRemoving(player)

@@ -93,7 +93,7 @@ function RocketPanel.init(context)
 			if state and (state.nukeOwned or (state.nukeCharges or 0) > 0) then
 				ctx.AttackView.open(true)
 			else
-				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad ("
+				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad next to your silo ("
 					.. "\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. ") or claim the Day 7 daily reward.", "bad")
 			end
 		end

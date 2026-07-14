@@ -1,4 +1,5 @@
--- Background music playlist with a mute toggle (bottom-right).
+-- Chill background music: finds the first track id that actually loads,
+-- then loops it forever. Mute toggle bottom-right.
 
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,37 +12,28 @@ local MusicPlayer = {}
 
 local muted = false
 local current = nil
+local VOLUME = 0.16
 
-local function playLoop()
-	local trackIndex = 0
-	while true do
-		if #SoundBook.Music == 0 then
-			return
-		end
-		trackIndex = (trackIndex % #SoundBook.Music) + 1
-
+local function startMusic()
+	for _, id in ipairs(SoundBook.Music) do
 		local sound = Instance.new("Sound")
 		sound.Name = "MVC_Music"
-		sound.SoundId = "rbxassetid://" .. SoundBook.Music[trackIndex]
-		sound.Volume = muted and 0 or 0.2
+		sound.SoundId = "rbxassetid://" .. id
+		sound.Volume = muted and 0 or VOLUME
+		sound.Looped = true
 		sound.Parent = SoundService
-		current = sound
-		sound:Play()
 
-		-- Give it a moment to load; skip broken/moderated ids gracefully.
 		local waited = 0
 		while not sound.IsLoaded and waited < 6 do
 			task.wait(0.5)
 			waited += 0.5
 		end
 		if sound.IsLoaded then
-			while sound.IsPlaying do
-				task.wait(1)
-			end
+			current = sound
+			sound:Play()
+			return -- loop this one forever
 		end
-		sound:Destroy()
-		current = nil
-		task.wait(2)
+		sound:Destroy() -- broken/moderated id, try the next
 	end
 end
 
@@ -57,11 +49,11 @@ function MusicPlayer.init()
 		muted = not muted
 		toggle.Text = muted and "\u{1F507}" or "\u{1F50A}"
 		if current then
-			current.Volume = muted and 0 or 0.2
+			current.Volume = muted and 0 or VOLUME
 		end
 	end)
 
-	task.spawn(playLoop)
+	task.spawn(startMusic)
 end
 
 return MusicPlayer

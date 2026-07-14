@@ -85,9 +85,25 @@ local function meteorShower()
 end
 
 local function supplyDrop()
-	announce("supply", "\u{1F4E6} SUPPLY DROP at the lobby! First one to grab it wins!", 25)
+	local occupied = {}
+	for _, slot in ipairs(ctx.Plot.slots()) do
+		if slot.owner then
+			occupied[#occupied + 1] = slot
+		end
+	end
+	if #occupied == 0 then
+		return
+	end
+	local slot = occupied[rng:NextInteger(1, #occupied)]
+	announce("supply", "\u{1F4E6} SUPPLY DROP on " .. slot.owner.DisplayName
+		.. "'s island! First one to grab it wins!", 25)
 
-	local pos = Vector3.new(rng:NextNumber(-35, 35), Config.GroundY + 2, rng:NextNumber(-35, 35))
+	local c = Layout.plotCenter(slot.index)
+	local pos = Vector3.new(
+		c.X + rng:NextNumber(-80, 80),
+		Config.GroundY + 2,
+		c.Z + rng:NextNumber(-80, 80)
+	)
 	local crate = Instance.new("Part")
 	crate.Name = "SupplyDrop"
 	crate.Size = Vector3.new(4, 4, 4)

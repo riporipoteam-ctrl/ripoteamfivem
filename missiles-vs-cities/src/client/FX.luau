@@ -98,7 +98,10 @@ local function fadeOut(part, duration)
 end
 
 local function explosionFX(pos)
-	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = rng:NextNumber(0.6, 0.85), RollOffMaxDistance = 600 })
+	-- Layered boom: crunch + deep thump reads much bigger than one sample.
+	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = rng:NextNumber(0.55, 0.75), RollOffMaxDistance = 600 })
+	SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.45, Volume = 0.7, RollOffMaxDistance = 600 })
+	SoundBook.playAt("Glass", pos, { PlaybackSpeed = rng:NextNumber(0.8, 1), Volume = 0.35, RollOffMaxDistance = 400 })
 
 	local boom = Instance.new("Explosion")
 	boom.Position = pos

@@ -110,6 +110,13 @@ def main():
     body = "".join(
         [
             service_item("Workspace", ""),
+            # Future lighting = dynamic shadows + specular highlights.
+            service_item(
+                "Lighting",
+                "",
+                '<token name="Technology">4</token>'
+                '<bool name="GlobalShadows">true</bool>',
+            ),
             service_item("ReplicatedStorage", shared),
             service_item("ServerScriptService", server),
             service_item("StarterPlayer", starter_scripts),

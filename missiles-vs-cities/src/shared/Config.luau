@@ -8,7 +8,7 @@ Config.MaxPlayers = 5
 -- World layout
 Config.PlotCount = 5
 Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip
-Config.PlotDistance = 420
+Config.PlotDistance = 700 -- big gaps between islands
 Config.ZoneSize = 40
 Config.GroundY = 4
 

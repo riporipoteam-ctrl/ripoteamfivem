@@ -1,5 +1,6 @@
--- Builds the whole map from parts at server start: lobby, 5 plot islands,
--- roads, buy pads, rocket silos, bridges and Nuke Island.
+-- Builds the map: 5 far-apart self-contained islands. Each island has the
+-- 4x4 city grid, rocket silo, nuke-access pad, and a front town square
+-- (spawn, shop stand, NPCs, leaderboard, rebirth shrine). No central island.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
@@ -12,12 +13,13 @@ local NumberFormat = require(Shared.NumberFormat)
 
 local WorldBuilder = {}
 
-local COLOR_GRASS = Color3.fromRGB(106, 200, 86)
-local COLOR_SAND = Color3.fromRGB(233, 208, 148)
-local COLOR_ROAD = Color3.fromRGB(58, 58, 64)
+local COLOR_GRASS = Color3.fromRGB(96, 186, 78)
+local COLOR_SAND = Color3.fromRGB(226, 200, 140)
+local COLOR_ROAD = Color3.fromRGB(48, 48, 54)
 local COLOR_DASH = Color3.fromRGB(248, 214, 62)
-local COLOR_ZONE = Color3.fromRGB(126, 212, 102)
-local COLOR_FENCE = Color3.fromRGB(196, 164, 108)
+local COLOR_ZONE = Color3.fromRGB(116, 202, 94)
+local COLOR_SIDEWALK = Color3.fromRGB(168, 168, 172)
+local COLOR_PLAZA = Color3.fromRGB(196, 190, 178)
 
 local function part(props)
 	local p = Instance.new("Part")
@@ -56,108 +58,75 @@ end
 local function buildTree(pos, parent)
 	part({
 		Name = "Trunk",
-		Size = Vector3.new(2, 7, 2),
-		Position = pos + Vector3.new(0, 3.5, 0),
-		Color = Color3.fromRGB(126, 90, 54),
+		Size = Vector3.new(1.8, 6, 1.8),
+		Position = pos + Vector3.new(0, 3, 0),
+		Color = Color3.fromRGB(118, 84, 50),
+		Material = Enum.Material.Wood,
 		Parent = parent,
 	})
 	part({
 		Name = "Leaves",
-		Size = Vector3.new(6, 5, 6),
-		Position = pos + Vector3.new(0, 9, 0),
-		Color = Color3.fromRGB(70, 170, 70),
-		Parent = parent,
-	})
-end
-
-local function buildLobby(root)
-	local folder = Instance.new("Folder")
-	folder.Name = "Lobby"
-	folder.Parent = root
-
-	part({
-		Name = "LobbyBase",
-		Size = Vector3.new(110, 8, 110),
-		Position = Vector3.new(0, 0, 0),
-		Color = COLOR_GRASS,
+		Size = Vector3.new(6.5, 4.5, 6.5),
+		Position = pos + Vector3.new(0, 8, 0),
+		Color = Color3.fromRGB(62, 158, 62),
 		Material = Enum.Material.Grass,
-		Parent = folder,
-	})
-	part({
-		Name = "LobbyRim",
-		Size = Vector3.new(122, 7, 122),
-		Position = Vector3.new(0, -1, 0),
-		Color = COLOR_SAND,
-		Material = Enum.Material.Sand,
-		Parent = folder,
-	})
-
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Spawn"
-	spawn.Size = Vector3.new(14, 1, 14)
-	spawn.Position = Vector3.new(0, Config.GroundY + 0.5, 0)
-	spawn.Anchored = true
-	spawn.Neutral = true
-	spawn.Duration = 0
-	spawn.TopSurface = Enum.SurfaceType.Smooth
-	spawn.Color = Color3.fromRGB(90, 160, 240)
-	spawn.Parent = folder
-
-	buildTree(Vector3.new(-40, Config.GroundY, -40), folder)
-	buildTree(Vector3.new(42, Config.GroundY, -38), folder)
-	buildTree(Vector3.new(-38, Config.GroundY, 42), folder)
-	buildTree(Vector3.new(40, Config.GroundY, 40), folder)
-
-	local signPost = part({
-		Name = "WelcomeSign",
-		Size = Vector3.new(18, 6, 1),
-		Position = Vector3.new(0, Config.GroundY + 6, -20),
-		Color = Color3.fromRGB(235, 60, 60),
-		Parent = folder,
-	})
-	local _, label = billboard(signPost, 22, 8, 4, 400)
-	label.Text = "\u{1F680} MISSILES VS CITIES \u{1F680}\nCross a bridge to find your city!"
-end
-
-local function buildBridge(fromPos, toPos, width, parent)
-	local flatFrom = Vector3.new(fromPos.X, 0, fromPos.Z)
-	local flatTo = Vector3.new(toPos.X, 0, toPos.Z)
-	local length = (flatTo - flatFrom).Magnitude
-	local mid = (flatFrom + flatTo) / 2
-	local cf = CFrame.lookAt(Vector3.new(mid.X, Config.GroundY - 0.5, mid.Z), Vector3.new(flatTo.X, Config.GroundY - 0.5, flatTo.Z))
-	part({
-		Name = "Bridge",
-		Size = Vector3.new(width, 1, length),
-		CFrame = cf,
-		Color = Color3.fromRGB(150, 116, 78),
-		Material = Enum.Material.WoodPlanks,
 		Parent = parent,
 	})
+	part({
+		Name = "Leaves2",
+		Size = Vector3.new(4.5, 3, 4.5),
+		Position = pos + Vector3.new(0, 11, 0),
+		Color = Color3.fromRGB(74, 176, 70),
+		Material = Enum.Material.Grass,
+		Parent = parent,
+	})
+end
+
+local function buildLamp(pos, parent)
+	part({
+		Name = "LampPole",
+		Size = Vector3.new(0.7, 9, 0.7),
+		Position = pos + Vector3.new(0, 4.5, 0),
+		Color = Color3.fromRGB(70, 70, 78),
+		Material = Enum.Material.Metal,
+		Parent = parent,
+	})
+	local bulb = part({
+		Name = "LampBulb",
+		Size = Vector3.new(1.4, 1, 1.4),
+		Position = pos + Vector3.new(0, 9.4, 0),
+		Color = Color3.fromRGB(255, 236, 160),
+		Material = Enum.Material.Neon,
+		Parent = parent,
+	})
+	local light = Instance.new("PointLight")
+	light.Range = 22
+	light.Brightness = 1.2
+	light.Color = Color3.fromRGB(255, 230, 160)
+	light.Parent = bulb
 end
 
 local function buildRoads(center, folder)
-	-- Vertical roads (full depth) then horizontal roads; tiny Y offsets stop z-fighting.
-	local vXs = { -104, -52, 0, 52, 104 }
-	for _, x in ipairs(vXs) do
+	for _, x in ipairs(Layout.RoadXs) do
 		part({
 			Name = "RoadV",
 			Size = Vector3.new(12, 0.2, Config.PlotSize),
 			Position = Vector3.new(center.X + x, Config.GroundY + 0.1, center.Z),
 			Color = COLOR_ROAD,
+			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
 	end
-	local hZs = { 130, 78, 26, -26, -78 }
 	local dashLimit = Config.PlotSize / 2 - 16
-	for _, z in ipairs(hZs) do
+	for _, z in ipairs(Layout.RoadZs) do
 		part({
 			Name = "RoadH",
 			Size = Vector3.new(Config.PlotSize, 0.2, 12),
 			Position = Vector3.new(center.X, Config.GroundY + 0.14, center.Z + z),
 			Color = COLOR_ROAD,
+			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
-		-- Yellow dashes along horizontal roads.
 		local x = -dashLimit
 		while x <= dashLimit do
 			part({
@@ -165,6 +134,7 @@ local function buildRoads(center, folder)
 				Size = Vector3.new(6, 0.05, 1.6),
 				Position = Vector3.new(center.X + x, Config.GroundY + 0.26, center.Z + z),
 				Color = COLOR_DASH,
+				Material = Enum.Material.Neon,
 				Parent = folder,
 			})
 			x += 24
@@ -174,27 +144,24 @@ end
 
 local function buildFence(center, folder)
 	local h = 3
-	local half = Config.PlotSize / 2
-	local gate = 20 -- half-width of the front gate opening
-	local segLen = half - gate
-	local segOff = gate + segLen / 2
+	local halfX = Config.PlotSize / 2
+	local backZ = -halfX
+	local frontZ = halfX + Layout.TownDepth
+	local depth = frontZ - backZ
+	local midZ = (frontZ + backZ) / 2
 	local segs = {
-		-- back wall
-		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z - half), Vector3.new(Config.PlotSize, h, 1) },
-		-- side walls
-		{ Vector3.new(center.X - half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
-		{ Vector3.new(center.X + half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
-		-- front wall, split to leave a gate for the bridge
-		{ Vector3.new(center.X - segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
-		{ Vector3.new(center.X + segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
+		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z + backZ), Vector3.new(Config.PlotSize, h, 1) },
+		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z + frontZ), Vector3.new(Config.PlotSize, h, 1) },
+		{ Vector3.new(center.X - halfX, Config.GroundY + h / 2, center.Z + midZ), Vector3.new(1, h, depth) },
+		{ Vector3.new(center.X + halfX, Config.GroundY + h / 2, center.Z + midZ), Vector3.new(1, h, depth) },
 	}
 	for _, seg in ipairs(segs) do
 		part({
 			Name = "Fence",
 			Size = seg[2],
 			Position = seg[1],
-			Color = COLOR_FENCE,
-			Material = Enum.Material.Wood,
+			Color = Color3.fromRGB(196, 164, 108),
+			Material = Enum.Material.WoodPlanks,
 			Parent = folder,
 		})
 	end
@@ -203,12 +170,12 @@ end
 local function buildSilo(plotIndex, folder)
 	local pos = Layout.siloPos(plotIndex)
 
-	-- Hazard-striped launch pad.
 	part({
 		Name = "SiloPad",
 		Size = Vector3.new(36, 0.4, 36),
 		Position = pos + Vector3.new(0, 0.2, 0),
 		Color = Color3.fromRGB(240, 200, 40),
+		Material = Enum.Material.DiamondPlate,
 		Parent = folder,
 	})
 	for i = -1, 1 do
@@ -221,13 +188,12 @@ local function buildSilo(plotIndex, folder)
 		})
 	end
 
-	-- Scaffold tower.
 	for _, corner in ipairs({ Vector3.new(-8, 0, -8), Vector3.new(8, 0, -8), Vector3.new(-8, 0, 8), Vector3.new(8, 0, 8) }) do
 		part({
 			Name = "SiloColumn",
 			Size = Vector3.new(2, 26, 2),
 			Position = pos + corner + Vector3.new(0, 13, 0),
-			Color = Color3.fromRGB(160, 160, 168),
+			Color = Color3.fromRGB(150, 150, 158),
 			Material = Enum.Material.Metal,
 			Parent = folder,
 		})
@@ -236,17 +202,17 @@ local function buildSilo(plotIndex, folder)
 		Name = "SiloTop",
 		Size = Vector3.new(20, 2, 20),
 		Position = pos + Vector3.new(0, 27, 0),
-		Color = Color3.fromRGB(120, 120, 128),
-		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(110, 110, 118),
+		Material = Enum.Material.DiamondPlate,
 		Parent = folder,
 	})
 
-	-- The rocket itself (blocky, like everything else here).
 	local body = part({
 		Name = "SiloRocket",
 		Size = Vector3.new(5, 16, 5),
 		Position = pos + Vector3.new(0, 9, 0),
 		Color = Color3.fromRGB(240, 240, 245),
+		Material = Enum.Material.SmoothPlastic,
 		Parent = folder,
 	})
 	part({
@@ -278,7 +244,169 @@ local function buildSilo(plotIndex, folder)
 	local _, label = billboard(body, 18, 6, 16, 300)
 	label.Text = "\u{1F680} Rocket Silo"
 
-	return body
+	-- Nuke-access pad right next to the silo.
+	local nukePadPos = pos + Vector3.new(42, 0.4, 0)
+	local nukePad = part({
+		Name = "NukeBuyPad",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 12, 12),
+		CFrame = CFrame.new(nukePadPos) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(190, 90, 240),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local _, nukeLabel = billboard(nukePad, 20, 9, 7, 220)
+	nukeLabel.Text = "\u{2622}\u{FE0F} NUKE ACCESS\n\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost)
+		.. "\nOne nuke every 24h!"
+	local nukePrompt = Instance.new("ProximityPrompt")
+	nukePrompt.Name = "NukePrompt"
+	nukePrompt.ActionText = "Nuke Controls"
+	nukePrompt.ObjectText = "Nuclear Option"
+	nukePrompt.HoldDuration = 0
+	nukePrompt.MaxActivationDistance = 14
+	nukePrompt.RequiresLineOfSight = false
+	nukePrompt.Parent = nukePad
+
+	return body, nukePad
+end
+
+local function buildTownSquare(plotIndex, folder)
+	local c = Layout.plotCenter(plotIndex)
+	local half = Config.PlotSize / 2
+
+	-- Plaza pavement across the town strip.
+	part({
+		Name = "Plaza",
+		Size = Vector3.new(Config.PlotSize, 0.3, Layout.TownDepth - 4),
+		Position = Vector3.new(c.X, Config.GroundY + 0.15, c.Z + half + Layout.TownDepth / 2),
+		Color = COLOR_PLAZA,
+		Material = Enum.Material.Concrete,
+		Parent = folder,
+	})
+
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn" .. plotIndex
+	spawn.Size = Vector3.new(12, 1, 12)
+	spawn.Position = Vector3.new(c.X, Config.GroundY + 0.6, c.Z + half + 16)
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.TopSurface = Enum.SurfaceType.Smooth
+	spawn.Color = Color3.fromRGB(90, 160, 240)
+	spawn.Parent = folder
+
+	-- Benny's shop stand.
+	local standX = c.X + 80
+	local standZ = c.Z + half + 34
+	part({
+		Name = "Counter",
+		Size = Vector3.new(10, 3.2, 2),
+		Position = Vector3.new(standX, Config.GroundY + 1.6, standZ - 4),
+		CanCollide = true,
+		Color = Color3.fromRGB(150, 116, 78),
+		Material = Enum.Material.WoodPlanks,
+		Parent = folder,
+	})
+	part({
+		Name = "PostL",
+		Size = Vector3.new(0.8, 8, 0.8),
+		Position = Vector3.new(standX - 4.5, Config.GroundY + 4, standZ + 1.5),
+		Color = Color3.fromRGB(120, 90, 60),
+		Material = Enum.Material.Wood,
+		Parent = folder,
+	})
+	part({
+		Name = "PostR",
+		Size = Vector3.new(0.8, 8, 0.8),
+		Position = Vector3.new(standX + 4.5, Config.GroundY + 4, standZ + 1.5),
+		Color = Color3.fromRGB(120, 90, 60),
+		Material = Enum.Material.Wood,
+		Parent = folder,
+	})
+	for i = 0, 3 do
+		part({
+			Name = "Awning",
+			Size = Vector3.new(2.6, 0.4, 6.5),
+			CFrame = CFrame.new(standX - 3.9 + i * 2.6, Config.GroundY + 8.4, standZ - 1)
+				* CFrame.Angles(math.rad(-12), 0, 0),
+			Color = (i % 2 == 0) and Color3.fromRGB(235, 60, 60) or Color3.fromRGB(240, 240, 245),
+			Parent = folder,
+		})
+	end
+
+	-- Rebirth shrine.
+	local shrineX = c.X + 118
+	local shrineZ = c.Z + half + 44
+	local pedestal = part({
+		Name = "Pedestal",
+		Size = Vector3.new(7, 2, 7),
+		Position = Vector3.new(shrineX, Config.GroundY + 1, shrineZ),
+		CanCollide = true,
+		Color = Color3.fromRGB(255, 215, 80),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+	local orb = part({
+		Name = "Orb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(4, 4, 4),
+		Position = Vector3.new(shrineX, Config.GroundY + 4.5, shrineZ),
+		Color = Color3.fromRGB(255, 230, 120),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120))
+	sparkle.Rate = 5
+	sparkle.Lifetime = NumberRange.new(0.8, 1.4)
+	sparkle.Speed = NumberRange.new(2, 4)
+	sparkle.Parent = orb
+	local _, shrineLabel = billboard(orb, 18, 7, 5, 240)
+	shrineLabel.Text = "\u{1F31F} REBIRTH SHRINE\nReset city \u{2192} PERMANENT\nincome multiplier!"
+	shrineLabel.TextColor3 = Color3.fromRGB(255, 230, 120)
+	local shrinePrompt = Instance.new("ProximityPrompt")
+	shrinePrompt.Name = "RebirthPrompt"
+	shrinePrompt.ActionText = "Rebirth"
+	shrinePrompt.ObjectText = "Rebirth Shrine"
+	shrinePrompt.HoldDuration = 0.5
+	shrinePrompt.MaxActivationDistance = 12
+	shrinePrompt.RequiresLineOfSight = false
+	shrinePrompt.Parent = pedestal
+
+	-- Decorations.
+	buildTree(Vector3.new(c.X - 122, Config.GroundY, c.Z + half + 14), folder)
+	buildTree(Vector3.new(c.X + 122, Config.GroundY, c.Z + half + 12), folder)
+	buildLamp(Vector3.new(c.X - 30, Config.GroundY, c.Z + half + 12), folder)
+	buildLamp(Vector3.new(c.X + 30, Config.GroundY, c.Z + half + 12), folder)
+
+	-- Owner banner pole.
+	local pole = part({
+		Name = "BannerPole",
+		Size = Vector3.new(1, 12, 1),
+		Position = Vector3.new(c.X - 118, Config.GroundY + 6, c.Z + half + 40),
+		Color = Color3.fromRGB(120, 120, 128),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+	local bannerGui, bannerLabel = billboard(pole, 26, 8, 8, 1400)
+	bannerGui.AlwaysOnTop = true
+	bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
+
+	-- Leaderboard placement info for LeaderboardService.
+	local boardPos = Vector3.new(c.X, Config.GroundY, c.Z + half + Layout.TownDepth - 6)
+
+	return {
+		bannerLabel = bannerLabel,
+		boardPos = boardPos,
+		npcAnchors = {
+			shopkeeper = Vector3.new(standX, Config.GroundY, standZ + 2.5),
+			tailor = Vector3.new(c.X - 80, Config.GroundY, c.Z + half + 34),
+			mayor = Vector3.new(c.X + 32, Config.GroundY, c.Z + half + 46),
+			general = Vector3.new(c.X - 32, Config.GroundY, c.Z + half + 46),
+		},
+		npcLookAt = Vector3.new(c.X, Config.GroundY, c.Z + half + 16),
+	}
 end
 
 local function buildPlot(plotIndex, root)
@@ -287,18 +415,22 @@ local function buildPlot(plotIndex, root)
 	folder.Name = "Plot" .. plotIndex
 	folder.Parent = root
 
+	local half = Config.PlotSize / 2
+	local depthZ = Config.PlotSize + Layout.TownDepth
+	local islandCenterZ = center.Z + Layout.TownDepth / 2
+
 	part({
 		Name = "Island",
-		Size = Vector3.new(Config.PlotSize, 10, Config.PlotSize),
-		Position = Vector3.new(center.X, -1, center.Z),
+		Size = Vector3.new(Config.PlotSize, 10, depthZ),
+		Position = Vector3.new(center.X, -1, islandCenterZ),
 		Color = COLOR_GRASS,
 		Material = Enum.Material.Grass,
 		Parent = folder,
 	})
 	part({
 		Name = "IslandRim",
-		Size = Vector3.new(Config.PlotSize + 18, 8, Config.PlotSize + 18),
-		Position = Vector3.new(center.X, -1.5, center.Z),
+		Size = Vector3.new(Config.PlotSize + 18, 8, depthZ + 18),
+		Position = Vector3.new(center.X, -1.5, islandCenterZ),
 		Color = COLOR_SAND,
 		Material = Enum.Material.Sand,
 		Parent = folder,
@@ -307,27 +439,25 @@ local function buildPlot(plotIndex, root)
 	buildRoads(center, folder)
 	buildFence(center, folder)
 
-	-- Owner banner on a pole at the front gate.
-	local pole = part({
-		Name = "BannerPole",
-		Size = Vector3.new(1, 12, 1),
-		Position = Vector3.new(center.X - 12, Config.GroundY + 6, center.Z + Config.PlotSize / 2 - 4),
-		Color = Color3.fromRGB(120, 120, 128),
-		Parent = folder,
-	})
-	local bannerGui, bannerLabel = billboard(pole, 26, 8, 8, 800)
-	bannerGui.AlwaysOnTop = true
-	bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
-	bannerLabel.TextColor3 = Color3.fromRGB(255, 235, 235)
+	local town = buildTownSquare(plotIndex, folder)
 
 	local zoneData = {}
 	for zi = 1, #BuildingDefs.List do
 		local zCenter = Layout.zoneCenter(plotIndex, zi)
+		part({
+			Name = "Sidewalk",
+			Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
+			Position = Vector3.new(zCenter.X, Config.GroundY + 0.12, zCenter.Z),
+			Color = COLOR_SIDEWALK,
+			Material = Enum.Material.Concrete,
+			Parent = folder,
+		})
 		local plate = part({
 			Name = "ZonePlate",
 			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
-			Position = Vector3.new(zCenter.X, Config.GroundY + 0.15, zCenter.Z),
+			Position = Vector3.new(zCenter.X, Config.GroundY + 0.18, zCenter.Z),
 			Color = COLOR_ZONE,
+			Material = Enum.Material.Grass,
 			Parent = folder,
 		})
 
@@ -356,100 +486,19 @@ local function buildPlot(plotIndex, root)
 		}
 	end
 
-	local siloBody = buildSilo(plotIndex, folder)
-	buildBridge(Vector3.new(0, 0, 0), center, 10, folder)
+	local siloBody, nukePad = buildSilo(plotIndex, folder)
 
 	return {
 		index = plotIndex,
 		folder = folder,
 		zoneData = zoneData,
-		bannerLabel = bannerLabel,
+		bannerLabel = town.bannerLabel,
 		siloBody = siloBody,
+		nukePad = nukePad,
+		boardPos = town.boardPos,
+		npcAnchors = town.npcAnchors,
+		npcLookAt = town.npcLookAt,
 	}
-end
-
-local function buildNukeIsland(root)
-	local folder = Instance.new("Folder")
-	folder.Name = "NukeIsland"
-	folder.Parent = root
-
-	local c = Layout.NukeIslandCenter
-	local size = Layout.NukeIslandSize
-
-	part({
-		Name = "NukeBase",
-		Size = Vector3.new(size, 10, size),
-		Position = Vector3.new(c.X, -1, c.Z),
-		Color = Color3.fromRGB(96, 96, 104),
-		Material = Enum.Material.Concrete,
-		Parent = folder,
-	})
-	part({
-		Name = "NukeRim",
-		Size = Vector3.new(size + 14, 8, size + 14),
-		Position = Vector3.new(c.X, -1.5, c.Z),
-		Color = Color3.fromRGB(240, 200, 40),
-		Parent = folder,
-	})
-
-	-- Big scary silo.
-	for _, corner in ipairs({ Vector3.new(-12, 0, -12), Vector3.new(12, 0, -12), Vector3.new(-12, 0, 12), Vector3.new(12, 0, 12) }) do
-		part({
-			Name = "NukeColumn",
-			Size = Vector3.new(3, 40, 3),
-			Position = Vector3.new(c.X, Config.GroundY + 20, c.Z) + corner,
-			Color = Color3.fromRGB(70, 70, 78),
-			Material = Enum.Material.DiamondPlate,
-			Parent = folder,
-		})
-	end
-	local nukeBody = part({
-		Name = "NukeRocket",
-		Size = Vector3.new(8, 26, 8),
-		Position = Vector3.new(c.X, Config.GroundY + 13, c.Z),
-		Color = Color3.fromRGB(60, 62, 68),
-		Material = Enum.Material.Metal,
-		Parent = folder,
-	})
-	part({
-		Name = "NukeNose",
-		Size = Vector3.new(5, 6, 5),
-		Position = Vector3.new(c.X, Config.GroundY + 29, c.Z),
-		Color = Color3.fromRGB(180, 235, 60),
-		Material = Enum.Material.Neon,
-		Parent = folder,
-	})
-	local _, siloLabel = billboard(nukeBody, 30, 10, 26, 1200)
-	siloLabel.Text = "\u{2622}\u{FE0F} NUKE ISLAND \u{2622}\u{FE0F}"
-	siloLabel.TextColor3 = Color3.fromRGB(190, 255, 90)
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "NukePrompt"
-	prompt.ActionText = "Nuke Controls"
-	prompt.ObjectText = "Nuclear Silo"
-	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = 20
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = nukeBody
-
-	-- Purchase pad at the island entrance.
-	local padPos = Vector3.new(c.X, Config.GroundY + 0.4, c.Z + size / 2 - 18)
-	local pad = part({
-		Name = "NukeBuyPad",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.6, 14, 14),
-		CFrame = CFrame.new(padPos) * CFrame.Angles(0, 0, math.rad(90)),
-		Color = Color3.fromRGB(190, 90, 240),
-		Material = Enum.Material.Neon,
-		Parent = folder,
-	})
-	local _, padLabel = billboard(pad, 24, 10, 8, 400)
-	padLabel.Text = "\u{2622}\u{FE0F} BUY NUKE ACCESS\n\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost)
-		.. "\nOne nuke every 24h!"
-
-	buildBridge(Vector3.new(0, 0, 0), Vector3.new(c.X, 0, c.Z + size / 2), 12, folder)
-
-	return { pad = pad, body = nukeBody }
 end
 
 function WorldBuilder.build()
@@ -458,38 +507,36 @@ function WorldBuilder.build()
 	root.Parent = workspace
 
 	-- Ocean.
-	workspace.Terrain:FillBlock(CFrame.new(0, -8, 0), Vector3.new(4096, 10, 4096), Enum.Material.Water)
-
-	buildLobby(root)
+	workspace.Terrain:FillBlock(CFrame.new(0, -8, 0), Vector3.new(6000, 10, 6000), Enum.Material.Water)
 
 	local slots = {}
 	for i = 1, Config.PlotCount do
 		slots[i] = buildPlot(i, root)
 	end
 
-	local nuke = buildNukeIsland(root)
-
-	-- Bright cartoon lighting.
+	-- Bright cartoon lighting with modern rendering.
 	Lighting.Brightness = 3
-	Lighting.ClockTime = 12
-	Lighting.Ambient = Color3.fromRGB(140, 140, 140)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 160, 170)
+	Lighting.ClockTime = 13.5
+	Lighting.Ambient = Color3.fromRGB(130, 130, 135)
+	Lighting.OutdoorAmbient = Color3.fromRGB(140, 150, 165)
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+	Lighting.ShadowSoftness = 0.15
+	Lighting.ExposureCompensation = 0.05
 	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.25
-	atmosphere.Haze = 1
+	atmosphere.Density = 0.28
+	atmosphere.Haze = 1.2
 	atmosphere.Parent = Lighting
 
 	-- Volumetric clouds.
 	local clouds = Instance.new("Clouds")
-	clouds.Cover = 0.48
-	clouds.Density = 0.72
+	clouds.Cover = 0.52
+	clouds.Density = 0.68
 	clouds.Parent = workspace.Terrain
 
 	return {
 		root = root,
 		slots = slots,
-		nukePad = nuke.pad,
-		nukeBody = nuke.body,
 	}
 end
 

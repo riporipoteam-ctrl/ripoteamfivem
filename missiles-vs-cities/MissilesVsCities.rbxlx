@@ -1,26 +1,26 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX45"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX46"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX9"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX45"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX46"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX47"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX9"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
 
 local Config = require(script.Parent.Config)
 
 local BuildingDefs = {}
 
 BuildingDefs.List = {
-	{ id = "house", name = "Houses", emoji = "\u{1F3E0}", color = Color3.fromRGB(240, 120, 120), baseCost = 100, baseIncome = 4, hp = 600, style = "towers" },
-	{ id = "apartments", name = "Apartments", emoji = "\u{1F3D8}\u{FE0F}", color = Color3.fromRGB(245, 170, 90), baseCost = 750, baseIncome = 12, hp = 900, style = "towers" },
-	{ id = "shops", name = "Shops", emoji = "\u{1F3EA}", color = Color3.fromRGB(255, 220, 90), baseCost = 6500, baseIncome = 45, hp = 1200, style = "towers" },
-	{ id = "bank", name = "Bank", emoji = "\u{1F3E6}", color = Color3.fromRGB(140, 220, 120), baseCost = 60e3, baseIncome = 210, hp = 1800, style = "towers" },
-	{ id = "factory", name = "Factory", emoji = "\u{1F3ED}", color = Color3.fromRGB(170, 170, 180), baseCost = 550e3, baseIncome = 950, hp = 2600, style = "towers" },
-	{ id = "solar", name = "Solar Field", emoji = "\u{2600}\u{FE0F}", color = Color3.fromRGB(80, 140, 235), baseCost = 5e6, baseIncome = 4200, hp = 1500, style = "panels" },
-	{ id = "downtown", name = "Downtown", emoji = "\u{1F3D9}\u{FE0F}", color = Color3.fromRGB(120, 200, 255), baseCost = 48e6, baseIncome = 19e3, hp = 5200, style = "towers" },
-	{ id = "stadium", name = "Stadium", emoji = "\u{1F3DF}\u{FE0F}", color = Color3.fromRGB(220, 130, 240), baseCost = 450e6, baseIncome = 88e3, hp = 6500, style = "towers" },
-	{ id = "airport", name = "Airport", emoji = "\u{2708}\u{FE0F}", color = Color3.fromRGB(235, 235, 240), baseCost = 4.2e9, baseIncome = 400e3, hp = 8000, style = "panels" },
-	{ id = "military", name = "Military Base", emoji = "\u{1FA96}", color = Color3.fromRGB(110, 140, 90), baseCost = 40e9, baseIncome = 1.9e6, hp = 16000, style = "towers" },
-	{ id = "wind", name = "Wind Farm", emoji = "\u{1F300}", color = Color3.fromRGB(200, 240, 250), baseCost = 380e9, baseIncome = 8.8e6, hp = 9000, style = "turbines" },
-	{ id = "space", name = "Space Center", emoji = "\u{1F6F0}\u{FE0F}", color = Color3.fromRGB(255, 255, 255), baseCost = 3.6e12, baseIncome = 42e6, hp = 30000, style = "towers" },
-	{ id = "techhub", name = "Tech Hub", emoji = "\u{1F4BB}", color = Color3.fromRGB(90, 230, 220), baseCost = 34e12, baseIncome = 380e6, hp = 45000, style = "towers" },
-	{ id = "casino", name = "Casino", emoji = "\u{1F3B0}", color = Color3.fromRGB(250, 180, 60), baseCost = 320e12, baseIncome = 3.4e9, hp = 60000, style = "towers" },
-	{ id = "port", name = "Mega Port", emoji = "\u{2693}", color = Color3.fromRGB(120, 150, 190), baseCost = 3e15, baseIncome = 30e9, hp = 90000, style = "panels" },
-	{ id = "goldtower", name = "Golden Tower", emoji = "\u{1F3C6}", color = Color3.fromRGB(255, 215, 80), baseCost = 28e15, baseIncome = 260e9, hp = 150000, style = "towers" },
+	{ id = "house", name = "Houses", emoji = "\u{1F3E0}", color = Color3.fromRGB(240, 120, 120), baseCost = 100, baseIncome = 4, hp = 600, style = "houses", material = "Brick" },
+	{ id = "apartments", name = "Apartments", emoji = "\u{1F3D8}\u{FE0F}", color = Color3.fromRGB(245, 170, 90), baseCost = 750, baseIncome = 12, hp = 900, style = "houses", material = "Brick" },
+	{ id = "shops", name = "Shops", emoji = "\u{1F3EA}", color = Color3.fromRGB(255, 220, 90), baseCost = 6500, baseIncome = 45, hp = 1200, style = "towers", material = "SmoothPlastic" },
+	{ id = "bank", name = "Bank", emoji = "\u{1F3E6}", color = Color3.fromRGB(140, 220, 120), baseCost = 60e3, baseIncome = 210, hp = 1800, style = "towers", material = "Marble" },
+	{ id = "factory", name = "Factory", emoji = "\u{1F3ED}", color = Color3.fromRGB(170, 170, 180), baseCost = 550e3, baseIncome = 950, hp = 2600, style = "towers", material = "Metal" },
+	{ id = "solar", name = "Solar Field", emoji = "\u{2600}\u{FE0F}", color = Color3.fromRGB(80, 140, 235), baseCost = 5e6, baseIncome = 4200, hp = 1500, style = "panels", material = "Glass" },
+	{ id = "downtown", name = "Downtown", emoji = "\u{1F3D9}\u{FE0F}", color = Color3.fromRGB(120, 200, 255), baseCost = 48e6, baseIncome = 19e3, hp = 5200, style = "towers", material = "Glass" },
+	{ id = "stadium", name = "Stadium", emoji = "\u{1F3DF}\u{FE0F}", color = Color3.fromRGB(220, 130, 240), baseCost = 450e6, baseIncome = 88e3, hp = 6500, style = "towers", material = "Concrete" },
+	{ id = "airport", name = "Airport", emoji = "\u{2708}\u{FE0F}", color = Color3.fromRGB(235, 235, 240), baseCost = 4.2e9, baseIncome = 400e3, hp = 8000, style = "panels", material = "Concrete" },
+	{ id = "military", name = "Military Base", emoji = "\u{1FA96}", color = Color3.fromRGB(110, 140, 90), baseCost = 40e9, baseIncome = 1.9e6, hp = 16000, style = "towers", material = "Slate" },
+	{ id = "wind", name = "Wind Farm", emoji = "\u{1F300}", color = Color3.fromRGB(200, 240, 250), baseCost = 380e9, baseIncome = 8.8e6, hp = 9000, style = "turbines", material = "SmoothPlastic" },
+	{ id = "space", name = "Space Center", emoji = "\u{1F6F0}\u{FE0F}", color = Color3.fromRGB(255, 255, 255), baseCost = 3.6e12, baseIncome = 42e6, hp = 30000, style = "towers", material = "Metal" },
+	{ id = "techhub", name = "Tech Hub", emoji = "\u{1F4BB}", color = Color3.fromRGB(90, 230, 220), baseCost = 34e12, baseIncome = 380e6, hp = 45000, style = "towers", material = "Glass" },
+	{ id = "casino", name = "Casino", emoji = "\u{1F3B0}", color = Color3.fromRGB(250, 180, 60), baseCost = 320e12, baseIncome = 3.4e9, hp = 60000, style = "towers", material = "Marble" },
+	{ id = "port", name = "Mega Port", emoji = "\u{2693}", color = Color3.fromRGB(120, 150, 190), baseCost = 3e15, baseIncome = 30e9, hp = 90000, style = "panels", material = "Metal" },
+	{ id = "goldtower", name = "Golden Tower", emoji = "\u{1F3C6}", color = Color3.fromRGB(255, 215, 80), baseCost = 28e15, baseIncome = 260e9, hp = 150000, style = "towers", material = "Metal" },
 }
 
 BuildingDefs.ById = {}
@@ -65,7 +65,7 @@ Config.MaxPlayers = 5
 -- World layout
 Config.PlotCount = 5
 Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip
-Config.PlotDistance = 420
+Config.PlotDistance = 700 -- big gaps between islands
 Config.ZoneSize = 40
 Config.GroundY = 4
 
@@ -181,12 +181,11 @@ local HALF = Config.PlotSize / 2
 local COL_X = { -78, -26, 26, 78 }
 local ROW_Z = { 104, 52, 0, -52 }
 
-Layout.NukeIslandCenter = Vector3.new(0, 0, -880)
-Layout.NukeIslandSize = 150
+-- Each island also has a "town square" strip at the front (positive Z)
+-- holding the spawn, shop stand, NPCs, leaderboard and rebirth shrine.
+Layout.TownDepth = 60 -- extra island depth in front of the city grid
 
 function Layout.plotCenter(plotIndex)
-	-- Plots sit on a circle around the lobby, leaving due north clear
-	-- for the bridge out to Nuke Island.
 	local angle = math.rad(-54 + (plotIndex - 1) * 72)
 	return Vector3.new(math.cos(angle) * Config.PlotDistance, 0, math.sin(angle) * Config.PlotDistance)
 end
@@ -215,7 +214,16 @@ end
 
 function Layout.plotSpawn(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 128)
+	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 152)
+end
+
+-- Road intersection waypoints (world space) that citizens walk between.
+Layout.RoadXs = { -104, -52, 0, 52, 104 }
+Layout.RoadZs = { 130, 78, 26, -26, -78 }
+
+function Layout.intersection(plotIndex, ix, iz)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X + Layout.RoadXs[ix], Config.GroundY, c.Z + Layout.RoadZs[iz])
 end
 
 function Layout.plotBounds(plotIndex)
@@ -497,9 +505,10 @@ SoundBook.Defs = {
 	Hit = { id = "rbxasset://sounds/hit.wav", volume = 0.8 },
 }
 
--- Background music playlist (Roblox library asset ids). The player skips any
--- id that fails to load, so add your favorites from the Creator Marketplace.
-SoundBook.Music = { 142376088, 1841647093, 1837324424 }
+-- Chill background music: the FIRST id that loads plays on loop forever.
+-- Swap in any track id from the Creator Store (Toolbox -&gt; Audio) — pick one
+-- chill lo-fi track you like and put its id first.
+SoundBook.Music = { 1840684529, 9043887091, 1837879082 }
 
 function SoundBook.make(key, props)
 	local def = SoundBook.Defs[key]
@@ -554,8 +563,12 @@ function SoundBook.playAt(key, position, props)
 end
 
 return SoundBook
-</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX47"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX23"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's building cluster for its level, plus the rubble state.
--- Everything is deterministic per (plot, zone) so cities look stable.
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX48"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX24"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
+--   houses   - little homes with pitched wedge roofs
+--   towers   - city blocks with glowing windows + rooftop details
+--   panels   - solar/container fields
+--   turbines - wind turbines
+-- Plus the smoking rubble state. Deterministic per (plot, zone).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -569,6 +582,8 @@ local SUB_OFFSETS = {
 	Vector3.new(10, 0, -10),
 	Vector3.new(-10, 0, 10),
 }
+
+local WINDOW_COLOR = Color3.fromRGB(255, 236, 160)
 
 local function part(props)
 	local p = Instance.new("Part")
@@ -584,42 +599,144 @@ local function part(props)
 	return p
 end
 
+local function wedge(props)
+	local p = Instance.new("WedgePart")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
 local function lighten(color, amt)
-	return Color3.new(
-		math.min(color.R + amt, 1),
-		math.min(color.G + amt, 1),
-		math.min(color.B + amt, 1)
-	)
+	return Color3.new(math.min(color.R + amt, 1), math.min(color.G + amt, 1), math.min(color.B + amt, 1))
+end
+
+local function darken(color, amt)
+	return Color3.new(math.max(color.R - amt, 0), math.max(color.G - amt, 0), math.max(color.B - amt, 0))
+end
+
+local function materialOf(def)
+	return Enum.Material[def.material or "SmoothPlastic"] or Enum.Material.SmoothPlastic
+end
+
+-- Little homes with pitched roofs (houses / apartments).
+local function renderHouses(model, def, level, center, rng)
+	local count = math.clamp(1 + math.floor(level / 12), 1, 4)
+	local roofColor = darken(def.color, 0.25)
+	for i = 1, count do
+		local off = SUB_OFFSETS[i]
+		local w = 11 + rng:NextNumber() * 2
+		local h = 5 + math.min(level, 60) * 0.12
+		local base = Vector3.new(center.X + off.X, Config.GroundY, center.Z + off.Z)
+		local yaw = (i % 2 == 0) and math.rad(90) or 0
+		local cf = CFrame.new(base) * CFrame.Angles(0, yaw, 0)
+
+		part({
+			Name = "HouseBody",
+			Size = Vector3.new(w, h, w),
+			CFrame = cf * CFrame.new(0, h / 2, 0),
+			Color = def.color,
+			Material = materialOf(def),
+			Parent = model,
+		})
+		-- Pitched roof from two wedges.
+		wedge({
+			Name = "RoofA",
+			Size = Vector3.new(w + 1, 3, (w + 1) / 2),
+			CFrame = cf * CFrame.new(0, h + 1.5, (w + 1) / 4),
+			Color = roofColor,
+			Material = Enum.Material.Slate,
+			Parent = model,
+		})
+		wedge({
+			Name = "RoofB",
+			Size = Vector3.new(w + 1, 3, (w + 1) / 2),
+			CFrame = cf * CFrame.new(0, h + 1.5, -(w + 1) / 4) * CFrame.Angles(0, math.pi, 0),
+			Color = roofColor,
+			Material = Enum.Material.Slate,
+			Parent = model,
+		})
+		part({
+			Name = "Door",
+			Size = Vector3.new(2.4, 3.6, 0.4),
+			CFrame = cf * CFrame.new(0, 1.8, w / 2 + 0.15),
+			Color = Color3.fromRGB(92, 64, 40),
+			Material = Enum.Material.Wood,
+			Parent = model,
+		})
+		part({
+			Name = "Window",
+			Size = Vector3.new(2.2, 2, 0.3),
+			CFrame = cf * CFrame.new(w / 4 + 0.6, h - 1.6, w / 2 + 0.12),
+			Color = WINDOW_COLOR,
+			Material = Enum.Material.Neon,
+			Transparency = 0.15,
+			Parent = model,
+		})
+	end
 end
 
 local function renderTowers(model, def, level, center, rng)
 	local count = math.clamp(1 + math.floor(level / 15), 1, 4)
 	for i = 1, count do
 		local off = SUB_OFFSETS[i]
-		local h = 8 + math.min(level, Config.BuildingMaxLevel) * 0.45 * (0.8 + rng:NextNumber() * 0.4)
+		local h = 9 + math.min(level, Config.BuildingMaxLevel) * 0.5 * (0.8 + rng:NextNumber() * 0.4)
 		local base = Vector3.new(center.X + off.X, Config.GroundY, center.Z + off.Z)
+
 		part({
 			Name = "Tower",
-			Size = Vector3.new(16, h, 16),
+			Size = Vector3.new(15, h, 15),
 			Position = base + Vector3.new(0, h / 2, 0),
 			Color = def.color,
+			Material = materialOf(def),
+			Reflectance = def.material == "Glass" and 0.15 or 0,
 			Parent = model,
 		})
+		-- Glowing window strips on two faces.
+		for _, face in ipairs({ CFrame.new(0, 0, 7.7), CFrame.new(7.7, 0, 0) * CFrame.Angles(0, math.rad(90), 0) }) do
+			part({
+				Name = "Windows",
+				Size = Vector3.new(9, math.max(h - 4, 2), 0.3),
+				CFrame = CFrame.new(base + Vector3.new(0, h / 2, 0)) * face,
+				Color = WINDOW_COLOR,
+				Material = Enum.Material.Neon,
+				Transparency = 0.35,
+				Parent = model,
+			})
+		end
+		-- Roof trim + details.
 		part({
 			Name = "Trim",
-			Size = Vector3.new(16.6, 1, 16.6),
+			Size = Vector3.new(15.8, 1, 15.8),
 			Position = base + Vector3.new(0, h + 0.5, 0),
-			Color = lighten(def.color, 0.25),
+			Color = lighten(def.color, 0.22),
 			Material = level &gt;= 30 and Enum.Material.Neon or Enum.Material.SmoothPlastic,
 			Parent = model,
 		})
-		part({
-			Name = "Door",
-			Size = Vector3.new(4, 5, 0.5),
-			Position = base + Vector3.new(0, 2.5, 8.1),
-			Color = Color3.fromRGB(60, 50, 45),
-			Parent = model,
-		})
+		if i == 1 then
+			part({
+				Name = "RoofBox",
+				Size = Vector3.new(4, 2.4, 4),
+				Position = base + Vector3.new(3, h + 2.2, 3),
+				Color = Color3.fromRGB(120, 120, 128),
+				Material = Enum.Material.Metal,
+				Parent = model,
+			})
+			part({
+				Name = "Antenna",
+				Size = Vector3.new(0.4, 7, 0.4),
+				Position = base + Vector3.new(-4, h + 4.5, -4),
+				Color = Color3.fromRGB(200, 60, 60),
+				Material = Enum.Material.Neon,
+				Parent = model,
+			})
+		end
 	end
 end
 
@@ -634,18 +751,37 @@ local function renderPanels(model, def, level, center, rng)
 			Size = Vector3.new(14, 0.6, 7),
 			CFrame = CFrame.new(pos) * CFrame.Angles(math.rad(-18), 0, 0),
 			Color = def.color,
-			Material = Enum.Material.Glass,
-			Reflectance = 0.2,
+			Material = materialOf(def),
+			Reflectance = 0.25,
 			Parent = model,
 		})
 		part({
 			Name = "PanelLeg",
 			Size = Vector3.new(1, 2.4, 1),
 			Position = Vector3.new(pos.X, Config.GroundY + 1.2, pos.Z),
-			Color = Color3.fromRGB(120, 120, 128),
+			Color = Color3.fromRGB(110, 110, 118),
+			Material = Enum.Material.Metal,
 			Parent = model,
 		})
 	end
+	-- Control hut with a glowing window.
+	part({
+		Name = "Hut",
+		Size = Vector3.new(7, 5, 7),
+		Position = Vector3.new(center.X, Config.GroundY + 2.5, center.Z + 14),
+		Color = darken(def.color, 0.15),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	part({
+		Name = "HutWindow",
+		Size = Vector3.new(3, 1.6, 0.3),
+		Position = Vector3.new(center.X, Config.GroundY + 3.4, center.Z + 17.6),
+		Color = WINDOW_COLOR,
+		Material = Enum.Material.Neon,
+		Transparency = 0.2,
+		Parent = model,
+	})
 	local _ = rng
 end
 
@@ -660,6 +796,7 @@ local function renderTurbines(model, def, level, center, rng)
 			Size = Vector3.new(1.6, h, 1.6),
 			Position = base + Vector3.new(0, h / 2, 0),
 			Color = Color3.fromRGB(240, 240, 245),
+			Material = Enum.Material.SmoothPlastic,
 			Parent = model,
 		})
 		local hub = base + Vector3.new(0, h, 1.2)
@@ -671,7 +808,7 @@ local function renderTurbines(model, def, level, center, rng)
 			Parent = model,
 		})
 		for b = 0, 2 do
-			local ang = math.rad(b * 120)
+			local ang = math.rad(b * 120 + rng:NextNumber() * 40)
 			part({
 				Name = "Blade",
 				Size = Vector3.new(0.8, 9, 0.4),
@@ -692,7 +829,7 @@ local function renderRubble(model, def, center, rng)
 			Size = size,
 			CFrame = CFrame.new(center + off + Vector3.new(0, size.Y / 2, 0))
 				* CFrame.Angles(0, rng:NextNumber() * math.pi, math.rad((rng:NextNumber() - 0.5) * 20)),
-			Color = Color3.fromRGB(52, 50, 48),
+			Color = (i % 2 == 0) and Color3.fromRGB(52, 50, 48) or Color3.fromRGB(72, 66, 60),
 			Material = Enum.Material.Slate,
 			Parent = model,
 		})
@@ -728,15 +865,16 @@ local function renderRubble(model, def, center, rng)
 	local _ = def
 end
 
--- container: the Model for this zone. level 0 clears it.
 function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, center, destroyed)
 	container:ClearAllChildren()
 	local rng = Random.new(plotIndex * 1000 + zoneIndex * 17)
+	local ground = Vector3.new(center.X, Config.GroundY, center.Z)
 	if destroyed then
-		renderRubble(container, def, Vector3.new(center.X, Config.GroundY, center.Z), rng)
+		renderRubble(container, def, ground, rng)
 	elseif level &gt; 0 then
-		local ground = Vector3.new(center.X, Config.GroundY, center.Z)
-		if def.style == "panels" then
+		if def.style == "houses" then
+			renderHouses(container, def, level, ground, rng)
+		elseif def.style == "panels" then
 			renderPanels(container, def, level, ground, rng)
 		elseif def.style == "turbines" then
 			renderTurbines(container, def, level, ground, rng)
@@ -747,7 +885,172 @@ function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, cen
 end
 
 return BuildingVisuals
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CitizensService</string><ProtectedString name="Source">-- Small citizen avatars (real R15 rigs, scaled down) that walk the road
+-- network of every occupied island, following intersection-to-intersection
+-- paths with walk animations.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Layout = require(Shared.Layout)
+
+local CitizensService = {}
+
+local CITIZENS_PER_ISLAND = 4
+local WALK_ANIM = "rbxassetid://507777826" -- Roblox default R15 walk
+
+local ctx
+local rng = Random.new()
+local folder
+local citizens = {} -- [slotIndex] = { {model, alive}, ... }
+
+local SHIRT_COLORS = {
+	Color3.fromRGB(235, 60, 60), Color3.fromRGB(60, 150, 240), Color3.fromRGB(88, 200, 60),
+	Color3.fromRGB(250, 200, 60), Color3.fromRGB(190, 90, 240), Color3.fromRGB(255, 140, 60),
+}
+
+local function makeCitizenModel()
+	local desc = Instance.new("HumanoidDescription")
+	desc.HeightScale = 0.65
+	desc.WidthScale = 0.7
+	desc.HeadScale = 0.95
+	local shirt = SHIRT_COLORS[rng:NextInteger(1, #SHIRT_COLORS)]
+	local pants = SHIRT_COLORS[rng:NextInteger(1, #SHIRT_COLORS)]
+	desc.TorsoColor = shirt
+	desc.LeftArmColor = shirt
+	desc.RightArmColor = shirt
+	desc.LeftLegColor = pants
+	desc.RightLegColor = pants
+	desc.HeadColor = Color3.fromRGB(255, 204, 148)
+
+	local ok, model = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not model then
+		return nil
+	end
+	return model
+end
+
+local function startWalking(record, slotIndex)
+	task.spawn(function()
+		local model = record.model
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		if not humanoid then
+			return
+		end
+		humanoid.WalkSpeed = 7
+
+		-- Walk animation looped forever (citizens never stop strolling).
+		pcall(function()
+			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+			local anim = Instance.new("Animation")
+			anim.AnimationId = WALK_ANIM
+			local track = animator:LoadAnimation(anim)
+			track.Looped = true
+			track:Play()
+		end)
+
+		-- Random walk over the road intersection grid.
+		local ix = rng:NextInteger(1, #Layout.RoadXs)
+		local iz = rng:NextInteger(1, #Layout.RoadZs)
+		while record.alive and model.Parent do
+			-- Step to a random adjacent intersection.
+			if rng:NextNumber() &lt; 0.5 then
+				ix = math.clamp(ix + (rng:NextNumber() &lt; 0.5 and -1 or 1), 1, #Layout.RoadXs)
+			else
+				iz = math.clamp(iz + (rng:NextNumber() &lt; 0.5 and -1 or 1), 1, #Layout.RoadZs)
+			end
+			local target = Layout.intersection(slotIndex, ix, iz)
+			humanoid:MoveTo(target)
+			local reached = false
+			local conn = humanoid.MoveToFinished:Once(function()
+				reached = true
+			end)
+			local waited = 0
+			while not reached and waited &lt; 10 and record.alive do
+				task.wait(0.25)
+				waited += 0.25
+			end
+			conn:Disconnect()
+			task.wait(rng:NextNumber(0.2, 1.2))
+		end
+	end)
+end
+
+local function spawnCitizen(slot)
+	local model = makeCitizenModel()
+	if not model then
+		return nil
+	end
+	model.Name = "Citizen_" .. slot.index
+	local spawnPos = Layout.intersection(slot.index, rng:NextInteger(1, #Layout.RoadXs), rng:NextInteger(1, #Layout.RoadZs))
+	model.Parent = folder
+	model:PivotTo(CFrame.new(spawnPos + Vector3.new(0, 4, 0)))
+
+	local hrp = model:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		pcall(function()
+			hrp:SetNetworkOwner(nil)
+		end)
+	end
+
+	local record = { model = model, alive = true }
+	startWalking(record, slot.index)
+	return record
+end
+
+local function clearIsland(slotIndex)
+	local list = citizens[slotIndex]
+	if not list then
+		return
+	end
+	for _, record in ipairs(list) do
+		record.alive = false
+		record.model:Destroy()
+	end
+	citizens[slotIndex] = nil
+end
+
+function CitizensService.init(context)
+	ctx = context
+	folder = Instance.new("Folder")
+	folder.Name = "Citizens"
+	folder.Parent = workspace
+
+	task.spawn(function()
+		while true do
+			task.wait(5)
+			for _, slot in ipairs(ctx.Plot.slots()) do
+				if slot.owner then
+					local list = citizens[slot.index]
+					if not list then
+						list = {}
+						citizens[slot.index] = list
+					end
+					-- Cull dead entries, top up to target population.
+					for i = #list, 1, -1 do
+						if not list[i].model.Parent then
+							table.remove(list, i)
+						end
+					end
+					if #list &lt; CITIZENS_PER_ISLAND then
+						local record = spawnCitizen(slot)
+						if record then
+							list[#list + 1] = record
+						end
+					end
+				elseif citizens[slot.index] then
+					clearIsland(slot.index)
+				end
+			end
+		end
+	end)
+end
+
+return CitizensService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
 -- Clients only render FX; every gameplay decision happens here.
 
 local Players = game:GetService("Players")
@@ -1001,7 +1304,7 @@ function CombatService.init(context)
 end
 
 return CombatService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
 -- Purchases come through the ShopBuy remote (handled by EconomyService,
 -- which calls buy() here); effects are applied on every character spawn.
 
@@ -1185,7 +1488,7 @@ function CosmeticsService.init(context)
 end
 
 return CosmeticsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
 -- are unavailable (unpublished place / Studio without API access) the game
 -- still runs, it just won't save.
 
@@ -1324,12 +1627,16 @@ function DataService.forget(player)
 	profiles[player] = nil
 end
 
+function DataService.available()
+	return store ~= nil
+end
+
 function DataService.allPlayers()
 	return profiles
 end
 
 return DataService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
 -- the free-gift timer, the gem shop and gamepass hooks.
 
 local Players = game:GetService("Players")
@@ -1723,7 +2030,7 @@ function EconomyService.init(context)
 end
 
 return EconomyService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
 -- Supply Drop. Keeps servers lively and unpredictable.
 
 local Players = game:GetService("Players")
@@ -1810,9 +2117,25 @@ local function meteorShower()
 end
 
 local function supplyDrop()
-	announce("supply", "\u{1F4E6} SUPPLY DROP at the lobby! First one to grab it wins!", 25)
+	local occupied = {}
+	for _, slot in ipairs(ctx.Plot.slots()) do
+		if slot.owner then
+			occupied[#occupied + 1] = slot
+		end
+	end
+	if #occupied == 0 then
+		return
+	end
+	local slot = occupied[rng:NextInteger(1, #occupied)]
+	announce("supply", "\u{1F4E6} SUPPLY DROP on " .. slot.owner.DisplayName
+		.. "'s island! First one to grab it wins!", 25)
 
-	local pos = Vector3.new(rng:NextNumber(-35, 35), Config.GroundY + 2, rng:NextNumber(-35, 35))
+	local c = Layout.plotCenter(slot.index)
+	local pos = Vector3.new(
+		c.X + rng:NextNumber(-80, 80),
+		Config.GroundY + 2,
+		c.Z + rng:NextNumber(-80, 80)
+	)
 	local crate = Instance.new("Part")
 	crate.Name = "SupplyDrop"
 	crate.Size = Vector3.new(4, 4, 4)
@@ -1898,8 +2221,8 @@ function EventsService.init(context)
 end
 
 return EventsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard: an OrderedDataStore
--- keeps the top city worths ever seen, displayed on a big board in the lobby.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard (OrderedDataStore),
+-- displayed on a board in EVERY island's town square.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -1913,11 +2236,10 @@ local LeaderboardService = {}
 
 local ctx
 local store = nil
-local rowLabels = {}
+local boards = {} -- array of { rows = {TextLabel x10} }
 local nameCache = {}
 
--- OrderedDataStores only take integers up to ~9e18; clamp huge worths.
-local MAX_STORE = 9e15
+local MAX_STORE = 9e15 -- OrderedDataStore integer ceiling safety
 
 do
 	local ok, result = pcall(function()
@@ -1930,22 +2252,23 @@ do
 	end
 end
 
-local function buildBoard()
-	local base = Vector3.new(0, Config.GroundY, -42)
+local function buildBoard(pos)
 	local board = Instance.new("Part")
 	board.Name = "Leaderboard"
 	board.Anchored = true
-	board.Size = Vector3.new(22, 14, 1.5)
-	board.Position = base + Vector3.new(0, 8, 0)
-	board.Color = Color3.fromRGB(44, 46, 56)
+	board.Size = Vector3.new(20, 12, 1.4)
+	board.Position = pos + Vector3.new(0, 7, 0)
+	board.Color = Color3.fromRGB(38, 40, 50)
+	board.Material = Enum.Material.SmoothPlastic
 	board.Parent = workspace
 
-	for _, off in ipairs({ Vector3.new(-9, 0, 0), Vector3.new(9, 0, 0) }) do
+	for _, off in ipairs({ Vector3.new(-8, 0, 0), Vector3.new(8, 0, 0) }) do
 		local leg = Instance.new("Part")
 		leg.Anchored = true
-		leg.Size = Vector3.new(1.2, 8, 1.2)
-		leg.Position = base + off + Vector3.new(0, 2, 0)
-		leg.Color = Color3.fromRGB(120, 120, 128)
+		leg.Size = Vector3.new(1, 7, 1)
+		leg.Position = pos + off + Vector3.new(0, 1.5, 0)
+		leg.Color = Color3.fromRGB(110, 110, 118)
+		leg.Material = Enum.Material.Metal
 		leg.Parent = workspace
 	end
 
@@ -1966,6 +2289,7 @@ local function buildBoard()
 	title.Text = "\u{1F3C6} RICHEST CITIES OF ALL TIME \u{1F3C6}"
 	title.Parent = gui
 
+	local rows = {}
 	for i = 1, 10 do
 		local row = Instance.new("TextLabel")
 		row.Size = UDim2.new(1, -16, 0, 22)
@@ -1979,8 +2303,9 @@ local function buildBoard()
 		row.TextStrokeTransparency = 0
 		row.Text = i .. ". ..."
 		row.Parent = gui
-		rowLabels[i] = row
+		rows[i] = row
 	end
+	boards[#boards + 1] = { rows = rows }
 end
 
 local function playerName(userId)
@@ -1992,6 +2317,12 @@ local function playerName(userId)
 	end)
 	nameCache[userId] = ok and name or ("Player " .. userId)
 	return nameCache[userId]
+end
+
+local function setAllRows(i, text)
+	for _, board in ipairs(boards) do
+		board.rows[i].Text = text
+	end
 end
 
 local function submitScores()
@@ -2016,10 +2347,10 @@ local function submitScores()
 	end
 end
 
-local function refreshBoard()
+local function refreshBoards()
 	if not store then
 		for i = 1, 10 do
-			rowLabels[i].Text = i .. ". (enable API access to activate)"
+			setAllRows(i, i .. ". (publish + enable API access)")
 		end
 		return
 	end
@@ -2033,28 +2364,29 @@ local function refreshBoard()
 	for i = 1, 10 do
 		local entry = top[i]
 		if entry then
-			rowLabels[i].Text = i .. ". " .. playerName(tonumber(entry.key)) .. " — \u{1F4B5} "
-				.. NumberFormat.abbrev(entry.value)
+			setAllRows(i, i .. ". " .. playerName(tonumber(entry.key)) .. " — \u{1F4B5} " .. NumberFormat.abbrev(entry.value))
 		else
-			rowLabels[i].Text = i .. ". ---"
+			setAllRows(i, i .. ". ---")
 		end
 	end
 end
 
 function LeaderboardService.init(context)
 	ctx = context
-	buildBoard()
+	for _, slot in ipairs(ctx.World.slots) do
+		buildBoard(slot.boardPos)
+	end
 	task.spawn(function()
 		while true do
 			submitScores()
-			refreshBoard()
+			refreshBoards()
 			task.wait(90)
 		end
 	end)
 end
 
 return LeaderboardService
-</ProtectedString></Properties></Item><Item class="Script" referent="RBX17"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
+</ProtectedString></Properties></Item><Item class="Script" referent="RBX18"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
 -- Builds the world, wires the services, manages player lifecycle.
 
 local Players = game:GetService("Players")
@@ -2076,13 +2408,16 @@ local QuestService = require(script.Parent.QuestService)
 local EventsService = require(script.Parent.EventsService)
 local CosmeticsService = require(script.Parent.CosmeticsService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local CitizensService = require(script.Parent.CitizensService)
 local NPCBuilder = require(script.Parent.NPCBuilder)
 
-StarterPlayer.CameraMaxZoomDistance = 400
+StarterPlayer.CameraMaxZoomDistance = 500
 Players.RespawnTime = 3
 
 local world = WorldBuilder.build()
-NPCBuilder.build(world.root)
+task.spawn(function()
+	NPCBuilder.build(world) -- avatar loading yields; don't block startup
+end)
 
 local ctx = {
 	Data = DataService,
@@ -2108,6 +2443,9 @@ QuestService.init(ctx)
 CosmeticsService.init(ctx)
 EventsService.init(ctx)
 LeaderboardService.init(ctx)
+CitizensService.init(ctx)
+
+local Remotes = require(Shared.Remotes)
 
 local function onPlayerAdded(player)
 	ctx.session[player] = {}
@@ -2118,6 +2456,20 @@ local function onPlayerAdded(player)
 	EconomyService.onJoin(player)
 	PlotService.assign(player)
 	EconomyService.pushState(player)
+
+	-- Make it obvious when progress can't be saved (unpublished / API off).
+	local profile = DataService.get(player)
+	if profile and (profile.__noSave or not DataService.available()) then
+		task.delay(6, function()
+			if player.Parent then
+				Remotes.Events.Notify:FireClient(player, {
+					msg = "\u{26A0}\u{FE0F} SAVING IS OFF! Publish the game, then enable "
+						.. "Game Settings \u{2192} Security \u{2192} Allow Studio Access to API Services.",
+					kind = "bad",
+				})
+			end
+		end)
+	end
 end
 
 local function onPlayerRemoving(player)
@@ -2151,183 +2503,165 @@ game:BindToClose(function()
 end)
 
 print("[MVC] Missiles vs Cities server ready. Max " .. Config.MaxPlayers .. " players per server.")
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Builds the lobby NPCs (little blocky people with Talk prompts),
--- Benny's shop stand and the golden Rebirth shrine.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Places the four NPCs on EVERY island's town square using real Roblox
+-- avatar rigs (loaded once per NPC from actual Roblox accounts, then cloned),
+-- with idle animations. Falls back to a blocky figure if avatar loading
+-- fails (e.g. offline Studio).
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local NPCDefs = require(Shared.NPCDefs)
-local NumberFormat = require(Shared.NumberFormat)
 
 local NPCBuilder = {}
 
+-- Classic Roblox accounts whose avatars dress our NPCs.
+local NPC_AVATARS = {
+	shopkeeper = 156, -- builderman
+	tailor = 3, -- Jane Doe
+	mayor = 261, -- Shedletsky
+	general = 2, -- John Doe
+}
+
+local IDLE_ANIM = "rbxassetid://507766388" -- Roblox default R15 idle
+
 local SKIN = Color3.fromRGB(255, 204, 148)
 
-local function part(props)
-	local p = Instance.new("Part")
-	p.Anchored = true
-	p.CanCollide = false
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	for k, v in pairs(props) do
-		if k ~= "Parent" then
-			p[k] = v
+local function blockyFallback(def)
+	local model = Instance.new("Model")
+	local function p(name, size, cfOff, color)
+		local piece = Instance.new("Part")
+		piece.Name = name
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.TopSurface = Enum.SurfaceType.Smooth
+		piece.BottomSurface = Enum.SurfaceType.Smooth
+		piece.Size = size
+		piece.CFrame = cfOff
+		piece.Color = color
+		piece.Parent = model
+		return piece
+	end
+	local cf = CFrame.new()
+	p("LegL", Vector3.new(0.9, 1.8, 0.9), cf * CFrame.new(-0.5, 0.9, 0), def.pants)
+	p("LegR", Vector3.new(0.9, 1.8, 0.9), cf * CFrame.new(0.5, 0.9, 0), def.pants)
+	local torso = p("Torso", Vector3.new(2.1, 2.1, 1.1), cf * CFrame.new(0, 2.85, 0), def.shirt)
+	p("ArmL", Vector3.new(0.8, 1.9, 0.8), cf * CFrame.new(-1.5, 2.9, 0), def.shirt)
+	p("ArmR", Vector3.new(0.8, 1.9, 0.8), cf * CFrame.new(1.5, 2.9, 0), def.shirt)
+	p("Head", Vector3.new(1.3, 1.3, 1.3), cf * CFrame.new(0, 4.6, 0), SKIN)
+	p("Hat", Vector3.new(1.5, 0.5, 1.5), cf * CFrame.new(0, 5.4, 0), def.hat)
+	model.PrimaryPart = torso
+	return model
+end
+
+local function loadAvatarBase(def)
+	local userId = NPC_AVATARS[def.id]
+	if userId then
+		local ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromUserId(userId)
+		end)
+		if ok and model then
+			return model, true
 		end
 	end
-	p.Parent = props.Parent
-	return p
+	return blockyFallback(def), false
 end
 
--- Small blocky person, ~4 studs tall. Returns the model and its torso.
-function NPCBuilder.buildPerson(cf, shirt, pants, hat, parent)
-	local model = Instance.new("Model")
-	model.Name = "Person"
-
-	part({ Name = "LegL", Size = Vector3.new(0.7, 1.4, 0.7), CFrame = cf * CFrame.new(-0.4, 0.7, 0), Color = pants, Parent = model })
-	part({ Name = "LegR", Size = Vector3.new(0.7, 1.4, 0.7), CFrame = cf * CFrame.new(0.4, 0.7, 0), Color = pants, Parent = model })
-	local torso = part({ Name = "Torso", Size = Vector3.new(1.7, 1.7, 0.9), CFrame = cf * CFrame.new(0, 2.25, 0), Color = shirt, Parent = model })
-	part({ Name = "ArmL", Size = Vector3.new(0.6, 1.5, 0.6), CFrame = cf * CFrame.new(-1.2, 2.3, 0), Color = shirt, Parent = model })
-	part({ Name = "ArmR", Size = Vector3.new(0.6, 1.5, 0.6), CFrame = cf * CFrame.new(1.2, 2.3, 0), Color = shirt, Parent = model })
-	part({ Name = "Head", Size = Vector3.new(1.1, 1.1, 1.1), CFrame = cf * CFrame.new(0, 3.7, 0), Color = SKIN, Parent = model })
-	part({ Name = "Hat", Size = Vector3.new(1.3, 0.45, 1.3), CFrame = cf * CFrame.new(0, 4.4, 0), Color = hat, Parent = model })
-
-	model.PrimaryPart = torso
-	model.Parent = parent
-	return model, torso
-end
-
-local function buildShopStand(root)
-	local folder = Instance.new("Folder")
-	folder.Name = "ShopStand"
-	folder.Parent = root
-
-	local base = Vector3.new(38, Config.GroundY, 14)
-	part({ Name = "Counter", Size = Vector3.new(2, 3.4, 12), Position = base + Vector3.new(-3, 1.7, 0), CanCollide = true, Color = Color3.fromRGB(150, 116, 78), Material = Enum.Material.WoodPlanks, Parent = folder })
-	part({ Name = "PostL", Size = Vector3.new(0.8, 8, 0.8), Position = base + Vector3.new(1.5, 4, -5.5), Color = Color3.fromRGB(120, 90, 60), Parent = folder })
-	part({ Name = "PostR", Size = Vector3.new(0.8, 8, 0.8), Position = base + Vector3.new(1.5, 4, 5.5), Color = Color3.fromRGB(120, 90, 60), Parent = folder })
-	-- Striped awning.
-	for i = 0, 3 do
-		part({
-			Name = "Awning",
-			Size = Vector3.new(7, 0.4, 3),
-			CFrame = CFrame.new(base + Vector3.new(-1, 8.4, -4.5 + i * 3)) * CFrame.Angles(0, 0, math.rad(-12)),
-			Color = (i % 2 == 0) and Color3.fromRGB(235, 60, 60) or Color3.fromRGB(240, 240, 245),
-			Parent = folder,
-		})
+local function anchorRig(model)
+	for _, piece in ipairs(model:GetDescendants()) do
+		if piece:IsA("BasePart") then
+			piece.Anchored = true
+			piece.CanCollide = false
+		end
 	end
 end
 
-local function buildRebirthShrine(root, prompts)
-	local folder = Instance.new("Folder")
-	folder.Name = "RebirthShrine"
-	folder.Parent = root
-
-	local base = Vector3.new(0, Config.GroundY, 38)
-	local pedestal = part({
-		Name = "Pedestal",
-		Size = Vector3.new(8, 2, 8),
-		Position = base + Vector3.new(0, 1, 0),
-		CanCollide = true,
-		Color = Color3.fromRGB(255, 215, 80),
-		Material = Enum.Material.Metal,
-		Parent = folder,
-	})
-	local orb = part({
-		Name = "Orb",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(4.5, 4.5, 4.5),
-		Position = base + Vector3.new(0, 5, 0),
-		Color = Color3.fromRGB(255, 230, 120),
-		Material = Enum.Material.Neon,
-		Parent = folder,
-	})
-	local sparkle = Instance.new("ParticleEmitter")
-	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120))
-	sparkle.Rate = 6
-	sparkle.Lifetime = NumberRange.new(0.8, 1.4)
-	sparkle.Speed = NumberRange.new(2, 4)
-	sparkle.Parent = orb
-
+local function decorate(model, def)
+	local head = model:FindFirstChild("Head") or model.PrimaryPart
+	if not head then
+		return
+	end
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.new(22, 0, 8, 0)
-	gui.StudsOffset = Vector3.new(0, 6, 0)
-	gui.MaxDistance = 300
+	gui.Size = UDim2.new(14, 0, 3.2, 0)
+	gui.StudsOffset = Vector3.new(0, 2.6, 0)
+	gui.MaxDistance = 140
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 230, 120)
+	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeColor3 = Color3.new(0, 0, 0)
 	label.TextStrokeTransparency = 0
-	label.Text = "\u{1F31F} REBIRTH SHRINE \u{1F31F}\nReset your city for a\nPERMANENT income boost!\nFirst rebirth: \u{1F4B5} "
-		.. NumberFormat.abbrev(Config.Rebirth.BaseCost)
+	label.Text = def.emoji .. " " .. def.name
 	label.Parent = gui
-	gui.Parent = orb
+	gui.Parent = head
 
+	local promptHolder = model.PrimaryPart or head
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "RebirthPrompt"
-	prompt.ActionText = "Rebirth"
-	prompt.ObjectText = "Rebirth Shrine"
-	prompt.HoldDuration = 0.5
-	prompt.MaxActivationDistance = 12
+	prompt.Name = "TalkPrompt_" .. def.id
+	prompt.ActionText = "Talk"
+	prompt.ObjectText = def.name
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
-	prompt.Parent = pedestal
-	prompts.rebirth = prompt
+	prompt.Parent = promptHolder
 end
 
--- Builds everything; returns { prompts = { [npcId] = prompt, rebirth = prompt } }.
-function NPCBuilder.build(root)
-	local prompts = {}
+local function playIdle(model)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+	pcall(function()
+		local anim = Instance.new("Animation")
+		anim.AnimationId = IDLE_ANIM
+		local track = animator:LoadAnimation(anim)
+		track.Looped = true
+		track:Play()
+	end)
+end
 
-	buildShopStand(root)
-	buildRebirthShrine(root, prompts)
-
+function NPCBuilder.build(world)
 	local folder = Instance.new("Folder")
 	folder.Name = "NPCs"
-	folder.Parent = root
+	folder.Parent = world.root
 
+	-- Load each avatar once, clone per island.
+	local bases = {}
 	for _, def in ipairs(NPCDefs.List) do
-		local cf = CFrame.new(Vector3.new(def.pos.X, Config.GroundY, def.pos.Z))
-			* CFrame.Angles(0, math.rad(def.facing or 0), 0)
-		local model, torso = NPCBuilder.buildPerson(cf, def.shirt, def.pants, def.hat, folder)
-		model.Name = "NPC_" .. def.id
-
-		local gui = Instance.new("BillboardGui")
-		gui.Size = UDim2.new(14, 0, 3.4, 0)
-		gui.StudsOffset = Vector3.new(0, 3.6, 0)
-		gui.MaxDistance = 120
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.FredokaOne
-		label.TextScaled = true
-		label.TextColor3 = Color3.new(1, 1, 1)
-		label.TextStrokeColor3 = Color3.new(0, 0, 0)
-		label.TextStrokeTransparency = 0
-		label.Text = def.emoji .. " " .. def.name
-		label.Parent = gui
-		gui.Parent = torso
-
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "TalkPrompt_" .. def.id
-		prompt.ActionText = "Talk"
-		prompt.ObjectText = def.name
-		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = 10
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = torso
-		prompts[def.id] = prompt
+		bases[def.id] = loadAvatarBase(def)
 	end
 
-	return { prompts = prompts }
+	for _, slot in ipairs(world.slots) do
+		for _, def in ipairs(NPCDefs.List) do
+			local anchor = slot.npcAnchors[def.id]
+			if anchor then
+				local model = bases[def.id]:Clone()
+				model.Name = "NPC_" .. def.id .. "_" .. slot.index
+				anchorRig(model)
+
+				-- Stand on the plaza facing the spawn area.
+				local lookAt = Vector3.new(slot.npcLookAt.X, anchor.Y, slot.npcLookAt.Z)
+				local pos = anchor + Vector3.new(0, 3.2, 0)
+				model.Parent = folder
+				model:PivotTo(CFrame.lookAt(pos, Vector3.new(lookAt.X, pos.Y, lookAt.Z)))
+
+				decorate(model, def)
+				playIdle(model)
+			end
+		end
+	end
+
+	for _, base in pairs(bases) do
+		base:Destroy()
+	end
 end
 
 return NPCBuilder
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
 -- damage, destruction, rebuild timers and HP regen.
 
 local Players = game:GetService("Players")
@@ -2463,13 +2797,13 @@ local function onPadTouched(slot, zi, hit)
 	ctx.Economy.pushState(player)
 end
 
-local function onNukePadTouched(hit)
+local function onNukePadTouched(slot, hit)
 	local character = hit.Parent
 	if not character then
 		return
 	end
 	local player = Players:GetPlayerFromCharacter(character)
-	if not player then
+	if not player or slot.owner ~= player then
 		return
 	end
 	local dKey = player.UserId .. ":nuke"
@@ -2729,13 +3063,17 @@ function PlotService.init(context)
 		end
 	end
 
-	ctx.World.nukePad.Touched:Connect(onNukePadTouched)
+	for _, slot in ipairs(slots) do
+		slot.nukePad.Touched:Connect(function(hit)
+			onNukePadTouched(slot, hit)
+		end)
+	end
 
 	task.spawn(maintenanceLoop)
 end
 
 return PlotService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
 -- evaluated against live values every economy tick. Completions pay out
 -- automatically with a fanfare; repeatable end-quests loop forever.
 
@@ -2889,7 +3227,7 @@ function QuestService.init(context)
 end
 
 return QuestService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -2973,8 +3311,9 @@ function RewardsService.init(context)
 end
 
 return RewardsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the whole map from parts at server start: lobby, 5 plot islands,
--- roads, buy pads, rocket silos, bridges and Nuke Island.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map: 5 far-apart self-contained islands. Each island has the
+-- 4x4 city grid, rocket silo, nuke-access pad, and a front town square
+-- (spawn, shop stand, NPCs, leaderboard, rebirth shrine). No central island.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
@@ -2987,12 +3326,13 @@ local NumberFormat = require(Shared.NumberFormat)
 
 local WorldBuilder = {}
 
-local COLOR_GRASS = Color3.fromRGB(106, 200, 86)
-local COLOR_SAND = Color3.fromRGB(233, 208, 148)
-local COLOR_ROAD = Color3.fromRGB(58, 58, 64)
+local COLOR_GRASS = Color3.fromRGB(96, 186, 78)
+local COLOR_SAND = Color3.fromRGB(226, 200, 140)
+local COLOR_ROAD = Color3.fromRGB(48, 48, 54)
 local COLOR_DASH = Color3.fromRGB(248, 214, 62)
-local COLOR_ZONE = Color3.fromRGB(126, 212, 102)
-local COLOR_FENCE = Color3.fromRGB(196, 164, 108)
+local COLOR_ZONE = Color3.fromRGB(116, 202, 94)
+local COLOR_SIDEWALK = Color3.fromRGB(168, 168, 172)
+local COLOR_PLAZA = Color3.fromRGB(196, 190, 178)
 
 local function part(props)
 	local p = Instance.new("Part")
@@ -3031,108 +3371,75 @@ end
 local function buildTree(pos, parent)
 	part({
 		Name = "Trunk",
-		Size = Vector3.new(2, 7, 2),
-		Position = pos + Vector3.new(0, 3.5, 0),
-		Color = Color3.fromRGB(126, 90, 54),
+		Size = Vector3.new(1.8, 6, 1.8),
+		Position = pos + Vector3.new(0, 3, 0),
+		Color = Color3.fromRGB(118, 84, 50),
+		Material = Enum.Material.Wood,
 		Parent = parent,
 	})
 	part({
 		Name = "Leaves",
-		Size = Vector3.new(6, 5, 6),
-		Position = pos + Vector3.new(0, 9, 0),
-		Color = Color3.fromRGB(70, 170, 70),
-		Parent = parent,
-	})
-end
-
-local function buildLobby(root)
-	local folder = Instance.new("Folder")
-	folder.Name = "Lobby"
-	folder.Parent = root
-
-	part({
-		Name = "LobbyBase",
-		Size = Vector3.new(110, 8, 110),
-		Position = Vector3.new(0, 0, 0),
-		Color = COLOR_GRASS,
+		Size = Vector3.new(6.5, 4.5, 6.5),
+		Position = pos + Vector3.new(0, 8, 0),
+		Color = Color3.fromRGB(62, 158, 62),
 		Material = Enum.Material.Grass,
-		Parent = folder,
-	})
-	part({
-		Name = "LobbyRim",
-		Size = Vector3.new(122, 7, 122),
-		Position = Vector3.new(0, -1, 0),
-		Color = COLOR_SAND,
-		Material = Enum.Material.Sand,
-		Parent = folder,
-	})
-
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Spawn"
-	spawn.Size = Vector3.new(14, 1, 14)
-	spawn.Position = Vector3.new(0, Config.GroundY + 0.5, 0)
-	spawn.Anchored = true
-	spawn.Neutral = true
-	spawn.Duration = 0
-	spawn.TopSurface = Enum.SurfaceType.Smooth
-	spawn.Color = Color3.fromRGB(90, 160, 240)
-	spawn.Parent = folder
-
-	buildTree(Vector3.new(-40, Config.GroundY, -40), folder)
-	buildTree(Vector3.new(42, Config.GroundY, -38), folder)
-	buildTree(Vector3.new(-38, Config.GroundY, 42), folder)
-	buildTree(Vector3.new(40, Config.GroundY, 40), folder)
-
-	local signPost = part({
-		Name = "WelcomeSign",
-		Size = Vector3.new(18, 6, 1),
-		Position = Vector3.new(0, Config.GroundY + 6, -20),
-		Color = Color3.fromRGB(235, 60, 60),
-		Parent = folder,
-	})
-	local _, label = billboard(signPost, 22, 8, 4, 400)
-	label.Text = "\u{1F680} MISSILES VS CITIES \u{1F680}\nCross a bridge to find your city!"
-end
-
-local function buildBridge(fromPos, toPos, width, parent)
-	local flatFrom = Vector3.new(fromPos.X, 0, fromPos.Z)
-	local flatTo = Vector3.new(toPos.X, 0, toPos.Z)
-	local length = (flatTo - flatFrom).Magnitude
-	local mid = (flatFrom + flatTo) / 2
-	local cf = CFrame.lookAt(Vector3.new(mid.X, Config.GroundY - 0.5, mid.Z), Vector3.new(flatTo.X, Config.GroundY - 0.5, flatTo.Z))
-	part({
-		Name = "Bridge",
-		Size = Vector3.new(width, 1, length),
-		CFrame = cf,
-		Color = Color3.fromRGB(150, 116, 78),
-		Material = Enum.Material.WoodPlanks,
 		Parent = parent,
 	})
+	part({
+		Name = "Leaves2",
+		Size = Vector3.new(4.5, 3, 4.5),
+		Position = pos + Vector3.new(0, 11, 0),
+		Color = Color3.fromRGB(74, 176, 70),
+		Material = Enum.Material.Grass,
+		Parent = parent,
+	})
+end
+
+local function buildLamp(pos, parent)
+	part({
+		Name = "LampPole",
+		Size = Vector3.new(0.7, 9, 0.7),
+		Position = pos + Vector3.new(0, 4.5, 0),
+		Color = Color3.fromRGB(70, 70, 78),
+		Material = Enum.Material.Metal,
+		Parent = parent,
+	})
+	local bulb = part({
+		Name = "LampBulb",
+		Size = Vector3.new(1.4, 1, 1.4),
+		Position = pos + Vector3.new(0, 9.4, 0),
+		Color = Color3.fromRGB(255, 236, 160),
+		Material = Enum.Material.Neon,
+		Parent = parent,
+	})
+	local light = Instance.new("PointLight")
+	light.Range = 22
+	light.Brightness = 1.2
+	light.Color = Color3.fromRGB(255, 230, 160)
+	light.Parent = bulb
 end
 
 local function buildRoads(center, folder)
-	-- Vertical roads (full depth) then horizontal roads; tiny Y offsets stop z-fighting.
-	local vXs = { -104, -52, 0, 52, 104 }
-	for _, x in ipairs(vXs) do
+	for _, x in ipairs(Layout.RoadXs) do
 		part({
 			Name = "RoadV",
 			Size = Vector3.new(12, 0.2, Config.PlotSize),
 			Position = Vector3.new(center.X + x, Config.GroundY + 0.1, center.Z),
 			Color = COLOR_ROAD,
+			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
 	end
-	local hZs = { 130, 78, 26, -26, -78 }
 	local dashLimit = Config.PlotSize / 2 - 16
-	for _, z in ipairs(hZs) do
+	for _, z in ipairs(Layout.RoadZs) do
 		part({
 			Name = "RoadH",
 			Size = Vector3.new(Config.PlotSize, 0.2, 12),
 			Position = Vector3.new(center.X, Config.GroundY + 0.14, center.Z + z),
 			Color = COLOR_ROAD,
+			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
-		-- Yellow dashes along horizontal roads.
 		local x = -dashLimit
 		while x &lt;= dashLimit do
 			part({
@@ -3140,6 +3447,7 @@ local function buildRoads(center, folder)
 				Size = Vector3.new(6, 0.05, 1.6),
 				Position = Vector3.new(center.X + x, Config.GroundY + 0.26, center.Z + z),
 				Color = COLOR_DASH,
+				Material = Enum.Material.Neon,
 				Parent = folder,
 			})
 			x += 24
@@ -3149,27 +3457,24 @@ end
 
 local function buildFence(center, folder)
 	local h = 3
-	local half = Config.PlotSize / 2
-	local gate = 20 -- half-width of the front gate opening
-	local segLen = half - gate
-	local segOff = gate + segLen / 2
+	local halfX = Config.PlotSize / 2
+	local backZ = -halfX
+	local frontZ = halfX + Layout.TownDepth
+	local depth = frontZ - backZ
+	local midZ = (frontZ + backZ) / 2
 	local segs = {
-		-- back wall
-		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z - half), Vector3.new(Config.PlotSize, h, 1) },
-		-- side walls
-		{ Vector3.new(center.X - half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
-		{ Vector3.new(center.X + half, Config.GroundY + h / 2, center.Z), Vector3.new(1, h, Config.PlotSize) },
-		-- front wall, split to leave a gate for the bridge
-		{ Vector3.new(center.X - segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
-		{ Vector3.new(center.X + segOff, Config.GroundY + h / 2, center.Z + half), Vector3.new(segLen, h, 1) },
+		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z + backZ), Vector3.new(Config.PlotSize, h, 1) },
+		{ Vector3.new(center.X, Config.GroundY + h / 2, center.Z + frontZ), Vector3.new(Config.PlotSize, h, 1) },
+		{ Vector3.new(center.X - halfX, Config.GroundY + h / 2, center.Z + midZ), Vector3.new(1, h, depth) },
+		{ Vector3.new(center.X + halfX, Config.GroundY + h / 2, center.Z + midZ), Vector3.new(1, h, depth) },
 	}
 	for _, seg in ipairs(segs) do
 		part({
 			Name = "Fence",
 			Size = seg[2],
 			Position = seg[1],
-			Color = COLOR_FENCE,
-			Material = Enum.Material.Wood,
+			Color = Color3.fromRGB(196, 164, 108),
+			Material = Enum.Material.WoodPlanks,
 			Parent = folder,
 		})
 	end
@@ -3178,12 +3483,12 @@ end
 local function buildSilo(plotIndex, folder)
 	local pos = Layout.siloPos(plotIndex)
 
-	-- Hazard-striped launch pad.
 	part({
 		Name = "SiloPad",
 		Size = Vector3.new(36, 0.4, 36),
 		Position = pos + Vector3.new(0, 0.2, 0),
 		Color = Color3.fromRGB(240, 200, 40),
+		Material = Enum.Material.DiamondPlate,
 		Parent = folder,
 	})
 	for i = -1, 1 do
@@ -3196,13 +3501,12 @@ local function buildSilo(plotIndex, folder)
 		})
 	end
 
-	-- Scaffold tower.
 	for _, corner in ipairs({ Vector3.new(-8, 0, -8), Vector3.new(8, 0, -8), Vector3.new(-8, 0, 8), Vector3.new(8, 0, 8) }) do
 		part({
 			Name = "SiloColumn",
 			Size = Vector3.new(2, 26, 2),
 			Position = pos + corner + Vector3.new(0, 13, 0),
-			Color = Color3.fromRGB(160, 160, 168),
+			Color = Color3.fromRGB(150, 150, 158),
 			Material = Enum.Material.Metal,
 			Parent = folder,
 		})
@@ -3211,17 +3515,17 @@ local function buildSilo(plotIndex, folder)
 		Name = "SiloTop",
 		Size = Vector3.new(20, 2, 20),
 		Position = pos + Vector3.new(0, 27, 0),
-		Color = Color3.fromRGB(120, 120, 128),
-		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(110, 110, 118),
+		Material = Enum.Material.DiamondPlate,
 		Parent = folder,
 	})
 
-	-- The rocket itself (blocky, like everything else here).
 	local body = part({
 		Name = "SiloRocket",
 		Size = Vector3.new(5, 16, 5),
 		Position = pos + Vector3.new(0, 9, 0),
 		Color = Color3.fromRGB(240, 240, 245),
+		Material = Enum.Material.SmoothPlastic,
 		Parent = folder,
 	})
 	part({
@@ -3253,7 +3557,169 @@ local function buildSilo(plotIndex, folder)
 	local _, label = billboard(body, 18, 6, 16, 300)
 	label.Text = "\u{1F680} Rocket Silo"
 
-	return body
+	-- Nuke-access pad right next to the silo.
+	local nukePadPos = pos + Vector3.new(42, 0.4, 0)
+	local nukePad = part({
+		Name = "NukeBuyPad",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 12, 12),
+		CFrame = CFrame.new(nukePadPos) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(190, 90, 240),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local _, nukeLabel = billboard(nukePad, 20, 9, 7, 220)
+	nukeLabel.Text = "\u{2622}\u{FE0F} NUKE ACCESS\n\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost)
+		.. "\nOne nuke every 24h!"
+	local nukePrompt = Instance.new("ProximityPrompt")
+	nukePrompt.Name = "NukePrompt"
+	nukePrompt.ActionText = "Nuke Controls"
+	nukePrompt.ObjectText = "Nuclear Option"
+	nukePrompt.HoldDuration = 0
+	nukePrompt.MaxActivationDistance = 14
+	nukePrompt.RequiresLineOfSight = false
+	nukePrompt.Parent = nukePad
+
+	return body, nukePad
+end
+
+local function buildTownSquare(plotIndex, folder)
+	local c = Layout.plotCenter(plotIndex)
+	local half = Config.PlotSize / 2
+
+	-- Plaza pavement across the town strip.
+	part({
+		Name = "Plaza",
+		Size = Vector3.new(Config.PlotSize, 0.3, Layout.TownDepth - 4),
+		Position = Vector3.new(c.X, Config.GroundY + 0.15, c.Z + half + Layout.TownDepth / 2),
+		Color = COLOR_PLAZA,
+		Material = Enum.Material.Concrete,
+		Parent = folder,
+	})
+
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn" .. plotIndex
+	spawn.Size = Vector3.new(12, 1, 12)
+	spawn.Position = Vector3.new(c.X, Config.GroundY + 0.6, c.Z + half + 16)
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.TopSurface = Enum.SurfaceType.Smooth
+	spawn.Color = Color3.fromRGB(90, 160, 240)
+	spawn.Parent = folder
+
+	-- Benny's shop stand.
+	local standX = c.X + 80
+	local standZ = c.Z + half + 34
+	part({
+		Name = "Counter",
+		Size = Vector3.new(10, 3.2, 2),
+		Position = Vector3.new(standX, Config.GroundY + 1.6, standZ - 4),
+		CanCollide = true,
+		Color = Color3.fromRGB(150, 116, 78),
+		Material = Enum.Material.WoodPlanks,
+		Parent = folder,
+	})
+	part({
+		Name = "PostL",
+		Size = Vector3.new(0.8, 8, 0.8),
+		Position = Vector3.new(standX - 4.5, Config.GroundY + 4, standZ + 1.5),
+		Color = Color3.fromRGB(120, 90, 60),
+		Material = Enum.Material.Wood,
+		Parent = folder,
+	})
+	part({
+		Name = "PostR",
+		Size = Vector3.new(0.8, 8, 0.8),
+		Position = Vector3.new(standX + 4.5, Config.GroundY + 4, standZ + 1.5),
+		Color = Color3.fromRGB(120, 90, 60),
+		Material = Enum.Material.Wood,
+		Parent = folder,
+	})
+	for i = 0, 3 do
+		part({
+			Name = "Awning",
+			Size = Vector3.new(2.6, 0.4, 6.5),
+			CFrame = CFrame.new(standX - 3.9 + i * 2.6, Config.GroundY + 8.4, standZ - 1)
+				* CFrame.Angles(math.rad(-12), 0, 0),
+			Color = (i % 2 == 0) and Color3.fromRGB(235, 60, 60) or Color3.fromRGB(240, 240, 245),
+			Parent = folder,
+		})
+	end
+
+	-- Rebirth shrine.
+	local shrineX = c.X + 118
+	local shrineZ = c.Z + half + 44
+	local pedestal = part({
+		Name = "Pedestal",
+		Size = Vector3.new(7, 2, 7),
+		Position = Vector3.new(shrineX, Config.GroundY + 1, shrineZ),
+		CanCollide = true,
+		Color = Color3.fromRGB(255, 215, 80),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+	local orb = part({
+		Name = "Orb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(4, 4, 4),
+		Position = Vector3.new(shrineX, Config.GroundY + 4.5, shrineZ),
+		Color = Color3.fromRGB(255, 230, 120),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120))
+	sparkle.Rate = 5
+	sparkle.Lifetime = NumberRange.new(0.8, 1.4)
+	sparkle.Speed = NumberRange.new(2, 4)
+	sparkle.Parent = orb
+	local _, shrineLabel = billboard(orb, 18, 7, 5, 240)
+	shrineLabel.Text = "\u{1F31F} REBIRTH SHRINE\nReset city \u{2192} PERMANENT\nincome multiplier!"
+	shrineLabel.TextColor3 = Color3.fromRGB(255, 230, 120)
+	local shrinePrompt = Instance.new("ProximityPrompt")
+	shrinePrompt.Name = "RebirthPrompt"
+	shrinePrompt.ActionText = "Rebirth"
+	shrinePrompt.ObjectText = "Rebirth Shrine"
+	shrinePrompt.HoldDuration = 0.5
+	shrinePrompt.MaxActivationDistance = 12
+	shrinePrompt.RequiresLineOfSight = false
+	shrinePrompt.Parent = pedestal
+
+	-- Decorations.
+	buildTree(Vector3.new(c.X - 122, Config.GroundY, c.Z + half + 14), folder)
+	buildTree(Vector3.new(c.X + 122, Config.GroundY, c.Z + half + 12), folder)
+	buildLamp(Vector3.new(c.X - 30, Config.GroundY, c.Z + half + 12), folder)
+	buildLamp(Vector3.new(c.X + 30, Config.GroundY, c.Z + half + 12), folder)
+
+	-- Owner banner pole.
+	local pole = part({
+		Name = "BannerPole",
+		Size = Vector3.new(1, 12, 1),
+		Position = Vector3.new(c.X - 118, Config.GroundY + 6, c.Z + half + 40),
+		Color = Color3.fromRGB(120, 120, 128),
+		Material = Enum.Material.Metal,
+		Parent = folder,
+	})
+	local bannerGui, bannerLabel = billboard(pole, 26, 8, 8, 1400)
+	bannerGui.AlwaysOnTop = true
+	bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
+
+	-- Leaderboard placement info for LeaderboardService.
+	local boardPos = Vector3.new(c.X, Config.GroundY, c.Z + half + Layout.TownDepth - 6)
+
+	return {
+		bannerLabel = bannerLabel,
+		boardPos = boardPos,
+		npcAnchors = {
+			shopkeeper = Vector3.new(standX, Config.GroundY, standZ + 2.5),
+			tailor = Vector3.new(c.X - 80, Config.GroundY, c.Z + half + 34),
+			mayor = Vector3.new(c.X + 32, Config.GroundY, c.Z + half + 46),
+			general = Vector3.new(c.X - 32, Config.GroundY, c.Z + half + 46),
+		},
+		npcLookAt = Vector3.new(c.X, Config.GroundY, c.Z + half + 16),
+	}
 end
 
 local function buildPlot(plotIndex, root)
@@ -3262,18 +3728,22 @@ local function buildPlot(plotIndex, root)
 	folder.Name = "Plot" .. plotIndex
 	folder.Parent = root
 
+	local half = Config.PlotSize / 2
+	local depthZ = Config.PlotSize + Layout.TownDepth
+	local islandCenterZ = center.Z + Layout.TownDepth / 2
+
 	part({
 		Name = "Island",
-		Size = Vector3.new(Config.PlotSize, 10, Config.PlotSize),
-		Position = Vector3.new(center.X, -1, center.Z),
+		Size = Vector3.new(Config.PlotSize, 10, depthZ),
+		Position = Vector3.new(center.X, -1, islandCenterZ),
 		Color = COLOR_GRASS,
 		Material = Enum.Material.Grass,
 		Parent = folder,
 	})
 	part({
 		Name = "IslandRim",
-		Size = Vector3.new(Config.PlotSize + 18, 8, Config.PlotSize + 18),
-		Position = Vector3.new(center.X, -1.5, center.Z),
+		Size = Vector3.new(Config.PlotSize + 18, 8, depthZ + 18),
+		Position = Vector3.new(center.X, -1.5, islandCenterZ),
 		Color = COLOR_SAND,
 		Material = Enum.Material.Sand,
 		Parent = folder,
@@ -3282,27 +3752,25 @@ local function buildPlot(plotIndex, root)
 	buildRoads(center, folder)
 	buildFence(center, folder)
 
-	-- Owner banner on a pole at the front gate.
-	local pole = part({
-		Name = "BannerPole",
-		Size = Vector3.new(1, 12, 1),
-		Position = Vector3.new(center.X - 12, Config.GroundY + 6, center.Z + Config.PlotSize / 2 - 4),
-		Color = Color3.fromRGB(120, 120, 128),
-		Parent = folder,
-	})
-	local bannerGui, bannerLabel = billboard(pole, 26, 8, 8, 800)
-	bannerGui.AlwaysOnTop = true
-	bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
-	bannerLabel.TextColor3 = Color3.fromRGB(255, 235, 235)
+	local town = buildTownSquare(plotIndex, folder)
 
 	local zoneData = {}
 	for zi = 1, #BuildingDefs.List do
 		local zCenter = Layout.zoneCenter(plotIndex, zi)
+		part({
+			Name = "Sidewalk",
+			Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
+			Position = Vector3.new(zCenter.X, Config.GroundY + 0.12, zCenter.Z),
+			Color = COLOR_SIDEWALK,
+			Material = Enum.Material.Concrete,
+			Parent = folder,
+		})
 		local plate = part({
 			Name = "ZonePlate",
 			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
-			Position = Vector3.new(zCenter.X, Config.GroundY + 0.15, zCenter.Z),
+			Position = Vector3.new(zCenter.X, Config.GroundY + 0.18, zCenter.Z),
 			Color = COLOR_ZONE,
+			Material = Enum.Material.Grass,
 			Parent = folder,
 		})
 
@@ -3331,100 +3799,19 @@ local function buildPlot(plotIndex, root)
 		}
 	end
 
-	local siloBody = buildSilo(plotIndex, folder)
-	buildBridge(Vector3.new(0, 0, 0), center, 10, folder)
+	local siloBody, nukePad = buildSilo(plotIndex, folder)
 
 	return {
 		index = plotIndex,
 		folder = folder,
 		zoneData = zoneData,
-		bannerLabel = bannerLabel,
+		bannerLabel = town.bannerLabel,
 		siloBody = siloBody,
+		nukePad = nukePad,
+		boardPos = town.boardPos,
+		npcAnchors = town.npcAnchors,
+		npcLookAt = town.npcLookAt,
 	}
-end
-
-local function buildNukeIsland(root)
-	local folder = Instance.new("Folder")
-	folder.Name = "NukeIsland"
-	folder.Parent = root
-
-	local c = Layout.NukeIslandCenter
-	local size = Layout.NukeIslandSize
-
-	part({
-		Name = "NukeBase",
-		Size = Vector3.new(size, 10, size),
-		Position = Vector3.new(c.X, -1, c.Z),
-		Color = Color3.fromRGB(96, 96, 104),
-		Material = Enum.Material.Concrete,
-		Parent = folder,
-	})
-	part({
-		Name = "NukeRim",
-		Size = Vector3.new(size + 14, 8, size + 14),
-		Position = Vector3.new(c.X, -1.5, c.Z),
-		Color = Color3.fromRGB(240, 200, 40),
-		Parent = folder,
-	})
-
-	-- Big scary silo.
-	for _, corner in ipairs({ Vector3.new(-12, 0, -12), Vector3.new(12, 0, -12), Vector3.new(-12, 0, 12), Vector3.new(12, 0, 12) }) do
-		part({
-			Name = "NukeColumn",
-			Size = Vector3.new(3, 40, 3),
-			Position = Vector3.new(c.X, Config.GroundY + 20, c.Z) + corner,
-			Color = Color3.fromRGB(70, 70, 78),
-			Material = Enum.Material.DiamondPlate,
-			Parent = folder,
-		})
-	end
-	local nukeBody = part({
-		Name = "NukeRocket",
-		Size = Vector3.new(8, 26, 8),
-		Position = Vector3.new(c.X, Config.GroundY + 13, c.Z),
-		Color = Color3.fromRGB(60, 62, 68),
-		Material = Enum.Material.Metal,
-		Parent = folder,
-	})
-	part({
-		Name = "NukeNose",
-		Size = Vector3.new(5, 6, 5),
-		Position = Vector3.new(c.X, Config.GroundY + 29, c.Z),
-		Color = Color3.fromRGB(180, 235, 60),
-		Material = Enum.Material.Neon,
-		Parent = folder,
-	})
-	local _, siloLabel = billboard(nukeBody, 30, 10, 26, 1200)
-	siloLabel.Text = "\u{2622}\u{FE0F} NUKE ISLAND \u{2622}\u{FE0F}"
-	siloLabel.TextColor3 = Color3.fromRGB(190, 255, 90)
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "NukePrompt"
-	prompt.ActionText = "Nuke Controls"
-	prompt.ObjectText = "Nuclear Silo"
-	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = 20
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = nukeBody
-
-	-- Purchase pad at the island entrance.
-	local padPos = Vector3.new(c.X, Config.GroundY + 0.4, c.Z + size / 2 - 18)
-	local pad = part({
-		Name = "NukeBuyPad",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.6, 14, 14),
-		CFrame = CFrame.new(padPos) * CFrame.Angles(0, 0, math.rad(90)),
-		Color = Color3.fromRGB(190, 90, 240),
-		Material = Enum.Material.Neon,
-		Parent = folder,
-	})
-	local _, padLabel = billboard(pad, 24, 10, 8, 400)
-	padLabel.Text = "\u{2622}\u{FE0F} BUY NUKE ACCESS\n\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost)
-		.. "\nOne nuke every 24h!"
-
-	buildBridge(Vector3.new(0, 0, 0), Vector3.new(c.X, 0, c.Z + size / 2), 12, folder)
-
-	return { pad = pad, body = nukeBody }
 end
 
 function WorldBuilder.build()
@@ -3433,43 +3820,41 @@ function WorldBuilder.build()
 	root.Parent = workspace
 
 	-- Ocean.
-	workspace.Terrain:FillBlock(CFrame.new(0, -8, 0), Vector3.new(4096, 10, 4096), Enum.Material.Water)
-
-	buildLobby(root)
+	workspace.Terrain:FillBlock(CFrame.new(0, -8, 0), Vector3.new(6000, 10, 6000), Enum.Material.Water)
 
 	local slots = {}
 	for i = 1, Config.PlotCount do
 		slots[i] = buildPlot(i, root)
 	end
 
-	local nuke = buildNukeIsland(root)
-
-	-- Bright cartoon lighting.
+	-- Bright cartoon lighting with modern rendering.
 	Lighting.Brightness = 3
-	Lighting.ClockTime = 12
-	Lighting.Ambient = Color3.fromRGB(140, 140, 140)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 160, 170)
+	Lighting.ClockTime = 13.5
+	Lighting.Ambient = Color3.fromRGB(130, 130, 135)
+	Lighting.OutdoorAmbient = Color3.fromRGB(140, 150, 165)
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+	Lighting.ShadowSoftness = 0.15
+	Lighting.ExposureCompensation = 0.05
 	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.25
-	atmosphere.Haze = 1
+	atmosphere.Density = 0.28
+	atmosphere.Haze = 1.2
 	atmosphere.Parent = Lighting
 
 	-- Volumetric clouds.
 	local clouds = Instance.new("Clouds")
-	clouds.Cover = 0.48
-	clouds.Density = 0.72
+	clouds.Cover = 0.52
+	clouds.Density = 0.68
 	clouds.Parent = workspace.Terrain
 
 	return {
 		root = root,
 		slots = slots,
-		nukePad = nuke.pad,
-		nukeBody = nuke.body,
 	}
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX48"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX44"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX43"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX49"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX44"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX43"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
 -- and a red beacon beam marking exactly where the strike will land.
 
 local TweenService = game:GetService("TweenService")
@@ -3630,7 +4015,7 @@ function AlarmUI.init()
 end
 
 return AlarmUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
 -- tap anywhere on their plot to move the target crosshair, then BLOW UP.
 -- Also handles nuke mode (☢ button) and the barrage toggle.
 
@@ -3936,7 +4321,7 @@ function AttackView.init(context)
 end
 
 return AttackView
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4015,7 +4400,7 @@ function CashPopups.init()
 end
 
 return CashPopups
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -4101,155 +4486,6 @@ function CharacterShop.init(context)
 end
 
 return CharacterShop
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Citizens</string><ProtectedString name="Source">-- Ambient little citizens wandering around active cities. Purely client-side
--- (zero network cost): a plot is considered "active" if it produced income
--- popups recently, plus your own plot.
-
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
-local Layout = require(Shared.Layout)
-local Remotes = require(Shared.Remotes)
-
-local Citizens = {}
-
-local CITIZENS_PER_PLOT = 5
-local WALK_SPEED = 5
-local SKIN = Color3.fromRGB(255, 204, 148)
-local SHIRTS = {
-	Color3.fromRGB(235, 60, 60), Color3.fromRGB(60, 150, 240), Color3.fromRGB(88, 200, 60),
-	Color3.fromRGB(250, 200, 60), Color3.fromRGB(190, 90, 240), Color3.fromRGB(255, 140, 60),
-}
-
-local rng = Random.new()
-local lastPop = {} -- [plotIndex] = os.clock() of last income popup
-local citizens = {} -- flat list of citizen records
-local perPlot = {} -- [plotIndex] = count
-local ctx
-
-local function tinyPerson(parent)
-	local model = Instance.new("Model")
-	local shirt = SHIRTS[rng:NextInteger(1, #SHIRTS)]
-	local pants = SHIRTS[rng:NextInteger(1, #SHIRTS)]
-
-	local function p(size, color)
-		local piece = Instance.new("Part")
-		piece.Anchored = true
-		piece.CanCollide = false
-		piece.CanQuery = false
-		piece.CanTouch = false
-		piece.TopSurface = Enum.SurfaceType.Smooth
-		piece.BottomSurface = Enum.SurfaceType.Smooth
-		piece.Size = size
-		piece.Color = color
-		piece.Parent = model
-		return piece
-	end
-
-	local body = p(Vector3.new(1, 1.1, 0.6), shirt)
-	local head = p(Vector3.new(0.7, 0.7, 0.7), SKIN)
-	local legs = p(Vector3.new(0.9, 0.8, 0.55), pants)
-	model.PrimaryPart = body
-	model.Parent = parent
-	return model, body, head, legs
-end
-
-local function spawnCitizen(plotIndex)
-	local center = Layout.plotCenter(plotIndex)
-	local half = Config.PlotSize / 2 - 24
-	local model, body, head, legs = tinyPerson(workspace)
-	model.Name = "MVC_Citizen"
-
-	local record = {
-		plotIndex = plotIndex,
-		model = model,
-		body = body,
-		head = head,
-		legs = legs,
-		pos = Vector3.new(center.X + rng:NextNumber(-half, half), Layout.GroundY, center.Z + rng:NextNumber(-half, half)),
-		target = nil,
-		phase = rng:NextNumber(0, math.pi * 2),
-	}
-	record.target = record.pos
-	citizens[#citizens + 1] = record
-	perPlot[plotIndex] = (perPlot[plotIndex] or 0) + 1
-end
-
-local function removeCitizensOf(plotIndex)
-	for i = #citizens, 1, -1 do
-		local record = citizens[i]
-		if record.plotIndex == plotIndex then
-			record.model:Destroy()
-			table.remove(citizens, i)
-		end
-	end
-	perPlot[plotIndex] = 0
-end
-
-local function isActive(plotIndex)
-	local state = ctx.State.get()
-	if state and state.plotIndex == plotIndex then
-		return true
-	end
-	local t = lastPop[plotIndex]
-	return t ~= nil and os.clock() - t &lt; 12
-end
-
-function Citizens.init(context)
-	ctx = context
-
-	Remotes.Events.IncomePops.OnClientEvent:Connect(function(plotIndex)
-		if type(plotIndex) == "number" then
-			lastPop[plotIndex] = os.clock()
-		end
-	end)
-
-	-- Population manager.
-	task.spawn(function()
-		while true do
-			task.wait(4)
-			for plotIndex = 1, Config.PlotCount do
-				if isActive(plotIndex) then
-					while (perPlot[plotIndex] or 0) &lt; CITIZENS_PER_PLOT do
-						spawnCitizen(plotIndex)
-					end
-				elseif (perPlot[plotIndex] or 0) &gt; 0 then
-					removeCitizensOf(plotIndex)
-				end
-			end
-		end
-	end)
-
-	-- Movement: waddle between random points, with a little bob.
-	RunService.Heartbeat:Connect(function(dt)
-		local now = os.clock()
-		for _, c in ipairs(citizens) do
-			local toTarget = c.target - c.pos
-			toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
-			if toTarget.Magnitude &lt; 1.5 then
-				local center = Layout.plotCenter(c.plotIndex)
-				local half = Config.PlotSize / 2 - 24
-				c.target = Vector3.new(
-					center.X + rng:NextNumber(-half, half),
-					Layout.GroundY,
-					center.Z + rng:NextNumber(-half, half)
-				)
-			else
-				c.pos += toTarget.Unit * math.min(WALK_SPEED * dt, toTarget.Magnitude)
-			end
-			local bob = math.abs(math.sin(now * 8 + c.phase)) * 0.22
-			local look = CFrame.lookAt(c.pos, Vector3.new(c.target.X, c.pos.Y, c.target.Z))
-			local waddle = CFrame.Angles(0, 0, math.sin(now * 8 + c.phase) * 0.08)
-			c.legs.CFrame = look * waddle * CFrame.new(0, 0.4 + bob, 0)
-			c.body.CFrame = look * waddle * CFrame.new(0, 1.35 + bob, 0)
-			c.head.CFrame = look * waddle * CFrame.new(0, 2.25 + bob, 0)
-		end
-	end)
-end
-
-return Citizens
 </ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4728,7 +4964,10 @@ local function fadeOut(part, duration)
 end
 
 local function explosionFX(pos)
-	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = rng:NextNumber(0.6, 0.85), RollOffMaxDistance = 600 })
+	-- Layered boom: crunch + deep thump reads much bigger than one sample.
+	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = rng:NextNumber(0.55, 0.75), RollOffMaxDistance = 600 })
+	SoundBook.playAt("BigRumble", pos, { PlaybackSpeed = 0.45, Volume = 0.7, RollOffMaxDistance = 600 })
+	SoundBook.playAt("Glass", pos, { PlaybackSpeed = rng:NextNumber(0.8, 1), Volume = 0.35, RollOffMaxDistance = 400 })
 
 	local boom = Instance.new("Explosion")
 	boom.Position = pos
@@ -5064,33 +5303,50 @@ function HUD.init(ctx)
 	holder.BackgroundTransparency = 1
 	holder.AnchorPoint = Vector2.new(0.5, 0)
 	holder.Position = UDim2.new(0.5, 0, 0, 4)
-	holder.Size = UDim2.new(0, 620, 0, 96)
+	holder.Size = UDim2.new(0, 620, 0, 120)
 	holder.Parent = gui
 
+	-- Rounded dark "pill" backdrops keep the counters readable on any scene.
+	local function pill(width, height, y)
+		local frame = Instance.new("Frame")
+		frame.AnchorPoint = Vector2.new(0.5, 0)
+		frame.Position = UDim2.new(0.5, 0, 0, y)
+		frame.Size = UDim2.new(0, width, 0, height)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
+		frame.BackgroundTransparency = 0.35
+		frame.BorderSizePixel = 0
+		UILib.corner(frame, height / 2)
+		frame.Parent = holder
+		return frame
+	end
+
+	local gemsPill = pill(150, 26, 0)
 	local gemsLabel = UILib.text({
-		Size = UDim2.new(1, 0, 0, 24),
-		Position = UDim2.new(0, 0, 0, 0),
+		Size = UDim2.new(1, -16, 1, -6),
+		Position = UDim2.new(0, 8, 0, 3),
 		Text = "\u{1F48E} 0",
 		TextColor3 = Color3.fromRGB(220, 130, 250),
-	}, holder)
+	}, gemsPill)
 
+	local cashPill = pill(430, 42, 30)
 	local cashLabel = UILib.text({
-		Size = UDim2.new(1, 0, 0, 40),
-		Position = UDim2.new(0, 0, 0, 26),
+		Size = UDim2.new(1, -20, 1, -8),
+		Position = UDim2.new(0, 10, 0, 4),
 		Text = "\u{1F4B5} 0",
 		TextColor3 = Color3.fromRGB(140, 245, 120),
-	}, holder)
+	}, cashPill)
 
+	local incomePill = pill(170, 24, 76)
 	local incomeLabel = UILib.text({
-		Size = UDim2.new(1, 0, 0, 20),
-		Position = UDim2.new(0, 0, 0, 68),
+		Size = UDim2.new(1, -16, 1, -6),
+		Position = UDim2.new(0, 8, 0, 3),
 		Text = "",
 		TextColor3 = Color3.fromRGB(200, 235, 190),
-	}, holder)
+	}, incomePill)
 
 	local rebirthLabel = UILib.text({
 		Size = UDim2.new(1, 0, 0, 18),
-		Position = UDim2.new(0, 0, 0, 90),
+		Position = UDim2.new(0, 0, 0, 102),
 		Text = "",
 		TextColor3 = Color3.fromRGB(255, 230, 120),
 	}, holder)
@@ -5137,7 +5393,6 @@ local Dialogue = require(script.Parent.Dialogue)
 local QuestUI = require(script.Parent.QuestUI)
 local CharacterShop = require(script.Parent.CharacterShop)
 local GameEvents = require(script.Parent.GameEvents)
-local Citizens = require(script.Parent.Citizens)
 local RebirthUI = require(script.Parent.RebirthUI)
 
 local ctx = {
@@ -5164,11 +5419,11 @@ AlarmUI.init()
 FX.init()
 CashPopups.init()
 GameEvents.init()
-Citizens.init(ctx)
 MusicPlayer.init()
 
 ClientState.start()
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Background music playlist with a mute toggle (bottom-right).
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
+-- then loops it forever. Mute toggle bottom-right.
 
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5181,37 +5436,28 @@ local MusicPlayer = {}
 
 local muted = false
 local current = nil
+local VOLUME = 0.16
 
-local function playLoop()
-	local trackIndex = 0
-	while true do
-		if #SoundBook.Music == 0 then
-			return
-		end
-		trackIndex = (trackIndex % #SoundBook.Music) + 1
-
+local function startMusic()
+	for _, id in ipairs(SoundBook.Music) do
 		local sound = Instance.new("Sound")
 		sound.Name = "MVC_Music"
-		sound.SoundId = "rbxassetid://" .. SoundBook.Music[trackIndex]
-		sound.Volume = muted and 0 or 0.2
+		sound.SoundId = "rbxassetid://" .. id
+		sound.Volume = muted and 0 or VOLUME
+		sound.Looped = true
 		sound.Parent = SoundService
-		current = sound
-		sound:Play()
 
-		-- Give it a moment to load; skip broken/moderated ids gracefully.
 		local waited = 0
 		while not sound.IsLoaded and waited &lt; 6 do
 			task.wait(0.5)
 			waited += 0.5
 		end
 		if sound.IsLoaded then
-			while sound.IsPlaying do
-				task.wait(1)
-			end
+			current = sound
+			sound:Play()
+			return -- loop this one forever
 		end
-		sound:Destroy()
-		current = nil
-		task.wait(2)
+		sound:Destroy() -- broken/moderated id, try the next
 	end
 end
 
@@ -5227,11 +5473,11 @@ function MusicPlayer.init()
 		muted = not muted
 		toggle.Text = muted and "\u{1F507}" or "\u{1F50A}"
 		if current then
-			current.Volume = muted and 0 or 0.2
+			current.Volume = muted and 0 or VOLUME
 		end
 	end)
 
-	task.spawn(playLoop)
+	task.spawn(startMusic)
 end
 
 return MusicPlayer
@@ -5593,7 +5839,7 @@ function RocketPanel.init(context)
 			if state and (state.nukeOwned or (state.nukeCharges or 0) &gt; 0) then
 				ctx.AttackView.open(true)
 			else
-				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad ("
+				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad next to your silo ("
 					.. "\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. ") or claim the Day 7 daily reward.", "bad")
 			end
 		end
@@ -5857,8 +6103,15 @@ function UILib.button(props, parent, onClick)
 
 	local gradient = Instance.new("UIGradient")
 	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190))
+	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(215, 215, 215))
 	gradient.Parent = b
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 6)
+	padding.PaddingRight = UDim.new(0, 6)
+	padding.PaddingTop = UDim.new(0, 4)
+	padding.PaddingBottom = UDim.new(0, 4)
+	padding.Parent = b
 
 	-- Hover feedback via the outline so runtime BackgroundColor3 changes stay intact.
 	b.MouseEnter:Connect(function()
@@ -5937,4 +6190,4 @@ function UILib.panel(name, title, size, displayOrder)
 end
 
 return UILib
-</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX49"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX50"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>

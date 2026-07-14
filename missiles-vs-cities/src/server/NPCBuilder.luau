@@ -1,176 +1,158 @@
--- Builds the lobby NPCs (little blocky people with Talk prompts),
--- Benny's shop stand and the golden Rebirth shrine.
+-- Places the four NPCs on EVERY island's town square using real Roblox
+-- avatar rigs (loaded once per NPC from actual Roblox accounts, then cloned),
+-- with idle animations. Falls back to a blocky figure if avatar loading
+-- fails (e.g. offline Studio).
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local NPCDefs = require(Shared.NPCDefs)
-local NumberFormat = require(Shared.NumberFormat)
 
 local NPCBuilder = {}
 
+-- Classic Roblox accounts whose avatars dress our NPCs.
+local NPC_AVATARS = {
+	shopkeeper = 156, -- builderman
+	tailor = 3, -- Jane Doe
+	mayor = 261, -- Shedletsky
+	general = 2, -- John Doe
+}
+
+local IDLE_ANIM = "rbxassetid://507766388" -- Roblox default R15 idle
+
 local SKIN = Color3.fromRGB(255, 204, 148)
 
-local function part(props)
-	local p = Instance.new("Part")
-	p.Anchored = true
-	p.CanCollide = false
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	for k, v in pairs(props) do
-		if k ~= "Parent" then
-			p[k] = v
+local function blockyFallback(def)
+	local model = Instance.new("Model")
+	local function p(name, size, cfOff, color)
+		local piece = Instance.new("Part")
+		piece.Name = name
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.TopSurface = Enum.SurfaceType.Smooth
+		piece.BottomSurface = Enum.SurfaceType.Smooth
+		piece.Size = size
+		piece.CFrame = cfOff
+		piece.Color = color
+		piece.Parent = model
+		return piece
+	end
+	local cf = CFrame.new()
+	p("LegL", Vector3.new(0.9, 1.8, 0.9), cf * CFrame.new(-0.5, 0.9, 0), def.pants)
+	p("LegR", Vector3.new(0.9, 1.8, 0.9), cf * CFrame.new(0.5, 0.9, 0), def.pants)
+	local torso = p("Torso", Vector3.new(2.1, 2.1, 1.1), cf * CFrame.new(0, 2.85, 0), def.shirt)
+	p("ArmL", Vector3.new(0.8, 1.9, 0.8), cf * CFrame.new(-1.5, 2.9, 0), def.shirt)
+	p("ArmR", Vector3.new(0.8, 1.9, 0.8), cf * CFrame.new(1.5, 2.9, 0), def.shirt)
+	p("Head", Vector3.new(1.3, 1.3, 1.3), cf * CFrame.new(0, 4.6, 0), SKIN)
+	p("Hat", Vector3.new(1.5, 0.5, 1.5), cf * CFrame.new(0, 5.4, 0), def.hat)
+	model.PrimaryPart = torso
+	return model
+end
+
+local function loadAvatarBase(def)
+	local userId = NPC_AVATARS[def.id]
+	if userId then
+		local ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromUserId(userId)
+		end)
+		if ok and model then
+			return model, true
 		end
 	end
-	p.Parent = props.Parent
-	return p
+	return blockyFallback(def), false
 end
 
--- Small blocky person, ~4 studs tall. Returns the model and its torso.
-function NPCBuilder.buildPerson(cf, shirt, pants, hat, parent)
-	local model = Instance.new("Model")
-	model.Name = "Person"
-
-	part({ Name = "LegL", Size = Vector3.new(0.7, 1.4, 0.7), CFrame = cf * CFrame.new(-0.4, 0.7, 0), Color = pants, Parent = model })
-	part({ Name = "LegR", Size = Vector3.new(0.7, 1.4, 0.7), CFrame = cf * CFrame.new(0.4, 0.7, 0), Color = pants, Parent = model })
-	local torso = part({ Name = "Torso", Size = Vector3.new(1.7, 1.7, 0.9), CFrame = cf * CFrame.new(0, 2.25, 0), Color = shirt, Parent = model })
-	part({ Name = "ArmL", Size = Vector3.new(0.6, 1.5, 0.6), CFrame = cf * CFrame.new(-1.2, 2.3, 0), Color = shirt, Parent = model })
-	part({ Name = "ArmR", Size = Vector3.new(0.6, 1.5, 0.6), CFrame = cf * CFrame.new(1.2, 2.3, 0), Color = shirt, Parent = model })
-	part({ Name = "Head", Size = Vector3.new(1.1, 1.1, 1.1), CFrame = cf * CFrame.new(0, 3.7, 0), Color = SKIN, Parent = model })
-	part({ Name = "Hat", Size = Vector3.new(1.3, 0.45, 1.3), CFrame = cf * CFrame.new(0, 4.4, 0), Color = hat, Parent = model })
-
-	model.PrimaryPart = torso
-	model.Parent = parent
-	return model, torso
-end
-
-local function buildShopStand(root)
-	local folder = Instance.new("Folder")
-	folder.Name = "ShopStand"
-	folder.Parent = root
-
-	local base = Vector3.new(38, Config.GroundY, 14)
-	part({ Name = "Counter", Size = Vector3.new(2, 3.4, 12), Position = base + Vector3.new(-3, 1.7, 0), CanCollide = true, Color = Color3.fromRGB(150, 116, 78), Material = Enum.Material.WoodPlanks, Parent = folder })
-	part({ Name = "PostL", Size = Vector3.new(0.8, 8, 0.8), Position = base + Vector3.new(1.5, 4, -5.5), Color = Color3.fromRGB(120, 90, 60), Parent = folder })
-	part({ Name = "PostR", Size = Vector3.new(0.8, 8, 0.8), Position = base + Vector3.new(1.5, 4, 5.5), Color = Color3.fromRGB(120, 90, 60), Parent = folder })
-	-- Striped awning.
-	for i = 0, 3 do
-		part({
-			Name = "Awning",
-			Size = Vector3.new(7, 0.4, 3),
-			CFrame = CFrame.new(base + Vector3.new(-1, 8.4, -4.5 + i * 3)) * CFrame.Angles(0, 0, math.rad(-12)),
-			Color = (i % 2 == 0) and Color3.fromRGB(235, 60, 60) or Color3.fromRGB(240, 240, 245),
-			Parent = folder,
-		})
+local function anchorRig(model)
+	for _, piece in ipairs(model:GetDescendants()) do
+		if piece:IsA("BasePart") then
+			piece.Anchored = true
+			piece.CanCollide = false
+		end
 	end
 end
 
-local function buildRebirthShrine(root, prompts)
-	local folder = Instance.new("Folder")
-	folder.Name = "RebirthShrine"
-	folder.Parent = root
-
-	local base = Vector3.new(0, Config.GroundY, 38)
-	local pedestal = part({
-		Name = "Pedestal",
-		Size = Vector3.new(8, 2, 8),
-		Position = base + Vector3.new(0, 1, 0),
-		CanCollide = true,
-		Color = Color3.fromRGB(255, 215, 80),
-		Material = Enum.Material.Metal,
-		Parent = folder,
-	})
-	local orb = part({
-		Name = "Orb",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(4.5, 4.5, 4.5),
-		Position = base + Vector3.new(0, 5, 0),
-		Color = Color3.fromRGB(255, 230, 120),
-		Material = Enum.Material.Neon,
-		Parent = folder,
-	})
-	local sparkle = Instance.new("ParticleEmitter")
-	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120))
-	sparkle.Rate = 6
-	sparkle.Lifetime = NumberRange.new(0.8, 1.4)
-	sparkle.Speed = NumberRange.new(2, 4)
-	sparkle.Parent = orb
-
+local function decorate(model, def)
+	local head = model:FindFirstChild("Head") or model.PrimaryPart
+	if not head then
+		return
+	end
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.new(22, 0, 8, 0)
-	gui.StudsOffset = Vector3.new(0, 6, 0)
-	gui.MaxDistance = 300
+	gui.Size = UDim2.new(14, 0, 3.2, 0)
+	gui.StudsOffset = Vector3.new(0, 2.6, 0)
+	gui.MaxDistance = 140
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 230, 120)
+	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeColor3 = Color3.new(0, 0, 0)
 	label.TextStrokeTransparency = 0
-	label.Text = "\u{1F31F} REBIRTH SHRINE \u{1F31F}\nReset your city for a\nPERMANENT income boost!\nFirst rebirth: \u{1F4B5} "
-		.. NumberFormat.abbrev(Config.Rebirth.BaseCost)
+	label.Text = def.emoji .. " " .. def.name
 	label.Parent = gui
-	gui.Parent = orb
+	gui.Parent = head
 
+	local promptHolder = model.PrimaryPart or head
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "RebirthPrompt"
-	prompt.ActionText = "Rebirth"
-	prompt.ObjectText = "Rebirth Shrine"
-	prompt.HoldDuration = 0.5
-	prompt.MaxActivationDistance = 12
+	prompt.Name = "TalkPrompt_" .. def.id
+	prompt.ActionText = "Talk"
+	prompt.ObjectText = def.name
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
-	prompt.Parent = pedestal
-	prompts.rebirth = prompt
+	prompt.Parent = promptHolder
 end
 
--- Builds everything; returns { prompts = { [npcId] = prompt, rebirth = prompt } }.
-function NPCBuilder.build(root)
-	local prompts = {}
+local function playIdle(model)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+	pcall(function()
+		local anim = Instance.new("Animation")
+		anim.AnimationId = IDLE_ANIM
+		local track = animator:LoadAnimation(anim)
+		track.Looped = true
+		track:Play()
+	end)
+end
 
-	buildShopStand(root)
-	buildRebirthShrine(root, prompts)
-
+function NPCBuilder.build(world)
 	local folder = Instance.new("Folder")
 	folder.Name = "NPCs"
-	folder.Parent = root
+	folder.Parent = world.root
 
+	-- Load each avatar once, clone per island.
+	local bases = {}
 	for _, def in ipairs(NPCDefs.List) do
-		local cf = CFrame.new(Vector3.new(def.pos.X, Config.GroundY, def.pos.Z))
-			* CFrame.Angles(0, math.rad(def.facing or 0), 0)
-		local model, torso = NPCBuilder.buildPerson(cf, def.shirt, def.pants, def.hat, folder)
-		model.Name = "NPC_" .. def.id
-
-		local gui = Instance.new("BillboardGui")
-		gui.Size = UDim2.new(14, 0, 3.4, 0)
-		gui.StudsOffset = Vector3.new(0, 3.6, 0)
-		gui.MaxDistance = 120
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.FredokaOne
-		label.TextScaled = true
-		label.TextColor3 = Color3.new(1, 1, 1)
-		label.TextStrokeColor3 = Color3.new(0, 0, 0)
-		label.TextStrokeTransparency = 0
-		label.Text = def.emoji .. " " .. def.name
-		label.Parent = gui
-		gui.Parent = torso
-
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "TalkPrompt_" .. def.id
-		prompt.ActionText = "Talk"
-		prompt.ObjectText = def.name
-		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = 10
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = torso
-		prompts[def.id] = prompt
+		bases[def.id] = loadAvatarBase(def)
 	end
 
-	return { prompts = prompts }
+	for _, slot in ipairs(world.slots) do
+		for _, def in ipairs(NPCDefs.List) do
+			local anchor = slot.npcAnchors[def.id]
+			if anchor then
+				local model = bases[def.id]:Clone()
+				model.Name = "NPC_" .. def.id .. "_" .. slot.index
+				anchorRig(model)
+
+				-- Stand on the plaza facing the spawn area.
+				local lookAt = Vector3.new(slot.npcLookAt.X, anchor.Y, slot.npcLookAt.Z)
+				local pos = anchor + Vector3.new(0, 3.2, 0)
+				model.Parent = folder
+				model:PivotTo(CFrame.lookAt(pos, Vector3.new(lookAt.X, pos.Y, lookAt.Z)))
+
+				decorate(model, def)
+				playIdle(model)
+			end
+		end
+	end
+
+	for _, base in pairs(bases) do
+		base:Destroy()
+	end
 end
 
 return NPCBuilder

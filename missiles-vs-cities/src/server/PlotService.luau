@@ -134,13 +134,13 @@ local function onPadTouched(slot, zi, hit)
 	ctx.Economy.pushState(player)
 end
 
-local function onNukePadTouched(hit)
+local function onNukePadTouched(slot, hit)
 	local character = hit.Parent
 	if not character then
 		return
 	end
 	local player = Players:GetPlayerFromCharacter(character)
-	if not player then
+	if not player or slot.owner ~= player then
 		return
 	end
 	local dKey = player.UserId .. ":nuke"
@@ -400,7 +400,11 @@ function PlotService.init(context)
 		end
 	end
 
-	ctx.World.nukePad.Touched:Connect(onNukePadTouched)
+	for _, slot in ipairs(slots) do
+		slot.nukePad.Touched:Connect(function(hit)
+			onNukePadTouched(slot, hit)
+		end)
+	end
 
 	task.spawn(maintenanceLoop)
 end

@@ -24,9 +24,10 @@ SoundBook.Defs = {
 	Hit = { id = "rbxasset://sounds/hit.wav", volume = 0.8 },
 }
 
--- Background music playlist (Roblox library asset ids). The player skips any
--- id that fails to load, so add your favorites from the Creator Marketplace.
-SoundBook.Music = { 142376088, 1841647093, 1837324424 }
+-- Chill background music: the FIRST id that loads plays on loop forever.
+-- Swap in any track id from the Creator Store (Toolbox -> Audio) — pick one
+-- chill lo-fi track you like and put its id first.
+SoundBook.Music = { 1840684529, 9043887091, 1837879082 }
 
 function SoundBook.make(key, props)
 	local def = SoundBook.Defs[key]

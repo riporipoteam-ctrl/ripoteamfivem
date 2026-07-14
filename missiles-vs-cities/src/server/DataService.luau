@@ -137,6 +137,10 @@ function DataService.forget(player)
 	profiles[player] = nil
 end
 
+function DataService.available()
+	return store ~= nil
+end
+
 function DataService.allPlayers()
 	return profiles
 end

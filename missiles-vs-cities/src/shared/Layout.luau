@@ -13,12 +13,11 @@ local HALF = Config.PlotSize / 2
 local COL_X = { -78, -26, 26, 78 }
 local ROW_Z = { 104, 52, 0, -52 }
 
-Layout.NukeIslandCenter = Vector3.new(0, 0, -880)
-Layout.NukeIslandSize = 150
+-- Each island also has a "town square" strip at the front (positive Z)
+-- holding the spawn, shop stand, NPCs, leaderboard and rebirth shrine.
+Layout.TownDepth = 60 -- extra island depth in front of the city grid
 
 function Layout.plotCenter(plotIndex)
-	-- Plots sit on a circle around the lobby, leaving due north clear
-	-- for the bridge out to Nuke Island.
 	local angle = math.rad(-54 + (plotIndex - 1) * 72)
 	return Vector3.new(math.cos(angle) * Config.PlotDistance, 0, math.sin(angle) * Config.PlotDistance)
 end
@@ -47,7 +46,16 @@ end
 
 function Layout.plotSpawn(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
-	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 128)
+	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 152)
+end
+
+-- Road intersection waypoints (world space) that citizens walk between.
+Layout.RoadXs = { -104, -52, 0, 52, 104 }
+Layout.RoadZs = { 130, 78, 26, -26, -78 }
+
+function Layout.intersection(plotIndex, ix, iz)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X + Layout.RoadXs[ix], Config.GroundY, c.Z + Layout.RoadZs[iz])
 end
 
 function Layout.plotBounds(plotIndex)

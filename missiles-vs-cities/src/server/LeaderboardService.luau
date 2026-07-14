@@ -1,5 +1,5 @@
--- Global "Richest Cities of All Time" leaderboard: an OrderedDataStore
--- keeps the top city worths ever seen, displayed on a big board in the lobby.
+-- Global "Richest Cities of All Time" leaderboard (OrderedDataStore),
+-- displayed on a board in EVERY island's town square.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -13,11 +13,10 @@ local LeaderboardService = {}
 
 local ctx
 local store = nil
-local rowLabels = {}
+local boards = {} -- array of { rows = {TextLabel x10} }
 local nameCache = {}
 
--- OrderedDataStores only take integers up to ~9e18; clamp huge worths.
-local MAX_STORE = 9e15
+local MAX_STORE = 9e15 -- OrderedDataStore integer ceiling safety
 
 do
 	local ok, result = pcall(function()
@@ -30,22 +29,23 @@ do
 	end
 end
 
-local function buildBoard()
-	local base = Vector3.new(0, Config.GroundY, -42)
+local function buildBoard(pos)
 	local board = Instance.new("Part")
 	board.Name = "Leaderboard"
 	board.Anchored = true
-	board.Size = Vector3.new(22, 14, 1.5)
-	board.Position = base + Vector3.new(0, 8, 0)
-	board.Color = Color3.fromRGB(44, 46, 56)
+	board.Size = Vector3.new(20, 12, 1.4)
+	board.Position = pos + Vector3.new(0, 7, 0)
+	board.Color = Color3.fromRGB(38, 40, 50)
+	board.Material = Enum.Material.SmoothPlastic
 	board.Parent = workspace
 
-	for _, off in ipairs({ Vector3.new(-9, 0, 0), Vector3.new(9, 0, 0) }) do
+	for _, off in ipairs({ Vector3.new(-8, 0, 0), Vector3.new(8, 0, 0) }) do
 		local leg = Instance.new("Part")
 		leg.Anchored = true
-		leg.Size = Vector3.new(1.2, 8, 1.2)
-		leg.Position = base + off + Vector3.new(0, 2, 0)
-		leg.Color = Color3.fromRGB(120, 120, 128)
+		leg.Size = Vector3.new(1, 7, 1)
+		leg.Position = pos + off + Vector3.new(0, 1.5, 0)
+		leg.Color = Color3.fromRGB(110, 110, 118)
+		leg.Material = Enum.Material.Metal
 		leg.Parent = workspace
 	end
 
@@ -66,6 +66,7 @@ local function buildBoard()
 	title.Text = "\u{1F3C6} RICHEST CITIES OF ALL TIME \u{1F3C6}"
 	title.Parent = gui
 
+	local rows = {}
 	for i = 1, 10 do
 		local row = Instance.new("TextLabel")
 		row.Size = UDim2.new(1, -16, 0, 22)
@@ -79,8 +80,9 @@ local function buildBoard()
 		row.TextStrokeTransparency = 0
 		row.Text = i .. ". ..."
 		row.Parent = gui
-		rowLabels[i] = row
+		rows[i] = row
 	end
+	boards[#boards + 1] = { rows = rows }
 end
 
 local function playerName(userId)
@@ -92,6 +94,12 @@ local function playerName(userId)
 	end)
 	nameCache[userId] = ok and name or ("Player " .. userId)
 	return nameCache[userId]
+end
+
+local function setAllRows(i, text)
+	for _, board in ipairs(boards) do
+		board.rows[i].Text = text
+	end
 end
 
 local function submitScores()
@@ -116,10 +124,10 @@ local function submitScores()
 	end
 end
 
-local function refreshBoard()
+local function refreshBoards()
 	if not store then
 		for i = 1, 10 do
-			rowLabels[i].Text = i .. ". (enable API access to activate)"
+			setAllRows(i, i .. ". (publish + enable API access)")
 		end
 		return
 	end
@@ -133,21 +141,22 @@ local function refreshBoard()
 	for i = 1, 10 do
 		local entry = top[i]
 		if entry then
-			rowLabels[i].Text = i .. ". " .. playerName(tonumber(entry.key)) .. " — \u{1F4B5} "
-				.. NumberFormat.abbrev(entry.value)
+			setAllRows(i, i .. ". " .. playerName(tonumber(entry.key)) .. " — \u{1F4B5} " .. NumberFormat.abbrev(entry.value))
 		else
-			rowLabels[i].Text = i .. ". ---"
+			setAllRows(i, i .. ". ---")
 		end
 	end
 end
 
 function LeaderboardService.init(context)
 	ctx = context
-	buildBoard()
+	for _, slot in ipairs(ctx.World.slots) do
+		buildBoard(slot.boardPos)
+	end
 	task.spawn(function()
 		while true do
 			submitScores()
-			refreshBoard()
+			refreshBoards()
 			task.wait(90)
 		end
 	end)
