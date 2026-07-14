@@ -5,6 +5,10 @@ local Config = {}
 
 Config.MaxPlayers = 5
 
+-- Insert curated Creator Store models (trees, benches, fountain, skybox...)
+-- at runtime. Set false to keep only the built-in part decorations.
+Config.UseStoreDecor = true
+
 -- World layout
 Config.PlotCount = 5
 Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip

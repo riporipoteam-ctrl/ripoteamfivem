@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX45"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX46"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX47"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX9"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX47"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX48"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX49"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
 
 local Config = require(script.Parent.Config)
 
@@ -66,6 +66,10 @@ return BuildingDefs
 local Config = {}
 
 Config.MaxPlayers = 5
+
+-- Insert curated Creator Store models (trees, benches, fountain, skybox...)
+-- at runtime. Set false to keep only the built-in part decorations.
+Config.UseStoreDecor = true
 
 -- World layout
 Config.PlotCount = 5
@@ -171,7 +175,40 @@ Config.DailyClaimWindow = 20 * 60 * 60 -- can claim again 20h after last claim
 Config.DailyStreakBreak = 48 * 60 * 60 -- miss 48h and the streak resets
 
 return Config
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Layout</string><ProtectedString name="Source">-- Deterministic world layout math, shared by server (to build the world)
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">DecorSets</string><ProtectedString name="Source">-- Curated free models from the Roblox Creator Store (create.roblox.com/store),
+-- picked by community rating. The DecorService inserts these at runtime with
+-- InsertService and falls back gracefully if any id fails to load.
+-- Swap in your own favorites: any free model id works.
+
+local DecorSets = {}
+
+-- Multiple candidates per category; the first that loads gets used.
+DecorSets.Models = {
+	tree = { 4893246329, 3287226226, 12549617200 }, -- "Low Poly Tree" (828+ votes)
+	bush = { 8647777369, 10302128725, 15022313886 }, -- "Bush" (1.8k+ votes)
+	bench = { 741384218, 393609716, 8924251735 }, -- "The Generic Park Bench"
+	lamp = { 15472204631, 11146095708, 15323049348 }, -- "Street Lamp Light"
+	fountain = { 11423259371, 13782728612, 2332885124 }, -- "Fountain"
+	rock = { 7299047040, 16098456067 }, -- "Low Poly Rock"
+	car = { 11493825596, 113700576399250 }, -- "Low Poly Car"
+}
+
+-- Skybox models (contain a Sky object). "Sky-Realistic" has 9.7k upvotes.
+DecorSets.Sky = { 10256505900, 4607457995, 7108851308 }
+
+-- Target sizes (studs) used to auto-scale whatever loads.
+DecorSets.TargetSize = {
+	tree = 18, -- height
+	bush = 4,
+	bench = 7, -- width
+	lamp = 12, -- height
+	fountain = 14, -- width
+	rock = 5,
+	car = 13, -- length
+}
+
+return DecorSets
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Layout</string><ProtectedString name="Source">-- Deterministic world layout math, shared by server (to build the world)
 -- and client (to aim cameras, popups and crosshairs) so nothing needs replicating.
 
 local Config = require(script.Parent.Config)
@@ -253,7 +290,7 @@ function Layout.attackCameraCFrame(plotIndex)
 end
 
 return Layout
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">NPCDefs</string><ProtectedString name="Source">-- Lobby NPCs: looks, positions, dialogue lines and what they do.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">NPCDefs</string><ProtectedString name="Source">-- Lobby NPCs: looks, positions, dialogue lines and what they do.
 -- Positions are offsets from the lobby center.
 
 local NPCDefs = {}
@@ -337,7 +374,7 @@ for _, def in ipairs(NPCDefs.List) do
 end
 
 return NPCDefs
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">NumberFormat</string><ProtectedString name="Source">-- Big-number formatting: 1.28M / 846T / 71.3Sx style plus full comma strings.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">NumberFormat</string><ProtectedString name="Source">-- Big-number formatting: 1.28M / 846T / 71.3Sx style plus full comma strings.
 
 local NumberFormat = {}
 
@@ -388,7 +425,7 @@ function NumberFormat.clock(sec)
 end
 
 return NumberFormat
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">QuestDefs</string><ProtectedString name="Source">-- Quest chains. Kinds:
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">QuestDefs</string><ProtectedString name="Source">-- Quest chains. Kinds:
 --   counters (increment on events): upgrade, destroy, missile_launch, nuke
 --   stats (evaluated against live values): cash, worth, rocket_level, buildings
 -- The last quest of a chain can be repeatable = the game never runs out.
@@ -429,7 +466,7 @@ QuestDefs.Chains = {
 }
 
 return QuestDefs
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Remotes</string><ProtectedString name="Source">-- Creates (server) or fetches (client) all RemoteEvents/RemoteFunctions.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Remotes</string><ProtectedString name="Source">-- Creates (server) or fetches (client) all RemoteEvents/RemoteFunctions.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -484,7 +521,7 @@ else
 end
 
 return Remotes
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">SoundBook</string><ProtectedString name="Source">-- All game audio in one place. The rbxasset:// entries are built into every
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">SoundBook</string><ProtectedString name="Source">-- All game audio in one place. The rbxasset:// entries are built into every
 -- Roblox install so they always play; swap any of them for marketplace ids
 -- ("rbxassetid://12345") if you want richer audio later.
 
@@ -568,7 +605,7 @@ function SoundBook.playAt(key, position, props)
 end
 
 return SoundBook
-</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX48"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX24"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX50"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX26"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
 --   houses   - little homes with pitched wedge roofs
 --   towers   - city blocks with glowing windows + rooftop details
 --   panels   - solar/container fields
@@ -890,7 +927,7 @@ function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, cen
 end
 
 return BuildingVisuals
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CitizensService</string><ProtectedString name="Source">-- Small citizen avatars (real R15 rigs, scaled down) that walk the road
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CitizensService</string><ProtectedString name="Source">-- Small citizen avatars (real R15 rigs, scaled down) that walk the road
 -- network of every occupied island, following intersection-to-intersection
 -- paths with walk animations.
 
@@ -1055,7 +1092,7 @@ function CitizensService.init(context)
 end
 
 return CitizensService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
 -- Clients only render FX; every gameplay decision happens here.
 
 local Players = game:GetService("Players")
@@ -1309,7 +1346,7 @@ function CombatService.init(context)
 end
 
 return CombatService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
 -- Purchases come through the ShopBuy remote (handled by EconomyService,
 -- which calls buy() here); effects are applied on every character spawn.
 
@@ -1493,7 +1530,7 @@ function CosmeticsService.init(context)
 end
 
 return CosmeticsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
 -- are unavailable (unpublished place / Studio without API access) the game
 -- still runs, it just won't save.
 
@@ -1642,7 +1679,180 @@ function DataService.allPlayers()
 end
 
 return DataService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">DecorService</string><ProtectedString name="Source">-- Inserts real Roblox Creator Store models (trees, benches, lamps, fountain,
+-- rocks, a car) onto every island, plus a community skybox. Everything is
+-- pcall-guarded: if an asset fails to load (offline Studio, moderated id),
+-- the game keeps its built-in part decorations instead.
+--
+-- SECURITY: every script inside inserted free models is destroyed before the
+-- model touches the world.
+
+local InsertService = game:GetService("InsertService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local DecorSets = require(Shared.DecorSets)
+
+local DecorService = {}
+
+local templates = {} -- [category] = sanitized template Model or false
+
+local function sanitize(model)
+	for _, obj in ipairs(model:GetDescendants()) do
+		if obj:IsA("LuaSourceContainer") or obj:IsA("Sound") or obj:IsA("RemoteEvent")
+			or obj:IsA("RemoteFunction") or obj:IsA("Fire") and obj.Size &gt; 15 then
+			obj:Destroy()
+		end
+	end
+	for _, obj in ipairs(model:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			obj.Anchored = true
+		end
+	end
+end
+
+local function loadTemplate(category)
+	if templates[category] ~= nil then
+		return templates[category] or nil
+	end
+	for _, id in ipairs(DecorSets.Models[category] or {}) do
+		local ok, asset = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if ok and asset then
+			local model = asset:FindFirstChildWhichIsA("Model")
+			if not model then
+				-- Wrap loose parts in a Model.
+				model = Instance.new("Model")
+				for _, child in ipairs(asset:GetChildren()) do
+					child.Parent = model
+				end
+			end
+			sanitize(model)
+			if #model:GetDescendants() &gt; 0 then
+				-- Normalize to the target size for this category.
+				local okBB, bbCF, bbSize = pcall(function()
+					local cf, size = model:GetBoundingBox()
+					return cf, size
+				end)
+				if okBB and bbSize then
+					local target = DecorSets.TargetSize[category] or 8
+					local current = (category == "tree" or category == "lamp") and bbSize.Y
+						or math.max(bbSize.X, bbSize.Z)
+					if current &gt; 0.5 then
+						local scale = math.clamp(target / current, 0.02, 30)
+						pcall(function()
+							model:ScaleTo(scale)
+						end)
+					end
+					model.Parent = nil
+					templates[category] = model
+					asset:Destroy()
+					return model
+				end
+			end
+			asset:Destroy()
+		end
+	end
+	warn("[MVC] No Store model loaded for decor category: " .. category)
+	templates[category] = false
+	return nil
+end
+
+local function place(category, position, folder, faceTowards)
+	local template = loadTemplate(category)
+	if not template then
+		return
+	end
+	local clone = template:Clone()
+	clone.Name = "Decor_" .. category
+	clone.Parent = folder
+
+	local bbCF, bbSize = clone:GetBoundingBox()
+	local pivotY = clone:GetPivot().Position.Y
+	local feetOffset = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+	local pos = Vector3.new(position.X, Config.GroundY + feetOffset, position.Z)
+	if faceTowards then
+		clone:PivotTo(CFrame.lookAt(pos, Vector3.new(faceTowards.X, pos.Y, faceTowards.Z)))
+	else
+		clone:PivotTo(CFrame.new(pos) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	end
+end
+
+local function decorateIsland(slot, folder)
+	local c = Layout.plotCenter(slot.index)
+	local half = Config.PlotSize / 2
+	local townZ = c.Z + half
+
+	-- Town square: fountain centerpiece, benches facing it, lamps, greenery.
+	place("fountain", Vector3.new(c.X, 0, townZ + 40), folder)
+	place("bench", Vector3.new(c.X - 22, 0, townZ + 32), folder, Vector3.new(c.X, 0, townZ + 40))
+	place("bench", Vector3.new(c.X + 22, 0, townZ + 32), folder, Vector3.new(c.X, 0, townZ + 40))
+	place("lamp", Vector3.new(c.X - 58, 0, townZ + 12), folder)
+	place("lamp", Vector3.new(c.X + 58, 0, townZ + 12), folder)
+	place("tree", Vector3.new(c.X - 122, 0, townZ + 48), folder)
+	place("tree", Vector3.new(c.X + 122, 0, townZ + 50), folder)
+	place("bush", Vector3.new(c.X - 100, 0, townZ + 52), folder)
+	place("bush", Vector3.new(c.X + 100, 0, townZ + 52), folder)
+
+	-- Island edges: trees, bushes, rocks along the fence line.
+	place("tree", Vector3.new(c.X - 122, 0, c.Z - 20), folder)
+	place("tree", Vector3.new(c.X + 122, 0, c.Z + 30), folder)
+	place("bush", Vector3.new(c.X - 122, 0, c.Z + 60), folder)
+	place("bush", Vector3.new(c.X + 122, 0, c.Z - 60), folder)
+	place("rock", Vector3.new(c.X - 122, 0, c.Z - 120), folder)
+	place("rock", Vector3.new(c.X + 122, 0, c.Z - 116), folder)
+
+	-- A parked car at the roadside.
+	place("car", Vector3.new(c.X + 58, 0, c.Z - 40), folder, Vector3.new(c.X + 58, 0, c.Z + 40))
+end
+
+local function applySky()
+	for _, id in ipairs(DecorSets.Sky) do
+		local ok, asset = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if ok and asset then
+			sanitize(asset)
+			local sky = asset:FindFirstChildWhichIsA("Sky", true)
+			if sky then
+				-- Replace any existing skybox.
+				for _, old in ipairs(Lighting:GetChildren()) do
+					if old:IsA("Sky") then
+						old:Destroy()
+					end
+				end
+				sky.Parent = Lighting
+				asset:Destroy()
+				return
+			end
+			asset:Destroy()
+		end
+	end
+	warn("[MVC] No Store skybox loaded; keeping the default sky.")
+end
+
+function DecorService.init(ctx)
+	if Config.UseStoreDecor == false then
+		return
+	end
+	task.spawn(applySky)
+	task.spawn(function()
+		local folder = Instance.new("Folder")
+		folder.Name = "StoreDecor"
+		folder.Parent = workspace
+		for _, slot in ipairs(ctx.World.slots) do
+			decorateIsland(slot, folder)
+			task.wait() -- spread the work out
+		end
+	end)
+end
+
+return DecorService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
 -- the free-gift timer, the gem shop and gamepass hooks.
 
 local Players = game:GetService("Players")
@@ -2036,7 +2246,7 @@ function EconomyService.init(context)
 end
 
 return EconomyService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
 -- Supply Drop. Keeps servers lively and unpredictable.
 
 local Players = game:GetService("Players")
@@ -2227,7 +2437,7 @@ function EventsService.init(context)
 end
 
 return EventsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard (OrderedDataStore),
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard (OrderedDataStore),
 -- displayed on a board in EVERY island's town square.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -2392,7 +2602,7 @@ function LeaderboardService.init(context)
 end
 
 return LeaderboardService
-</ProtectedString></Properties></Item><Item class="Script" referent="RBX18"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
+</ProtectedString></Properties></Item><Item class="Script" referent="RBX20"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
 -- Builds the world, wires the services, manages player lifecycle.
 
 local Players = game:GetService("Players")
@@ -2415,6 +2625,7 @@ local EventsService = require(script.Parent.EventsService)
 local CosmeticsService = require(script.Parent.CosmeticsService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local CitizensService = require(script.Parent.CitizensService)
+local DecorService = require(script.Parent.DecorService)
 local NPCBuilder = require(script.Parent.NPCBuilder)
 
 StarterPlayer.CameraMaxZoomDistance = 500
@@ -2450,6 +2661,7 @@ CosmeticsService.init(ctx)
 EventsService.init(ctx)
 LeaderboardService.init(ctx)
 CitizensService.init(ctx)
+DecorService.init(ctx)
 
 local Remotes = require(Shared.Remotes)
 
@@ -2509,7 +2721,7 @@ game:BindToClose(function()
 end)
 
 print("[MVC] Missiles vs Cities server ready. Max " .. Config.MaxPlayers .. " players per server.")
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Places the four NPCs on EVERY island's town square using real Roblox
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Places the four NPCs on EVERY island's town square using real Roblox
 -- avatar rigs (loaded once per NPC from actual Roblox accounts, then cloned),
 -- with idle animations. Falls back to a blocky figure if avatar loading
 -- fails (e.g. offline Studio).
@@ -2671,7 +2883,7 @@ function NPCBuilder.build(world)
 end
 
 return NPCBuilder
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
 -- damage, destruction, rebuild timers and HP regen.
 
 local Players = game:GetService("Players")
@@ -3158,7 +3370,7 @@ function PlotService.init(context)
 end
 
 return PlotService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
 -- evaluated against live values every economy tick. Completions pay out
 -- automatically with a fanfare; repeatable end-quests loop forever.
 
@@ -3312,7 +3524,7 @@ function QuestService.init(context)
 end
 
 return QuestService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -3396,7 +3608,7 @@ function RewardsService.init(context)
 end
 
 return RewardsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map: 5 far-apart self-contained islands. Each island has the
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map: 5 far-apart self-contained islands. Each island has the
 -- 4x4 city grid, rocket silo, nuke-access pad, and a front town square
 -- (spawn, shop stand, NPCs, leaderboard, rebirth shrine). No central island.
 
@@ -3960,7 +4172,7 @@ function WorldBuilder.build()
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX49"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX44"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX43"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX51"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX46"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX45"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
 -- and a red beacon beam marking exactly where the strike will land.
 
 local TweenService = game:GetService("TweenService")
@@ -4121,7 +4333,7 @@ function AlarmUI.init()
 end
 
 return AlarmUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
 -- tap anywhere on their plot to move the target crosshair, then BLOW UP.
 -- Also handles nuke mode (☢ button) and the barrage toggle.
 
@@ -4427,7 +4639,7 @@ function AttackView.init(context)
 end
 
 return AttackView
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4506,7 +4718,7 @@ function CashPopups.init()
 end
 
 return CashPopups
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -4592,7 +4804,7 @@ function CharacterShop.init(context)
 end
 
 return CharacterShop
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -4639,7 +4851,7 @@ function ClientState.start()
 end
 
 return ClientState
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
 -- rainbow Day 7 card (free nuke), just like the reference screenshots.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4794,7 +5006,7 @@ function DailyRewardsUI.init(context)
 end
 
 return DailyRewardsUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
 -- and an action button on the last line (open shop, view quests, ...).
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -4970,7 +5182,7 @@ function Dialogue.init(context)
 end
 
 return Dialogue
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
 -- the full nuke sequence (flash, fireball, mushroom cloud, shockwave),
 -- shield domes and camera shake. Purely cosmetic — damage is server-side.
 
@@ -5306,7 +5518,7 @@ function FX.init()
 end
 
 return FX
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
 -- and a live countdown for timed events.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5387,7 +5599,7 @@ function GameEvents.init()
 end
 
 return GameEvents
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
 -- Cash smoothly counts up toward the real value for juice.
 
 local RunService = game:GetService("RunService")
@@ -5488,7 +5700,7 @@ function HUD.init(ctx)
 end
 
 return HUD
-</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
+</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
 
 local ClientState = require(script.Parent.ClientState)
 local Notifier = require(script.Parent.Notifier)
@@ -5534,7 +5746,7 @@ GameEvents.init()
 MusicPlayer.init()
 
 ClientState.start()
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
 -- then loops it forever. Mute toggle bottom-right.
 
 local SoundService = game:GetService("SoundService")
@@ -5593,7 +5805,7 @@ function MusicPlayer.init()
 end
 
 return MusicPlayer
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5673,7 +5885,7 @@ function Notifier.init()
 end
 
 return Notifier
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -5787,7 +5999,7 @@ function QuestUI.init(context)
 end
 
 return QuestUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5856,7 +6068,7 @@ function RebirthUI.init(context)
 end
 
 return RebirthUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
 -- Also routes the Nuke Island silo prompt into nuke attack mode.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -5973,7 +6185,7 @@ function RocketPanel.init(context)
 end
 
 return RocketPanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
 -- and the gem shop panel.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6118,7 +6330,7 @@ function SidePanel.init(context)
 end
 
 return SidePanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
 -- bright colors, FredokaOne everywhere. All panels share this look.
 
 local TweenService = game:GetService("TweenService")
@@ -6416,4 +6628,4 @@ function UILib.panel(name, title, size, displayOrder)
 end
 
 return UILib
-</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX50"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX52"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>

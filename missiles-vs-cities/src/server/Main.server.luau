@@ -21,6 +21,7 @@ local EventsService = require(script.Parent.EventsService)
 local CosmeticsService = require(script.Parent.CosmeticsService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local CitizensService = require(script.Parent.CitizensService)
+local DecorService = require(script.Parent.DecorService)
 local NPCBuilder = require(script.Parent.NPCBuilder)
 
 StarterPlayer.CameraMaxZoomDistance = 500
@@ -56,6 +57,7 @@ CosmeticsService.init(ctx)
 EventsService.init(ctx)
 LeaderboardService.init(ctx)
 CitizensService.init(ctx)
+DecorService.init(ctx)
 
 local Remotes = require(Shared.Remotes)
 
