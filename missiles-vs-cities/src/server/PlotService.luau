@@ -41,6 +41,20 @@ local function renderZone(slot, zi)
 	ctx.Visuals.render(slot.zoneData[zi].buildings, def, zone.level, slot.index, zi, center, zone.destroyed)
 end
 
+-- Locked areas look like flat sand; unlocked areas get grass + sidewalk.
+local function setZoneGround(slot, zi, locked)
+	local data = slot.zoneData[zi]
+	if locked then
+		data.plate.Color = Color3.fromRGB(226, 200, 140)
+		data.plate.Material = Enum.Material.Sand
+		data.sidewalk.Transparency = 1
+	else
+		data.plate.Color = Color3.fromRGB(116, 202, 94)
+		data.plate.Material = Enum.Material.Grass
+		data.sidewalk.Transparency = 0
+	end
+end
+
 function PlotService.updatePad(slot, zi)
 	local def = BuildingDefs.List[zi]
 	local zone = slot.zones[zi]
@@ -48,11 +62,33 @@ function PlotService.updatePad(slot, zi)
 	local label = data.padLabel
 	local pad = data.pad
 
-	if not slot.owner then
+	local function hidePad()
 		label.Text = ""
-		pad.Color = Color3.fromRGB(140, 140, 140)
+		pad.Transparency = 1
+	end
+
+	if not slot.owner then
+		hidePad()
 		return
 	end
+	local profile = ctx.Data.get(slot.owner)
+	if not profile then
+		hidePad()
+		return
+	end
+
+	-- Island expansion: only the NEXT locked area shows an unlock pad.
+	if zone.locked then
+		if zi == (profile.unlocked or 1) + 1 then
+			pad.Transparency = 0
+			pad.Color = Color3.fromRGB(250, 200, 60)
+			label.Text = "\u{1F513} UNLOCK NEW AREA\n\u{1F4B5} " .. NumberFormat.abbrev(BuildingDefs.unlockCost(def))
+		else
+			hidePad()
+		end
+		return
+	end
+	pad.Transparency = 0
 
 	if zone.destroyed then
 		local remaining = math.max(0, math.ceil(zone.repairAt - now()))
@@ -102,6 +138,28 @@ local function onPadTouched(slot, zi, hit)
 	end
 	local def = BuildingDefs.List[zi]
 	local zone = slot.zones[zi]
+
+	-- Unlock the next island area.
+	if zone.locked then
+		if zi ~= (profile.unlocked or 1) + 1 then
+			return
+		end
+		local cost = BuildingDefs.unlockCost(def)
+		if not ctx.Economy.trySpend(player, cost) then
+			notify(player, "Unlocking this area costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.unlocked = zi
+		zone.locked = false
+		setZoneGround(slot, zi, false)
+		PlotService.updatePad(slot, zi)
+		if slot.zones[zi + 1] then
+			PlotService.updatePad(slot, zi + 1)
+		end
+		notify(player, "\u{1F513} NEW AREA UNLOCKED! You can now build " .. def.name .. " here.", "victory")
+		ctx.Economy.pushState(player)
+		return
+	end
 
 	if zone.destroyed then
 		notify(player, "\u{1F4A5} " .. def.name .. " is rebuilding, hang tight!", "bad")
@@ -188,6 +246,16 @@ function PlotService.assign(player)
 	slot.immuneUntil = now() + Config.JoinImmunity
 	playerSlot[player] = slot
 
+	-- Old saves may predate area unlocks: derive from owned buildings.
+	local unlocked = profile.unlocked or 1
+	for zi, def in ipairs(BuildingDefs.List) do
+		local level = (profile.buildings and profile.buildings[def.id]) or 0
+		if level > 0 and zi > unlocked then
+			unlocked = zi
+		end
+	end
+	profile.unlocked = math.clamp(unlocked, 1, #BuildingDefs.List)
+
 	for zi, def in ipairs(BuildingDefs.List) do
 		local level = (profile.buildings and profile.buildings[def.id]) or 0
 		slot.zones[zi] = {
@@ -196,7 +264,9 @@ function PlotService.assign(player)
 			destroyed = false,
 			repairAt = 0,
 			lastHitAt = 0,
+			locked = zi > profile.unlocked,
 		}
+		setZoneGround(slot, zi, slot.zones[zi].locked)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
 	end
@@ -230,7 +300,8 @@ function PlotService.release(player)
 	slot.owner = nil
 	slot.bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
 	for zi in ipairs(BuildingDefs.List) do
-		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0 }
+		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
+		setZoneGround(slot, zi, true)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
 	end
@@ -323,6 +394,7 @@ function PlotService.resetBuildings(player)
 		return
 	end
 	profile.buildings = { house = 1 }
+	-- Unlocked areas survive rebirth; only buildings reset.
 	for zi, def in ipairs(BuildingDefs.List) do
 		local level = (def.id == "house") and 1 or 0
 		slot.zones[zi] = {
@@ -331,7 +403,9 @@ function PlotService.resetBuildings(player)
 			destroyed = false,
 			repairAt = 0,
 			lastHitAt = 0,
+			locked = zi > (profile.unlocked or 1),
 		}
+		setZoneGround(slot, zi, slot.zones[zi].locked)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
 	end
@@ -389,7 +463,8 @@ function PlotService.init(context)
 	for _, slot in ipairs(slots) do
 		slot.zones = {}
 		for zi in ipairs(BuildingDefs.List) do
-			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0 }
+			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
+			setZoneGround(slot, zi, true)
 			PlotService.updatePad(slot, zi)
 		end
 		for zi in ipairs(BuildingDefs.List) do

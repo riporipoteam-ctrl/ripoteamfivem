@@ -29,6 +29,7 @@ local function defaultProfile()
 		cash = Config.StartingCash,
 		gems = Config.StartingGems,
 		buildings = { house = 1 },
+		unlocked = 1, -- how many zone areas of the island are unlocked
 		rocketLevel = 1,
 		shields = 0,
 		barrage = 0,

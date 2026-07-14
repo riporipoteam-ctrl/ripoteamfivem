@@ -34,6 +34,11 @@ function BuildingDefs.upgradeCost(def, targetLevel)
 	return math.floor(def.baseCost * Config.CostGrowth ^ (targetLevel - 1))
 end
 
+-- Cost to unlock this zone's land (islands expand area by area).
+function BuildingDefs.unlockCost(def)
+	return math.max(50, math.floor(def.baseCost * 0.4))
+end
+
 function BuildingDefs.income(def, level)
 	if level <= 0 then
 		return 0

@@ -45,7 +45,7 @@ local function makeShop()
 	end
 end
 
-local function sideButton(holder, order, emoji, caption, color, onClick)
+local function sideButton(holder, order, iconKind, caption, color, onClick)
 	local frame = Instance.new("Frame")
 	frame.BackgroundTransparency = 1
 	frame.Size = UDim2.new(0, 76, 0, 88)
@@ -55,17 +55,22 @@ local function sideButton(holder, order, emoji, caption, color, onClick)
 	local button = UILib.button({
 		Size = UDim2.new(0, 68, 0, 60),
 		Position = UDim2.new(0, 4, 0, 0),
-		Text = emoji,
+		Text = "",
 		BackgroundColor3 = color,
 	}, frame, onClick)
 
-	UILib.text({
+	local icon = UILib.icon(iconKind, button)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.Size = UDim2.new(0, 40, 0, 40)
+
+	local captionLabel = UILib.text({
 		Size = UDim2.new(1, 0, 0, 22),
 		Position = UDim2.new(0, 0, 0, 62),
 		Text = caption,
 	}, frame)
 
-	return button
+	return button, captionLabel
 end
 
 function SidePanel.init(context)
@@ -84,19 +89,20 @@ function SidePanel.init(context)
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Parent = holder
 
-	giftButton = sideButton(holder, 1, "\u{1F381}", "Gift", UILib.Colors.Gold, function()
+	local giftCaption
+	giftButton, giftCaption = sideButton(holder, 1, "gift", "Gift", UILib.Colors.Gold, function()
 		Remotes.Events.ClaimGift:FireServer()
 	end)
-	sideButton(holder, 2, "\u{1F4C5}", "Rewards", UILib.Colors.Red, function()
+	sideButton(holder, 2, "calendar", "Rewards", UILib.Colors.Red, function()
 		ctx.DailyUI.toggle()
 	end)
-	sideButton(holder, 3, "\u{1F6D2}", "Shop", UILib.Colors.Blue, function()
+	sideButton(holder, 3, "cart", "Shop", UILib.Colors.Blue, function()
 		shopGui.Enabled = not shopGui.Enabled
 	end)
-	sideButton(holder, 4, "\u{1F4A3}", "Attack", UILib.Colors.Purple, function()
+	sideButton(holder, 4, "bomb", "Attack", UILib.Colors.Purple, function()
 		ctx.AttackView.open(false)
 	end)
-	sideButton(holder, 5, "\u{1F4DC}", "Quests", UILib.Colors.Gold, function()
+	sideButton(holder, 5, "scroll", "Quests", UILib.Colors.Gold, function()
 		ctx.QuestUI.toggle()
 	end)
 
@@ -121,15 +127,16 @@ function SidePanel.init(context)
 	passDmg.LayoutOrder = 7
 	passDmg.Parent = holder
 
-	-- Gift button countdown.
+	-- Gift countdown shows in the caption under the icon.
 	task.spawn(function()
 		while true do
 			task.wait(1)
 			local remaining = ctx.State.remaining("giftRemaining")
 			if remaining > 0 then
-				giftButton.Text = NumberFormat.clock(remaining)
+				giftCaption.Text = NumberFormat.clock(remaining)
 			else
-				giftButton.Text = "\u{1F381}"
+				giftCaption.Text = "GIFT!"
+				giftCaption.TextColor3 = Color3.fromRGB(140, 245, 120)
 			end
 		end
 	end)

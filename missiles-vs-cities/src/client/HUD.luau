@@ -38,18 +38,24 @@ function HUD.init(ctx)
 	end
 
 	local gemsPill = pill(150, 26, 0)
+	local gemIcon = UILib.icon("gem", gemsPill)
+	gemIcon.Position = UDim2.new(0, 4, 0, 2)
+	gemIcon.Size = UDim2.new(0, 22, 0, 22)
 	local gemsLabel = UILib.text({
-		Size = UDim2.new(1, -16, 1, -6),
-		Position = UDim2.new(0, 8, 0, 3),
-		Text = "\u{1F48E} 0",
+		Size = UDim2.new(1, -36, 1, -6),
+		Position = UDim2.new(0, 30, 0, 3),
+		Text = "0",
 		TextColor3 = Color3.fromRGB(220, 130, 250),
 	}, gemsPill)
 
 	local cashPill = pill(430, 42, 30)
+	local cashIcon = UILib.icon("cash", cashPill)
+	cashIcon.Position = UDim2.new(0, 6, 0, 4)
+	cashIcon.Size = UDim2.new(0, 34, 0, 34)
 	local cashLabel = UILib.text({
-		Size = UDim2.new(1, -20, 1, -8),
-		Position = UDim2.new(0, 10, 0, 4),
-		Text = "\u{1F4B5} 0",
+		Size = UDim2.new(1, -56, 1, -8),
+		Position = UDim2.new(0, 46, 0, 4),
+		Text = "0",
 		TextColor3 = Color3.fromRGB(140, 245, 120),
 	}, cashPill)
 
@@ -70,7 +76,7 @@ function HUD.init(ctx)
 
 	ctx.State.changed.Event:Connect(function(data)
 		targetCash = data.cash
-		gemsLabel.Text = "\u{1F48E} " .. NumberFormat.commas(data.gems)
+		gemsLabel.Text = NumberFormat.commas(data.gems)
 		incomeLabel.Text = "+" .. NumberFormat.abbrev(data.income) .. "/s"
 		if (data.rebirths or 0) > 0 then
 			rebirthLabel.Text = "\u{1F31F} Rebirth " .. data.rebirths .. " (x" .. (1 + data.rebirths) .. " income)"
@@ -87,7 +93,7 @@ function HUD.init(ctx)
 			else
 				displayedCash += diff * math.min(dt * 6, 1)
 			end
-			cashLabel.Text = "\u{1F4B5} " .. NumberFormat.commas(displayedCash)
+			cashLabel.Text = NumberFormat.commas(displayedCash)
 		end
 	end)
 end

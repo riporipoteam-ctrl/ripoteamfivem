@@ -137,12 +137,16 @@ function NPCBuilder.build(world)
 				local model = bases[def.id]:Clone()
 				model.Name = "NPC_" .. def.id .. "_" .. slot.index
 				anchorRig(model)
-
-				-- Stand on the plaza facing the spawn area.
-				local lookAt = Vector3.new(slot.npcLookAt.X, anchor.Y, slot.npcLookAt.Z)
-				local pos = anchor + Vector3.new(0, 3.2, 0)
 				model.Parent = folder
-				model:PivotTo(CFrame.lookAt(pos, Vector3.new(lookAt.X, pos.Y, lookAt.Z)))
+
+				-- Snap the rig's feet to the ground using its real bounding
+				-- box (rig pivots vary between avatars and the fallback).
+				local bbCF, bbSize = model:GetBoundingBox()
+				local pivotY = model:GetPivot().Position.Y
+				local feetOffset = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+				local pos = Vector3.new(anchor.X, anchor.Y + feetOffset + 0.1, anchor.Z)
+				local lookAt = Vector3.new(slot.npcLookAt.X, pos.Y, slot.npcLookAt.Z)
+				model:PivotTo(CFrame.lookAt(pos, lookAt))
 
 				decorate(model, def)
 				playIdle(model)

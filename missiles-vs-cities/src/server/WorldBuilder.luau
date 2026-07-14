@@ -444,20 +444,21 @@ local function buildPlot(plotIndex, root)
 	local zoneData = {}
 	for zi = 1, #BuildingDefs.List do
 		local zCenter = Layout.zoneCenter(plotIndex, zi)
-		part({
+		local sidewalk = part({
 			Name = "Sidewalk",
 			Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
 			Position = Vector3.new(zCenter.X, Config.GroundY + 0.12, zCenter.Z),
 			Color = COLOR_SIDEWALK,
 			Material = Enum.Material.Concrete,
+			Transparency = 1, -- appears when the area is unlocked
 			Parent = folder,
 		})
 		local plate = part({
 			Name = "ZonePlate",
 			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
 			Position = Vector3.new(zCenter.X, Config.GroundY + 0.18, zCenter.Z),
-			Color = COLOR_ZONE,
-			Material = Enum.Material.Grass,
+			Color = COLOR_SAND, -- locked look until unlocked
+			Material = Enum.Material.Sand,
 			Parent = folder,
 		})
 
@@ -473,6 +474,7 @@ local function buildPlot(plotIndex, root)
 			CFrame = CFrame.new(padPos.X, Config.GroundY + 0.4, padPos.Z) * CFrame.Angles(0, 0, math.rad(90)),
 			Color = Color3.fromRGB(80, 235, 90),
 			Material = Enum.Material.Neon,
+			Transparency = 1,
 			Parent = folder,
 		})
 		local padGui, padLabel = billboard(pad, 16, 8, 7, 180)
@@ -480,6 +482,7 @@ local function buildPlot(plotIndex, root)
 
 		zoneData[zi] = {
 			plate = plate,
+			sidewalk = sidewalk,
 			pad = pad,
 			padLabel = padLabel,
 			buildings = buildings,
@@ -528,11 +531,29 @@ function WorldBuilder.build()
 	atmosphere.Haze = 1.2
 	atmosphere.Parent = Lighting
 
-	-- Volumetric clouds.
+	-- Volumetric clouds (puffier).
 	local clouds = Instance.new("Clouds")
-	clouds.Cover = 0.52
-	clouds.Density = 0.68
+	clouds.Cover = 0.58
+	clouds.Density = 0.85
 	clouds.Parent = workspace.Terrain
+
+	-- Post-processing: subtle bloom, sun rays and color grading.
+	local bloom = Instance.new("BloomEffect")
+	bloom.Intensity = 0.4
+	bloom.Size = 24
+	bloom.Threshold = 1.05
+	bloom.Parent = Lighting
+
+	local sunRays = Instance.new("SunRaysEffect")
+	sunRays.Intensity = 0.08
+	sunRays.Spread = 0.7
+	sunRays.Parent = Lighting
+
+	local grade = Instance.new("ColorCorrectionEffect")
+	grade.Saturation = 0.14
+	grade.Contrast = 0.07
+	grade.Brightness = 0.015
+	grade.Parent = Lighting
 
 	return {
 		root = root,
