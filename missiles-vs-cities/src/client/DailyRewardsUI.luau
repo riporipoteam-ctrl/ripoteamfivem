@@ -114,8 +114,27 @@ end
 function DailyRewardsUI.init(context)
 	ctx = context
 
-	local panelGui, content = UILib.panel("MVC_Daily", "\u{1F4C5} Daily Rewards", UDim2.new(0, 560, 0, 320), 12)
+	local panelGui, content = UILib.panel("MVC_Daily", "DAILY REWARDS", UDim2.new(0, 560, 0, 320), 12)
 	gui = panelGui
+
+	-- Calendar badge sticking out of the header's top-left (reference style).
+	local frame = content.Parent
+	local badge = UILib.frame({
+		Size = UDim2.new(0, 60, 0, 64),
+		Position = UDim2.new(0, -8, 0, -40),
+		BackgroundColor3 = Color3.fromRGB(245, 245, 250),
+	}, frame)
+	UILib.frame({
+		Size = UDim2.new(1, -8, 0, 20),
+		Position = UDim2.new(0, 4, 0, 4),
+		BackgroundColor3 = UILib.Colors.Red,
+	}, badge)
+	UILib.text({
+		Size = UDim2.new(1, -8, 0, 32),
+		Position = UDim2.new(0, 4, 0, 26),
+		Text = "31",
+		TextColor3 = Color3.fromRGB(40, 50, 80),
+	}, badge)
 
 	-- Days 1-6 in a 3x2 grid on the left.
 	local grid = Instance.new("Frame")

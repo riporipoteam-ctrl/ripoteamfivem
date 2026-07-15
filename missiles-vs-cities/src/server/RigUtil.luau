@@ -1,37 +1,40 @@
--- Shared helper for placing static avatar rigs so heads/hats never detach.
--- Instead of anchoring every part (which breaks accessory welds), we weld all
--- parts to the HumanoidRootPart and anchor only the root.
+-- Shared helper for placing static avatar rigs. We anchor ONLY the
+-- HumanoidRootPart and leave the limbs jointed (Motor6D) and unanchored, so:
+--   * the rig can't fall or drift (root is anchored),
+--   * heads and hats stay attached (via their joints/welds),
+--   * idle animations still drive the limbs.
 
 local RigUtil = {}
 
--- Welds every part of a rig to its root, then anchors the root only.
 function RigUtil.freeze(model)
-	local root = model.PrimaryPart
-		or model:FindFirstChild("HumanoidRootPart")
+	local root = model:FindFirstChild("HumanoidRootPart")
+		or model.PrimaryPart
 		or model:FindFirstChildWhichIsA("BasePart")
 	if not root then
 		return
 	end
 	model.PrimaryPart = root
+
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+		humanoid.BreakJointsOnDeath = false
+	end
+
 	for _, obj in ipairs(model:GetDescendants()) do
-		if obj:IsA("BasePart") and obj ~= root then
-			obj.Anchored = false
-			-- Remove Motor6D/other joints so nothing animates loose, then weld
-			-- rigidly to root at its current relative pose.
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = root
-			weld.Part1 = obj
-			weld.Parent = root
+		if obj:IsA("BasePart") then
 			obj.CanCollide = false
+			obj.Anchored = (obj == root) -- only the root is anchored
+			obj.Massless = (obj ~= root)
 		end
 	end
-	root.Anchored = true
-	root.CanCollide = false
 end
 
 -- Places a frozen rig so its feet touch groundY, facing lookTarget.
 function RigUtil.placeOnGround(model, footPos, groundY, lookTarget)
-	-- Pivot to a temp spot first so bounding box is meaningful.
 	model:PivotTo(CFrame.new(footPos + Vector3.new(0, 50, 0)))
 	local bbCF, bbSize = model:GetBoundingBox()
 	local pivotY = model:GetPivot().Position.Y

@@ -26,6 +26,9 @@ SoundBook.Defs = {
 	Ding = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.9 },
 	Splat = { id = "rbxasset://sounds/splat.wav", volume = 0.8 },
 	Hit = { id = "rbxasset://sounds/hit.wav", volume = 0.8 },
+	Collect = { id = "rbxassetid://135483737426662", fallback = "rbxasset://sounds/electronicpingshort.wav", volume = 0.5 }, -- coin pickup
+	Upgrade = { id = "rbxassetid://9118823105", fallback = "rbxasset://sounds/electronicpingshort.wav", volume = 0.7 }, -- power-up
+	Unlock = { id = "rbxassetid://9125423797", fallback = "rbxasset://sounds/switch.wav", volume = 0.8 }, -- chime
 }
 
 -- Chill background music (Creator Store, free-to-use): first id that loads

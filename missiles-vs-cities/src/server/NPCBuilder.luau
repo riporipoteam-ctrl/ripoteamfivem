@@ -12,17 +12,18 @@ local RigUtil = require(script.Parent.RigUtil)
 
 local NPCBuilder = {}
 
--- Classic Roblox accounts whose avatars dress our NPCs.
-local NPC_AVATARS = {
-	shopkeeper = 156, -- builderman
-	tailor = 3, -- Jane Doe
-	mayor = 261, -- Shedletsky
-	general = 2, -- John Doe
-}
-
 local IDLE_ANIM = "rbxassetid://507766388" -- Roblox default R15 idle
 
 local SKIN = Color3.fromRGB(255, 204, 148)
+
+-- Custom outfits per NPC role (built from a HumanoidDescription, so NOBODY is
+-- "builderman"). Colors come from NPCDefs (shirt/pants/hat).
+local ROLE_ACCESSORY = {
+	shopkeeper = 121850938, -- classic cap
+	tailor = 20573327, -- bow/hair-ish
+	mayor = 12898202, -- top hat
+	general = 1029025, -- military-ish helmet
+}
 
 local function blockyFallback(def)
 	local model = Instance.new("Model")
@@ -52,14 +53,24 @@ local function blockyFallback(def)
 end
 
 local function loadAvatarBase(def)
-	local userId = NPC_AVATARS[def.id]
-	if userId then
-		local ok, model = pcall(function()
-			return Players:CreateHumanoidModelFromUserId(userId)
-		end)
-		if ok and model then
-			return model, true
+	-- Build a custom-dressed rig from a HumanoidDescription (never a real
+	-- account avatar), colored to match this NPC's role.
+	local ok, model = pcall(function()
+		local desc = Instance.new("HumanoidDescription")
+		desc.TorsoColor = def.shirt
+		desc.LeftArmColor = SKIN
+		desc.RightArmColor = SKIN
+		desc.LeftLegColor = def.pants
+		desc.RightLegColor = def.pants
+		desc.HeadColor = SKIN
+		local acc = ROLE_ACCESSORY[def.id]
+		if acc then
+			desc.HatAccessory = tostring(acc)
 		end
+		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	end)
+	if ok and model then
+		return model, true
 	end
 	return blockyFallback(def), false
 end

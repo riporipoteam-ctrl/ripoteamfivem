@@ -696,6 +696,9 @@ SoundBook.Defs = {
 	Ding = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.9 },
 	Splat = { id = "rbxasset://sounds/splat.wav", volume = 0.8 },
 	Hit = { id = "rbxasset://sounds/hit.wav", volume = 0.8 },
+	Collect = { id = "rbxassetid://135483737426662", fallback = "rbxasset://sounds/electronicpingshort.wav", volume = 0.5 }, -- coin pickup
+	Upgrade = { id = "rbxassetid://9118823105", fallback = "rbxasset://sounds/electronicpingshort.wav", volume = 0.7 }, -- power-up
+	Unlock = { id = "rbxassetid://9125423797", fallback = "rbxasset://sounds/switch.wav", volume = 0.8 }, -- chime
 }
 
 -- Chill background music (Creator Store, free-to-use): first id that loads
@@ -795,6 +798,7 @@ return SoundBook
 -- Actions are whitelisted and validated server-side; never trust the client.
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -807,9 +811,21 @@ local AdminService = {}
 local ctx
 
 local function isAdmin(player)
+	-- In Studio playtests everyone is an admin, so you can always see the panel.
+	if RunService:IsStudio() then
+		return true
+	end
 	-- The game's owner is always an admin.
 	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
 		return true
+	end
+	if game.CreatorType == Enum.CreatorType.Group then
+		local ok, rank = pcall(function()
+			return player:GetRankInGroup(game.CreatorId)
+		end)
+		if ok and rank &gt;= 254 then
+			return true
+		end
 	end
 	for _, id in ipairs(Config.Admins) do
 		if id == player.UserId then
@@ -4131,17 +4147,18 @@ local RigUtil = require(script.Parent.RigUtil)
 
 local NPCBuilder = {}
 
--- Classic Roblox accounts whose avatars dress our NPCs.
-local NPC_AVATARS = {
-	shopkeeper = 156, -- builderman
-	tailor = 3, -- Jane Doe
-	mayor = 261, -- Shedletsky
-	general = 2, -- John Doe
-}
-
 local IDLE_ANIM = "rbxassetid://507766388" -- Roblox default R15 idle
 
 local SKIN = Color3.fromRGB(255, 204, 148)
+
+-- Custom outfits per NPC role (built from a HumanoidDescription, so NOBODY is
+-- "builderman"). Colors come from NPCDefs (shirt/pants/hat).
+local ROLE_ACCESSORY = {
+	shopkeeper = 121850938, -- classic cap
+	tailor = 20573327, -- bow/hair-ish
+	mayor = 12898202, -- top hat
+	general = 1029025, -- military-ish helmet
+}
 
 local function blockyFallback(def)
 	local model = Instance.new("Model")
@@ -4171,14 +4188,24 @@ local function blockyFallback(def)
 end
 
 local function loadAvatarBase(def)
-	local userId = NPC_AVATARS[def.id]
-	if userId then
-		local ok, model = pcall(function()
-			return Players:CreateHumanoidModelFromUserId(userId)
-		end)
-		if ok and model then
-			return model, true
+	-- Build a custom-dressed rig from a HumanoidDescription (never a real
+	-- account avatar), colored to match this NPC's role.
+	local ok, model = pcall(function()
+		local desc = Instance.new("HumanoidDescription")
+		desc.TorsoColor = def.shirt
+		desc.LeftArmColor = SKIN
+		desc.RightArmColor = SKIN
+		desc.LeftLegColor = def.pants
+		desc.RightLegColor = def.pants
+		desc.HeadColor = SKIN
+		local acc = ROLE_ACCESSORY[def.id]
+		if acc then
+			desc.HatAccessory = tostring(acc)
 		end
+		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	end)
+	if ok and model then
+		return model, true
 	end
 	return blockyFallback(def), false
 end
@@ -5402,40 +5429,43 @@ function RewardsService.init(context)
 end
 
 return RewardsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">RigUtil</string><ProtectedString name="Source">-- Shared helper for placing static avatar rigs so heads/hats never detach.
--- Instead of anchoring every part (which breaks accessory welds), we weld all
--- parts to the HumanoidRootPart and anchor only the root.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">RigUtil</string><ProtectedString name="Source">-- Shared helper for placing static avatar rigs. We anchor ONLY the
+-- HumanoidRootPart and leave the limbs jointed (Motor6D) and unanchored, so:
+--   * the rig can't fall or drift (root is anchored),
+--   * heads and hats stay attached (via their joints/welds),
+--   * idle animations still drive the limbs.
 
 local RigUtil = {}
 
--- Welds every part of a rig to its root, then anchors the root only.
 function RigUtil.freeze(model)
-	local root = model.PrimaryPart
-		or model:FindFirstChild("HumanoidRootPart")
+	local root = model:FindFirstChild("HumanoidRootPart")
+		or model.PrimaryPart
 		or model:FindFirstChildWhichIsA("BasePart")
 	if not root then
 		return
 	end
 	model.PrimaryPart = root
+
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+		humanoid.BreakJointsOnDeath = false
+	end
+
 	for _, obj in ipairs(model:GetDescendants()) do
-		if obj:IsA("BasePart") and obj ~= root then
-			obj.Anchored = false
-			-- Remove Motor6D/other joints so nothing animates loose, then weld
-			-- rigidly to root at its current relative pose.
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = root
-			weld.Part1 = obj
-			weld.Parent = root
+		if obj:IsA("BasePart") then
 			obj.CanCollide = false
+			obj.Anchored = (obj == root) -- only the root is anchored
+			obj.Massless = (obj ~= root)
 		end
 	end
-	root.Anchored = true
-	root.CanCollide = false
 end
 
 -- Places a frozen rig so its feet touch groundY, facing lookTarget.
 function RigUtil.placeOnGround(model, footPos, groundY, lookTarget)
-	-- Pivot to a temp spot first so bounding box is meaningful.
 	model:PivotTo(CFrame.new(footPos + Vector3.new(0, 50, 0)))
 	local bbCF, bbSize = model:GetBoundingBox()
 	local pivotY = model:GetPivot().Position.Y
@@ -6781,12 +6811,16 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Layout = require(Shared.Layout)
 local NumberFormat = require(Shared.NumberFormat)
 local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+local ClientState = require(script.Parent.ClientState)
+local UILib = require(script.Parent.UILib)
 
 local CashPopups = {}
 
 local active = 0
 local MAX_ACTIVE = 45
 local rng = Random.new()
+local lastCollectSound = 0
 
 local function popup(worldPos, amount)
 	if active &gt;= MAX_ACTIVE then
@@ -6846,6 +6880,12 @@ function CashPopups.init()
 			if type(zi) == "number" and type(amt) == "number" then
 				popup(Layout.zoneCenter(plotIndex, zi), amt)
 			end
+		end
+		-- Coin sound when it's YOUR city collecting (throttled).
+		local state = ClientState.get()
+		if state and state.plotIndex == plotIndex and os.clock() - lastCollectSound &gt; 0.12 then
+			lastCollectSound = os.clock()
+			SoundBook.play("Collect", UILib.playerGui())
 		end
 	end)
 end
@@ -7100,8 +7140,27 @@ end
 function DailyRewardsUI.init(context)
 	ctx = context
 
-	local panelGui, content = UILib.panel("MVC_Daily", "\u{1F4C5} Daily Rewards", UDim2.new(0, 560, 0, 320), 12)
+	local panelGui, content = UILib.panel("MVC_Daily", "DAILY REWARDS", UDim2.new(0, 560, 0, 320), 12)
 	gui = panelGui
+
+	-- Calendar badge sticking out of the header's top-left (reference style).
+	local frame = content.Parent
+	local badge = UILib.frame({
+		Size = UDim2.new(0, 60, 0, 64),
+		Position = UDim2.new(0, -8, 0, -40),
+		BackgroundColor3 = Color3.fromRGB(245, 245, 250),
+	}, frame)
+	UILib.frame({
+		Size = UDim2.new(1, -8, 0, 20),
+		Position = UDim2.new(0, 4, 0, 4),
+		BackgroundColor3 = UILib.Colors.Red,
+	}, badge)
+	UILib.text({
+		Size = UDim2.new(1, -8, 0, 32),
+		Position = UDim2.new(0, 4, 0, 26),
+		Text = "31",
+		TextColor3 = Color3.fromRGB(40, 50, 80),
+	}, badge)
 
 	-- Days 1-6 in a 3x2 grid on the left.
 	local grid = Instance.new("Frame")
@@ -9011,26 +9070,72 @@ function SidePanel.toggleShop()
 	shopGui.Enabled = not shopGui.Enabled
 end
 
+-- Redesigned gem shop: a 2-column grid of item CARDS, each with a big emoji,
+-- a name, a price chip and a coloured BUY button — like the reference game.
 local function makeShop()
-	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} Shop", UDim2.new(0, 380, 0, 380), 12)
+	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} SHOP", UDim2.new(0, 480, 0, 470), 12)
 	shopGui = panelGui
 
 	local items = {
-		{ id = "shield", text = "\u{1F6E1}\u{FE0F} Shield (blocks 1 missile) — \u{1F48E} " .. Config.Shop.ShieldGems },
-		{ id = "barrage", text = "\u{1F680}x3 Barrage — \u{1F48E} " .. Config.Shop.BarrageGems },
-		{ id = "repair_all", text = "\u{1F527} Instant Repair All — \u{1F48E} " .. Config.Shop.RepairAllGems },
-		{ id = "skip_cooldown", text = "\u{23E9} Skip Rocket Cooldown — \u{1F48E} " .. Config.Shop.SkipCooldownGems },
-		{ id = "pass_cash", text = "\u{1F4B5} 2X CASH (Gamepass)", color = UILib.Colors.Purple },
-		{ id = "pass_damage", text = "\u{1F4A5} 2X DAMAGE (Gamepass)", color = UILib.Colors.Purple },
+		{ id = "shield", emoji = "\u{1F6E1}\u{FE0F}", name = "Shield", desc = "Blocks 1 missile", price = Config.Shop.ShieldGems, cur = "gem" },
+		{ id = "barrage", emoji = "\u{1F680}", name = "Barrage x3", desc = "Triple your next launch", price = Config.Shop.BarrageGems, cur = "gem" },
+		{ id = "repair_all", emoji = "\u{1F527}", name = "Repair All", desc = "Instantly rebuild", price = Config.Shop.RepairAllGems, cur = "gem" },
+		{ id = "skip_cooldown", emoji = "\u{23E9}", name = "Skip Reload", desc = "Rocket ready now", price = Config.Shop.SkipCooldownGems, cur = "gem" },
+		{ id = "pass_cash", emoji = "\u{1F4B5}", name = "2X CASH", desc = "Gamepass", price = "R$", cur = "pass" },
+		{ id = "pass_damage", emoji = "\u{1F4A5}", name = "2X DAMAGE", desc = "Gamepass", price = "R$", cur = "pass" },
 	}
 
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, 0, 1, 0)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 6
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.Parent = content
+
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0.5, -10, 0, 150)
+	grid.CellPadding = UDim2.new(0, 8, 0, 8)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = scroll
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 4)
+	pad.PaddingTop = UDim.new(0, 4)
+	pad.Parent = scroll
+
 	for i, item in ipairs(items) do
+		local card = UILib.frame({
+			BackgroundColor3 = Color3.fromRGB(236, 244, 255),
+			LayoutOrder = i,
+		}, scroll)
+
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 52),
+			Position = UDim2.new(0, 4, 0, 6),
+			Text = item.emoji,
+		}, card)
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 24),
+			Position = UDim2.new(0, 4, 0, 58),
+			Text = item.name,
+			TextColor3 = Color3.fromRGB(30, 40, 70),
+		}, card)
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 18),
+			Position = UDim2.new(0, 4, 0, 82),
+			Text = item.desc,
+			TextColor3 = Color3.fromRGB(90, 100, 130),
+		}, card)
+
+		local priceText = item.cur == "gem" and ("\u{1F48E} " .. item.price)
+			or (item.cur == "pass" and "\u{1F311} Robux" or ("\u{1F4B5} " .. item.price))
 		UILib.button({
-			Size = UDim2.new(1, -16, 0, 48),
-			Position = UDim2.new(0, 8, 0, 10 + (i - 1) * 58),
-			Text = item.text,
-			BackgroundColor3 = item.color or UILib.Colors.Green,
-		}, content, function()
+			Size = UDim2.new(1, -16, 0, 40),
+			Position = UDim2.new(0, 8, 1, -46),
+			Text = priceText,
+			BackgroundColor3 = item.cur == "pass" and UILib.Colors.Purple or UILib.Colors.Green,
+		}, card, function()
 			Remotes.Events.ShopBuy:FireServer(item.id)
 		end)
 	end

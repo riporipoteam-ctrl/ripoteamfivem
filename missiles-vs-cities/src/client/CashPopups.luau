@@ -7,12 +7,16 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Layout = require(Shared.Layout)
 local NumberFormat = require(Shared.NumberFormat)
 local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+local ClientState = require(script.Parent.ClientState)
+local UILib = require(script.Parent.UILib)
 
 local CashPopups = {}
 
 local active = 0
 local MAX_ACTIVE = 45
 local rng = Random.new()
+local lastCollectSound = 0
 
 local function popup(worldPos, amount)
 	if active >= MAX_ACTIVE then
@@ -72,6 +76,12 @@ function CashPopups.init()
 			if type(zi) == "number" and type(amt) == "number" then
 				popup(Layout.zoneCenter(plotIndex, zi), amt)
 			end
+		end
+		-- Coin sound when it's YOUR city collecting (throttled).
+		local state = ClientState.get()
+		if state and state.plotIndex == plotIndex and os.clock() - lastCollectSound > 0.12 then
+			lastCollectSound = os.clock()
+			SoundBook.play("Collect", UILib.playerGui())
 		end
 	end)
 end

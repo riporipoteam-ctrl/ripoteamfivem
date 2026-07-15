@@ -2,6 +2,7 @@
 -- Actions are whitelisted and validated server-side; never trust the client.
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -14,9 +15,21 @@ local AdminService = {}
 local ctx
 
 local function isAdmin(player)
+	-- In Studio playtests everyone is an admin, so you can always see the panel.
+	if RunService:IsStudio() then
+		return true
+	end
 	-- The game's owner is always an admin.
 	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
 		return true
+	end
+	if game.CreatorType == Enum.CreatorType.Group then
+		local ok, rank = pcall(function()
+			return player:GetRankInGroup(game.CreatorId)
+		end)
+		if ok and rank >= 254 then
+			return true
+		end
 	end
 	for _, id in ipairs(Config.Admins) do
 		if id == player.UserId then

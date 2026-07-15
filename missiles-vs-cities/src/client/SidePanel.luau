@@ -20,26 +20,72 @@ function SidePanel.toggleShop()
 	shopGui.Enabled = not shopGui.Enabled
 end
 
+-- Redesigned gem shop: a 2-column grid of item CARDS, each with a big emoji,
+-- a name, a price chip and a coloured BUY button — like the reference game.
 local function makeShop()
-	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} Shop", UDim2.new(0, 380, 0, 380), 12)
+	local panelGui, content = UILib.panel("MVC_Shop", "\u{1F6D2} SHOP", UDim2.new(0, 480, 0, 470), 12)
 	shopGui = panelGui
 
 	local items = {
-		{ id = "shield", text = "\u{1F6E1}\u{FE0F} Shield (blocks 1 missile) — \u{1F48E} " .. Config.Shop.ShieldGems },
-		{ id = "barrage", text = "\u{1F680}x3 Barrage — \u{1F48E} " .. Config.Shop.BarrageGems },
-		{ id = "repair_all", text = "\u{1F527} Instant Repair All — \u{1F48E} " .. Config.Shop.RepairAllGems },
-		{ id = "skip_cooldown", text = "\u{23E9} Skip Rocket Cooldown — \u{1F48E} " .. Config.Shop.SkipCooldownGems },
-		{ id = "pass_cash", text = "\u{1F4B5} 2X CASH (Gamepass)", color = UILib.Colors.Purple },
-		{ id = "pass_damage", text = "\u{1F4A5} 2X DAMAGE (Gamepass)", color = UILib.Colors.Purple },
+		{ id = "shield", emoji = "\u{1F6E1}\u{FE0F}", name = "Shield", desc = "Blocks 1 missile", price = Config.Shop.ShieldGems, cur = "gem" },
+		{ id = "barrage", emoji = "\u{1F680}", name = "Barrage x3", desc = "Triple your next launch", price = Config.Shop.BarrageGems, cur = "gem" },
+		{ id = "repair_all", emoji = "\u{1F527}", name = "Repair All", desc = "Instantly rebuild", price = Config.Shop.RepairAllGems, cur = "gem" },
+		{ id = "skip_cooldown", emoji = "\u{23E9}", name = "Skip Reload", desc = "Rocket ready now", price = Config.Shop.SkipCooldownGems, cur = "gem" },
+		{ id = "pass_cash", emoji = "\u{1F4B5}", name = "2X CASH", desc = "Gamepass", price = "R$", cur = "pass" },
+		{ id = "pass_damage", emoji = "\u{1F4A5}", name = "2X DAMAGE", desc = "Gamepass", price = "R$", cur = "pass" },
 	}
 
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, 0, 1, 0)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 6
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.Parent = content
+
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0.5, -10, 0, 150)
+	grid.CellPadding = UDim2.new(0, 8, 0, 8)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = scroll
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 4)
+	pad.PaddingTop = UDim.new(0, 4)
+	pad.Parent = scroll
+
 	for i, item in ipairs(items) do
+		local card = UILib.frame({
+			BackgroundColor3 = Color3.fromRGB(236, 244, 255),
+			LayoutOrder = i,
+		}, scroll)
+
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 52),
+			Position = UDim2.new(0, 4, 0, 6),
+			Text = item.emoji,
+		}, card)
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 24),
+			Position = UDim2.new(0, 4, 0, 58),
+			Text = item.name,
+			TextColor3 = Color3.fromRGB(30, 40, 70),
+		}, card)
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 18),
+			Position = UDim2.new(0, 4, 0, 82),
+			Text = item.desc,
+			TextColor3 = Color3.fromRGB(90, 100, 130),
+		}, card)
+
+		local priceText = item.cur == "gem" and ("\u{1F48E} " .. item.price)
+			or (item.cur == "pass" and "\u{1F311} Robux" or ("\u{1F4B5} " .. item.price))
 		UILib.button({
-			Size = UDim2.new(1, -16, 0, 48),
-			Position = UDim2.new(0, 8, 0, 10 + (i - 1) * 58),
-			Text = item.text,
-			BackgroundColor3 = item.color or UILib.Colors.Green,
-		}, content, function()
+			Size = UDim2.new(1, -16, 0, 40),
+			Position = UDim2.new(0, 8, 1, -46),
+			Text = priceText,
+			BackgroundColor3 = item.cur == "pass" and UILib.Colors.Purple or UILib.Colors.Green,
+		}, card, function()
 			Remotes.Events.ShopBuy:FireServer(item.id)
 		end)
 	end
