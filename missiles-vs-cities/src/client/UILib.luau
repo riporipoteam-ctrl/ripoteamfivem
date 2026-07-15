@@ -7,8 +7,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local SoundBook = require(Shared.SoundBook)
+local UIKit = require(script.Parent.UIKit)
 
 local UILib = {}
+
+-- Which Store-kit image keywords back each drawn icon.
+local ICON_KEYWORDS = {
+	gift = { "gift", "present" },
+	calendar = { "calendar", "daily", "reward" },
+	cart = { "shop", "cart", "store" },
+	bomb = { "attack", "bomb", "war", "missile" },
+	scroll = { "quest", "scroll", "mission" },
+	gem = { "gem", "diamond" },
+	cash = { "cash", "coin", "money", "dollar" },
+	admin = { "admin", "crown", "star", "mod" },
+	jet = { "jet", "plane", "air" },
+	shield = { "shield", "defense", "defence" },
+}
 
 UILib.Font = Enum.Font.FredokaOne
 UILib.TitleFont = Enum.Font.Arcade -- blocky pixel font for titles/captions
@@ -116,12 +131,45 @@ function UILib.button(props, parent, onClick)
 		b[k] = v
 	end
 	UILib.corner(b)
-	local strokeObj = UILib.stroke(b)
+	local strokeObj = UILib.stroke(b, 3)
 
+	-- Glossy top-light gradient (brighter top, darker bottom) for a 3D pill.
 	local gradient = Instance.new("UIGradient")
 	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(215, 215, 215))
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(238, 238, 238)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(206, 206, 206)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(176, 176, 176)),
+	})
 	gradient.Parent = b
+
+	-- Soft drop shadow behind the button.
+	local shadow = Instance.new("ImageLabel")
+	shadow.Name = "Shadow"
+	shadow.BackgroundTransparency = 1
+	shadow.Image = "rbxassetid://5028857084" -- Roblox built-in soft shadow
+	shadow.ImageColor3 = Color3.new(0, 0, 0)
+	shadow.ImageTransparency = 0.55
+	shadow.ScaleType = Enum.ScaleType.Slice
+	shadow.SliceCenter = Rect.new(24, 24, 276, 276)
+	shadow.Size = UDim2.new(1, 20, 1, 20)
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 6)
+	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadow.ZIndex = math.max(b.ZIndex - 1, 0)
+	shadow.Parent = b
+
+	-- Glossy highlight strip across the top third.
+	local gloss = Instance.new("Frame")
+	gloss.Name = "Gloss"
+	gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+	gloss.BackgroundTransparency = 0.6
+	gloss.BorderSizePixel = 0
+	gloss.Size = UDim2.new(1, -12, 0, 8)
+	gloss.Position = UDim2.new(0, 6, 0, 5)
+	gloss.ZIndex = b.ZIndex + 1
+	UILib.corner(gloss, 4)
+	gloss.Parent = b
 
 	local padding = Instance.new("UIPadding")
 	padding.PaddingLeft = UDim.new(0, 6)
@@ -177,12 +225,29 @@ function UILib.button(props, parent, onClick)
 	return b
 end
 
--- Flat cartoon icons drawn from UI shapes (no image assets, no emoji).
--- Returns a square Frame you size/position yourself.
+-- Cartoon icons. Prefer a real image harvested from a Store UI kit; otherwise
+-- draw the icon from UI shapes. Returns a square Frame you size/position.
 function UILib.icon(kind, parent)
 	local box = Instance.new("Frame")
 	box.Name = "Icon_" .. kind
 	box.BackgroundTransparency = 1
+
+	-- Try a Store-kit image for this icon first (no distortion: ScaleType Fit).
+	local kw = ICON_KEYWORDS[kind]
+	local kitImage = kw and UIKit.icon(kw) or nil
+	if kitImage then
+		local img = Instance.new("ImageLabel")
+		img.Name = "KitIcon"
+		img.BackgroundTransparency = 1
+		img.Size = UDim2.fromScale(1, 1)
+		img.Image = kitImage
+		img.ScaleType = Enum.ScaleType.Fit
+		img.Parent = box
+		if parent then
+			box.Parent = parent
+		end
+		return box
+	end
 
 	local function shape(props)
 		local f = Instance.new("Frame")

@@ -15,6 +15,14 @@ Config.UseStoreSky = true -- community skybox (9.7k upvotes)
 -- Classic stud overlay texture (transparent, tints with the brick color).
 Config.StudTexture = "rbxassetid://8890102519"
 
+-- Load free Creator Store UI packs at runtime and use their real icons/art.
+-- Set false to keep the built-in code-drawn UI. These load in Studio too.
+Config.UseStoreUIKit = true
+Config.UIKitPacks = {
+	99176447965360, -- "Simulator Icon Pack" by DevJoob (+30)
+	12528362526, -- "Tycoon Button Pack (WITH GUIs)" by goalmwo (+19)
+}
+
 -- Extra rocket silos: fire one rocket per silo, per launch.
 Config.Silos = {
 	Max = 3,

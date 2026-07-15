@@ -22,9 +22,25 @@ local PilotPrompt = require(script.Parent.PilotPrompt)
 local AdminPanel = require(script.Parent.AdminPanel)
 local MilitaryPanel = require(script.Parent.MilitaryPanel)
 
+local UIKit = require(script.Parent.UIKit)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundBook = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBook"))
 SoundBook.preload() -- warm the Store SFX so first plays are instant
+
+-- Harvest Store UI-kit art BEFORE building the GUI (wait up to 6s), so icons
+-- render with real designed images. Falls back to drawn icons if it times out.
+do
+	local done = false
+	task.spawn(function()
+		UIKit.load()
+		done = true
+	end)
+	local t0 = os.clock()
+	while not done and os.clock() - t0 < 6 do
+		task.wait(0.1)
+	end
+end
 
 local ctx = {
 	State = ClientState,

@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX59"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX60"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX61"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX60"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX61"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX62"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
 
 local Config = require(script.Parent.Config)
 
@@ -87,6 +87,14 @@ Config.UseStoreSky = true -- community skybox (9.7k upvotes)
 
 -- Classic stud overlay texture (transparent, tints with the brick color).
 Config.StudTexture = "rbxassetid://8890102519"
+
+-- Load free Creator Store UI packs at runtime and use their real icons/art.
+-- Set false to keep the built-in code-drawn UI. These load in Studio too.
+Config.UseStoreUIKit = true
+Config.UIKitPacks = {
+	99176447965360, -- "Simulator Icon Pack" by DevJoob (+30)
+	12528362526, -- "Tycoon Button Pack (WITH GUIs)" by goalmwo (+19)
+}
 
 -- Extra rocket silos: fire one rocket per silo, per launch.
 Config.Silos = {
@@ -794,7 +802,7 @@ function SoundBook.playAt(key, position, props)
 end
 
 return SoundBook
-</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX62"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX33"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">AdminService</string><ProtectedString name="Source">-- Admin panel backend. Only UserIds listed in Config.Admins can use these.
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX63"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX33"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">AdminService</string><ProtectedString name="Source">-- Admin panel backend. Only UserIds listed in Config.Admins can use these.
 -- Actions are whitelisted and validated server-side; never trust the client.
 
 local Players = game:GetService("Players")
@@ -6204,7 +6212,7 @@ function WorldBuilder.build()
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX63"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX58"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX57"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">AdminPanel</string><ProtectedString name="Source">-- Admin Panel: only visible to admins (UserIds in Config.Admins). A gold
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX64"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX59"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX58"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">AdminPanel</string><ProtectedString name="Source">-- Admin Panel: only visible to admins (UserIds in Config.Admins). A gold
 -- badge button opens a panel of moderation / testing tools.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8007,9 +8015,25 @@ local PilotPrompt = require(script.Parent.PilotPrompt)
 local AdminPanel = require(script.Parent.AdminPanel)
 local MilitaryPanel = require(script.Parent.MilitaryPanel)
 
+local UIKit = require(script.Parent.UIKit)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundBook = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBook"))
 SoundBook.preload() -- warm the Store SFX so first plays are instant
+
+-- Harvest Store UI-kit art BEFORE building the GUI (wait up to 6s), so icons
+-- render with real designed images. Falls back to drawn icons if it times out.
+do
+	local done = false
+	task.spawn(function()
+		UIKit.load()
+		done = true
+	end)
+	local t0 = os.clock()
+	while not done and os.clock() - t0 &lt; 6 do
+		task.wait(0.1)
+	end
+end
 
 local ctx = {
 	State = ClientState,
@@ -9248,7 +9272,106 @@ function SidePanel.init(context)
 end
 
 return SidePanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">UIKit</string><ProtectedString name="Source">-- Loads free Creator Store UI packs at runtime and harvests their real image
+-- assets (icons, button/panel textures) so the GUI uses designed art instead
+-- of code-drawn shapes. Everything is best-effort with graceful fallback: if a
+-- pack fails to load or an image isn't found, the caller keeps its drawn look.
+--
+-- InsertService:LoadAsset works in Studio AND live for public free assets
+-- (it does NOT need API Services enabled), so these load during playtests too.
+
+local InsertService = game:GetService("InsertService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+
+local UIKit = {}
+
+UIKit.ready = false
+local images = {} -- lowercased name -&gt; image asset id (string)
+local buttonImages = {} -- images whose name looks like a button
+local panelImages = {} -- images whose name looks like a panel/frame
+
+local function record(name, id)
+	if not id or id == "" or id == "rbxassetid://0" then
+		return
+	end
+	local lname = string.lower(name or "")
+	images[lname] = id
+	if lname:find("button") or lname:find("btn") then
+		buttonImages[#buttonImages + 1] = { name = lname, id = id }
+	end
+	if lname:find("panel") or lname:find("frame") or lname:find("bg") or lname:find("window") then
+		panelImages[#panelImages + 1] = { name = lname, id = id }
+	end
+end
+
+local function harvest(root)
+	for _, obj in ipairs(root:GetDescendants()) do
+		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+			record(obj.Name, obj.Image)
+		elseif obj:IsA("Decal") or obj:IsA("Texture") then
+			record(obj.Name, obj.Texture)
+		end
+	end
+end
+
+function UIKit.load()
+	if not Config.UseStoreUIKit then
+		return
+	end
+	for _, packId in ipairs(Config.UIKitPacks or {}) do
+		local ok, asset = pcall(function()
+			return InsertService:LoadAsset(packId)
+		end)
+		if ok and asset then
+			harvest(asset)
+			asset:Destroy()
+		end
+	end
+	UIKit.ready = true
+end
+
+-- Returns the first harvested image id whose name contains any keyword.
+function UIKit.icon(keywords)
+	if not Config.UseStoreUIKit then
+		return nil
+	end
+	for _, kw in ipairs(keywords) do
+		for name, id in pairs(images) do
+			if name:find(kw, 1, true) then
+				return id
+			end
+		end
+	end
+	return nil
+end
+
+-- Best-guess button texture, preferring one whose name hints the colour.
+function UIKit.button(colorHint)
+	if not Config.UseStoreUIKit or #buttonImages == 0 then
+		return nil
+	end
+	if colorHint then
+		for _, b in ipairs(buttonImages) do
+			if b.name:find(colorHint, 1, true) then
+				return b.id
+			end
+		end
+	end
+	return buttonImages[1].id
+end
+
+function UIKit.panel()
+	if not Config.UseStoreUIKit or #panelImages == 0 then
+		return nil
+	end
+	return panelImages[1].id
+end
+
+return UIKit
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
 -- bright colors, FredokaOne everywhere. All panels share this look.
 
 local TweenService = game:GetService("TweenService")
@@ -9257,8 +9380,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local SoundBook = require(Shared.SoundBook)
+local UIKit = require(script.Parent.UIKit)
 
 local UILib = {}
+
+-- Which Store-kit image keywords back each drawn icon.
+local ICON_KEYWORDS = {
+	gift = { "gift", "present" },
+	calendar = { "calendar", "daily", "reward" },
+	cart = { "shop", "cart", "store" },
+	bomb = { "attack", "bomb", "war", "missile" },
+	scroll = { "quest", "scroll", "mission" },
+	gem = { "gem", "diamond" },
+	cash = { "cash", "coin", "money", "dollar" },
+	admin = { "admin", "crown", "star", "mod" },
+	jet = { "jet", "plane", "air" },
+	shield = { "shield", "defense", "defence" },
+}
 
 UILib.Font = Enum.Font.FredokaOne
 UILib.TitleFont = Enum.Font.Arcade -- blocky pixel font for titles/captions
@@ -9366,12 +9504,45 @@ function UILib.button(props, parent, onClick)
 		b[k] = v
 	end
 	UILib.corner(b)
-	local strokeObj = UILib.stroke(b)
+	local strokeObj = UILib.stroke(b, 3)
 
+	-- Glossy top-light gradient (brighter top, darker bottom) for a 3D pill.
 	local gradient = Instance.new("UIGradient")
 	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(215, 215, 215))
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(238, 238, 238)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(206, 206, 206)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(176, 176, 176)),
+	})
 	gradient.Parent = b
+
+	-- Soft drop shadow behind the button.
+	local shadow = Instance.new("ImageLabel")
+	shadow.Name = "Shadow"
+	shadow.BackgroundTransparency = 1
+	shadow.Image = "rbxassetid://5028857084" -- Roblox built-in soft shadow
+	shadow.ImageColor3 = Color3.new(0, 0, 0)
+	shadow.ImageTransparency = 0.55
+	shadow.ScaleType = Enum.ScaleType.Slice
+	shadow.SliceCenter = Rect.new(24, 24, 276, 276)
+	shadow.Size = UDim2.new(1, 20, 1, 20)
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 6)
+	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadow.ZIndex = math.max(b.ZIndex - 1, 0)
+	shadow.Parent = b
+
+	-- Glossy highlight strip across the top third.
+	local gloss = Instance.new("Frame")
+	gloss.Name = "Gloss"
+	gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+	gloss.BackgroundTransparency = 0.6
+	gloss.BorderSizePixel = 0
+	gloss.Size = UDim2.new(1, -12, 0, 8)
+	gloss.Position = UDim2.new(0, 6, 0, 5)
+	gloss.ZIndex = b.ZIndex + 1
+	UILib.corner(gloss, 4)
+	gloss.Parent = b
 
 	local padding = Instance.new("UIPadding")
 	padding.PaddingLeft = UDim.new(0, 6)
@@ -9427,12 +9598,29 @@ function UILib.button(props, parent, onClick)
 	return b
 end
 
--- Flat cartoon icons drawn from UI shapes (no image assets, no emoji).
--- Returns a square Frame you size/position yourself.
+-- Cartoon icons. Prefer a real image harvested from a Store UI kit; otherwise
+-- draw the icon from UI shapes. Returns a square Frame you size/position.
 function UILib.icon(kind, parent)
 	local box = Instance.new("Frame")
 	box.Name = "Icon_" .. kind
 	box.BackgroundTransparency = 1
+
+	-- Try a Store-kit image for this icon first (no distortion: ScaleType Fit).
+	local kw = ICON_KEYWORDS[kind]
+	local kitImage = kw and UIKit.icon(kw) or nil
+	if kitImage then
+		local img = Instance.new("ImageLabel")
+		img.Name = "KitIcon"
+		img.BackgroundTransparency = 1
+		img.Size = UDim2.fromScale(1, 1)
+		img.Image = kitImage
+		img.ScaleType = Enum.ScaleType.Fit
+		img.Parent = box
+		if parent then
+			box.Parent = parent
+		end
+		return box
+	end
 
 	local function shape(props)
 		local f = Instance.new("Frame")
@@ -9601,4 +9789,4 @@ function UILib.panel(name, title, size, displayOrder)
 end
 
 return UILib
-</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX64"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX65"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
