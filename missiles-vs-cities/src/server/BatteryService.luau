@@ -31,16 +31,26 @@ local function announceBattery(player, target)
 	})
 end
 
+local SMOOTH_MATERIALS = {
+	[Enum.Material.Neon] = true, [Enum.Material.Glass] = true,
+	[Enum.Material.Metal] = true, [Enum.Material.DiamondPlate] = true,
+}
 local function part(props)
 	local p = Instance.new("Part")
 	p.Anchored = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
+	local mat = props.Material or Enum.Material.Plastic
+	if mat == Enum.Material.SmoothPlastic then mat = Enum.Material.Plastic end
+	local smooth = SMOOTH_MATERIALS[mat]
+	local s = smooth and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs
+	p.TopSurface = s; p.BottomSurface = s
+	p.LeftSurface = s; p.RightSurface = s
+	p.FrontSurface = s; p.BackSurface = s
 	for k, v in pairs(props) do
-		if k ~= "Parent" then
+		if k ~= "Parent" and k ~= "Material" then
 			p[k] = v
 		end
 	end
+	p.Material = mat
 	p.Parent = props.Parent
 	return p
 end

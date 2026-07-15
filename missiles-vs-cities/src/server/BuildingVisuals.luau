@@ -22,16 +22,41 @@ local SUB_OFFSETS = {
 
 local WINDOW_COLOR = Color3.fromRGB(255, 236, 160)
 
+local SMOOTH_MATERIALS = {
+	[Enum.Material.Neon] = true,
+	[Enum.Material.Glass] = true,
+	[Enum.Material.ForceField] = true,
+	[Enum.Material.DiamondPlate] = true,
+	[Enum.Material.Metal] = true,
+}
+
+local function applySurfaces(p, smooth)
+	local s = smooth and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs
+	p.TopSurface = s
+	p.BottomSurface = s
+	p.LeftSurface = s
+	p.RightSurface = s
+	p.FrontSurface = s
+	p.BackSurface = s
+end
+
+-- Buildings are classic studded bricks (Plastic + Studs) unless the material
+-- should stay smooth (glass windows, neon signs, metal) or props.Smooth is set.
 local function part(props)
 	local p = Instance.new("Part")
 	p.Anchored = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
+	local mat = props.Material or Enum.Material.Plastic
+	if mat == Enum.Material.SmoothPlastic then
+		mat = Enum.Material.Plastic
+	end
+	local smooth = props.Smooth or SMOOTH_MATERIALS[mat]
 	for k, v in pairs(props) do
-		if k ~= "Parent" then
+		if k ~= "Parent" and k ~= "Smooth" and k ~= "Material" then
 			p[k] = v
 		end
 	end
+	p.Material = mat
+	applySurfaces(p, smooth)
 	p.Parent = props.Parent
 	return p
 end
@@ -39,13 +64,18 @@ end
 local function wedge(props)
 	local p = Instance.new("WedgePart")
 	p.Anchored = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
+	local mat = props.Material or Enum.Material.Plastic
+	if mat == Enum.Material.SmoothPlastic then
+		mat = Enum.Material.Plastic
+	end
+	local smooth = props.Smooth or SMOOTH_MATERIALS[mat]
 	for k, v in pairs(props) do
-		if k ~= "Parent" then
+		if k ~= "Parent" and k ~= "Smooth" and k ~= "Material" then
 			p[k] = v
 		end
 	end
+	p.Material = mat
+	applySurfaces(p, smooth)
 	p.Parent = props.Parent
 	return p
 end
@@ -54,25 +84,9 @@ local function lighten(color, amt)
 	return Color3.new(math.min(color.R + amt, 1), math.min(color.G + amt, 1), math.min(color.B + amt, 1))
 end
 
--- Classic stud overlay for the brick-built look.
-local SIDE_FACES = { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }
-local function studBrick(p, includeTop)
-	for _, face in ipairs(SIDE_FACES) do
-		local tex = Instance.new("Texture")
-		tex.Texture = Config.StudTexture
-		tex.Face = face
-		tex.StudsPerTileU = 4
-		tex.StudsPerTileV = 4
-		tex.Parent = p
-	end
-	if includeTop then
-		local tex = Instance.new("Texture")
-		tex.Texture = Config.StudTexture
-		tex.Face = Enum.NormalId.Top
-		tex.StudsPerTileU = 4
-		tex.StudsPerTileV = 4
-		tex.Parent = p
-	end
+-- Parts are already studded on every face via part(); this is now a no-op
+-- kept so existing call sites keep working.
+local function studBrick(p)
 	return p
 end
 
@@ -80,8 +94,14 @@ local function darken(color, amt)
 	return Color3.new(math.max(color.R - amt, 0), math.max(color.G - amt, 0), math.max(color.B - amt, 0))
 end
 
+-- Buildings use clean studded Plastic (like the reference) except glass and
+-- metal towers, which keep their material for shine.
+local KEEP_MATERIAL = { Glass = true, Metal = true }
 local function materialOf(def)
-	return Enum.Material[def.material or "SmoothPlastic"] or Enum.Material.SmoothPlastic
+	if def.material and KEEP_MATERIAL[def.material] then
+		return Enum.Material[def.material]
+	end
+	return Enum.Material.Plastic
 end
 
 -- Little homes with pitched roofs (houses / apartments).

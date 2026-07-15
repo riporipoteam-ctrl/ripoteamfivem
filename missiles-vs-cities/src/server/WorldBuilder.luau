@@ -21,30 +21,55 @@ local COLOR_DASH = Color3.fromRGB(248, 214, 62)
 local COLOR_SIDEWALK = Color3.fromRGB(168, 168, 172)
 local COLOR_PLAZA = Color3.fromRGB(196, 190, 178)
 
+-- Materials that should stay smooth (no studs): glass, neon signs, metal, etc.
+local SMOOTH_MATERIALS = {
+	[Enum.Material.Neon] = true,
+	[Enum.Material.Glass] = true,
+	[Enum.Material.ForceField] = true,
+	[Enum.Material.DiamondPlate] = true,
+	[Enum.Material.Metal] = true,
+}
+
+-- Applies classic raised STUDS to all six faces (engine-rendered, no assets).
+local function studAll(p)
+	p.TopSurface = Enum.SurfaceType.Studs
+	p.BottomSurface = Enum.SurfaceType.Studs
+	p.LeftSurface = Enum.SurfaceType.Studs
+	p.RightSurface = Enum.SurfaceType.Studs
+	p.FrontSurface = Enum.SurfaceType.Studs
+	p.BackSurface = Enum.SurfaceType.Studs
+	return p
+end
+
+-- Every world part is a classic studded brick (Plastic + Studs on all faces)
+-- unless its material is one that should stay smooth, or props.Smooth is set.
 local function part(props)
 	local p = Instance.new("Part")
 	p.Anchored = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
+	local mat = props.Material or Enum.Material.Plastic
+	if mat == Enum.Material.SmoothPlastic then
+		mat = Enum.Material.Plastic
+	end
+	local smooth = props.Smooth or SMOOTH_MATERIALS[mat]
 	for k, v in pairs(props) do
-		if k ~= "Parent" then
+		if k ~= "Parent" and k ~= "Smooth" and k ~= "Material" then
 			p[k] = v
 		end
+	end
+	p.Material = mat
+	if smooth then
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+	else
+		studAll(p)
 	end
 	p.Parent = props.Parent
 	return p
 end
 
--- Classic stud overlay on chosen faces (transparent texture tints with color).
-local function studs(p, faces, tile)
-	for _, face in ipairs(faces) do
-		local tex = Instance.new("Texture")
-		tex.Texture = Config.StudTexture
-		tex.Face = face
-		tex.StudsPerTileU = tile or 4
-		tex.StudsPerTileV = tile or 4
-		tex.Parent = p
-	end
+-- Back-compat shim: parts are already studded by default, so this is a no-op
+-- that just returns the part (older call sites pass face lists we now ignore).
+local function studs(p)
 	return p
 end
 
