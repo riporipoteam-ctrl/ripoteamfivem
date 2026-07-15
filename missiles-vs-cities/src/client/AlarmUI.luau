@@ -117,8 +117,13 @@ local function showAlarm(payload)
 	title.TextColor3 = Color3.fromRGB(255, 60, 60)
 	title.TextStrokeColor3 = Color3.new(0, 0, 0)
 	title.TextStrokeTransparency = 0
-	title.Text = isNuke and "\u{2622}\u{FE0F} NUCLEAR STRIKE INCOMING \u{2622}\u{FE0F}"
-		or "\u{1F6A8} INCOMING MISSILE \u{1F6A8}"
+	local titleByKind = {
+		nuke = "\u{2622}\u{FE0F} NUCLEAR STRIKE INCOMING \u{2622}\u{FE0F}",
+		jet = "\u{2708}\u{FE0F} ENEMY JETS INBOUND \u{2708}\u{FE0F}",
+		battery = "\u{1F680} MISSILE BARRAGE INCOMING \u{1F680}",
+		rocket = "\u{1F6A8} INCOMING MISSILE \u{1F6A8}",
+	}
+	title.Text = titleByKind[payload.kind] or titleByKind.rocket
 	title.Parent = gui
 
 	local countdown = Instance.new("TextLabel")

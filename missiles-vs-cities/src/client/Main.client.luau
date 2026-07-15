@@ -16,6 +16,11 @@ local QuestUI = require(script.Parent.QuestUI)
 local CharacterShop = require(script.Parent.CharacterShop)
 local GameEvents = require(script.Parent.GameEvents)
 local RebirthUI = require(script.Parent.RebirthUI)
+local MissileCam = require(script.Parent.MissileCam)
+local PlaneFX = require(script.Parent.PlaneFX)
+local PilotPrompt = require(script.Parent.PilotPrompt)
+local AdminPanel = require(script.Parent.AdminPanel)
+local MilitaryPanel = require(script.Parent.MilitaryPanel)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundBook = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBook"))
@@ -28,6 +33,7 @@ local ctx = {
 	DailyUI = DailyRewardsUI,
 	QuestUI = QuestUI,
 	CharShop = CharacterShop,
+	Military = MilitaryPanel,
 	ShopToggle = SidePanel.toggleShop,
 }
 
@@ -37,6 +43,8 @@ AttackView.init(ctx)
 DailyRewardsUI.init(ctx)
 QuestUI.init(ctx)
 CharacterShop.init(ctx)
+MilitaryPanel.init(ctx)
+AdminPanel.init(ctx)
 SidePanel.init(ctx)
 RocketPanel.init(ctx)
 Dialogue.init(ctx)
@@ -45,6 +53,9 @@ AlarmUI.init()
 FX.init()
 CashPopups.init()
 GameEvents.init()
+MissileCam.init()
+PlaneFX.init()
+PilotPrompt.init()
 MusicPlayer.init()
 
 ClientState.start()

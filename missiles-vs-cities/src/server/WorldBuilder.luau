@@ -230,32 +230,36 @@ local function buildSiloGroup(plotIndex, siloIndex, parent)
 		})
 	end
 
-	local rocketParts = {}
+	-- Rocket lives in its own model so it can be scaled up on upgrade.
+	local rocketModel = Instance.new("Model")
+	rocketModel.Name = "RocketModel"
 	local body = part({
 		Name = "SiloRocket",
 		Size = Vector3.new(4.4, 14, 4.4),
 		Position = pos + Vector3.new(0, 8, 0),
 		Color = Color3.fromRGB(240, 240, 245),
-		Parent = model,
+		Parent = rocketModel,
 	})
 	studs(body, { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }, 3)
-	rocketParts[#rocketParts + 1] = body
-	rocketParts[#rocketParts + 1] = part({
+	part({
 		Name = "SiloRocketNose",
 		Size = Vector3.new(3, 3.6, 3),
 		Position = pos + Vector3.new(0, 16.8, 0),
 		Color = Color3.fromRGB(230, 60, 60),
-		Parent = model,
+		Parent = rocketModel,
 	})
 	for _, off in ipairs({ Vector3.new(-2.8, 0, 0), Vector3.new(2.8, 0, 0), Vector3.new(0, 0, -2.8), Vector3.new(0, 0, 2.8) }) do
-		rocketParts[#rocketParts + 1] = part({
+		part({
 			Name = "SiloFin",
 			Size = Vector3.new(1.2, 4.4, 1.2),
 			Position = pos + off + Vector3.new(0, 2.2, 0),
 			Color = Color3.fromRGB(230, 60, 60),
-			Parent = model,
+			Parent = rocketModel,
 		})
 	end
+	rocketModel.PrimaryPart = body
+	rocketModel.Parent = model
+	local rocketParts = rocketModel:GetChildren()
 
 	if siloIndex == 1 then
 		local prompt = Instance.new("ProximityPrompt")
@@ -271,7 +275,7 @@ local function buildSiloGroup(plotIndex, siloIndex, parent)
 	end
 
 	model.Parent = parent
-	return { model = model, rocketParts = rocketParts, parent = parent }
+	return { model = model, rocketParts = rocketParts, rocketModel = rocketModel, basePos = pos, parent = parent }
 end
 
 local function buildTownSquare(plotIndex, folder)

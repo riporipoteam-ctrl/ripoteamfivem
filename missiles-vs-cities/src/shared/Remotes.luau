@@ -18,6 +18,14 @@ local EVENTS = {
 	"ClaimGift", -- client -> server
 	"GameEvent", -- server -> all: random world events (frenzy, meteors, ...)
 	"RequestRebirth", -- client -> server
+	"RequestJet", -- client -> server: jet strike (city or silos)
+	"RequestBattery", -- client -> server: battery volley
+	"UpgradeBattery", -- client -> server
+	"JetEvent", -- server -> all: jet flight FX
+	"PlaneEvent", -- server -> all: pilot plane FX (landing / crash)
+	"PilotOffer", -- server -> client: the old pilot asks to land
+	"PilotAnswer", -- client -> server: accept / decline
+	"AdminAction", -- client -> server (validated against Config.Admins)
 }
 local FUNCTIONS = {
 	"GetSnapshot", -- client asks for initial state

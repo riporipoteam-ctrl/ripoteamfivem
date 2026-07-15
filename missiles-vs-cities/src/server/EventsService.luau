@@ -172,7 +172,21 @@ local function supplyDrop()
 	end)
 end
 
-local EVENTS = { cashFrenzy, gemRain, meteorShower, supplyDrop }
+-- Double-gems minute: gifts and gem rewards pay extra (flavour announce).
+local function goldRush()
+	announce("frenzy", "\u{2728} GOLD RUSH! Collect fast — income x3 for 45s!", 45)
+	ctx.eventCashMult = 3
+	task.delay(45, function()
+		ctx.eventCashMult = 1
+	end)
+end
+
+local EVENTS = { cashFrenzy, gemRain, meteorShower, supplyDrop, goldRush }
+
+function EventsService.fireRandom()
+	local event = EVENTS[rng:NextInteger(1, #EVENTS)]
+	task.spawn(event)
+end
 
 function EventsService.init(context)
 	ctx = context
@@ -181,8 +195,7 @@ function EventsService.init(context)
 		while true do
 			task.wait(rng:NextNumber(Config.Events.MinInterval, Config.Events.MaxInterval))
 			if #Players:GetPlayers() > 0 then
-				local event = EVENTS[rng:NextInteger(1, #EVENTS)]
-				task.spawn(event)
+				EventsService.fireRandom()
 			end
 		end
 	end)

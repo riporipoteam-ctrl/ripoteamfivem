@@ -10,6 +10,7 @@ local Config = require(Shared.Config)
 local BuildingDefs = require(Shared.BuildingDefs)
 local NumberFormat = require(Shared.NumberFormat)
 local Remotes = require(Shared.Remotes)
+local Layout = require(Shared.Layout)
 
 local EconomyService = {}
 
@@ -135,6 +136,28 @@ function EconomyService.pushState(player)
 		rocketRemaining = math.max(0, (session.rocketReadyAt or 0) - now()),
 		siloCount = profile.siloCount or 1,
 		nextSiloCost = Config.Silos.Costs[(profile.siloCount or 1) + 1] or 0,
+		autoCollect = profile.autoCollect or false,
+		autoCollectCost = Config.AutoCollectCost,
+		population = slot and ctx.Plot.population(slot) or 0,
+		hangars = profile.hangars or 0,
+		nextHangarCost = Config.Jets.HangarCosts[(profile.hangars or 0) + 1] or 0,
+		jetLevel = profile.jetLevel or 1,
+		jetCost = (profile.jetLevel or 1) < Config.Jets.MaxLevel
+			and math.floor(Config.Jets.BaseUpgradeCost * Config.Jets.CostGrowth ^ ((profile.jetLevel or 1) - 1)) or 0,
+		jetRemaining = math.max(0, (session.jetReadyAt or 0) - now()),
+		hasAirport = slot and slot.zones[Layout.AirportZoneIndex]
+			and slot.zones[Layout.AirportZoneIndex].level > 0 or false,
+		defenseLevel = profile.defenseLevel or 0,
+		defenseCost = (profile.defenseLevel or 0) < Config.Defense.MaxLevel
+			and math.floor(Config.Defense.BaseCost * Config.Defense.CostGrowth ^ (profile.defenseLevel or 0)) or 0,
+		batteryUnlocked = profile.batteryUnlocked or false,
+		batteryCost = Config.Battery.UnlockCost,
+		batteryLevel = profile.batteryLevel or 1,
+		batteryUpgradeCost = (profile.batteryLevel or 1) < Config.Battery.MaxLevel
+			and math.floor(Config.Battery.BaseUpgradeCost * Config.Battery.CostGrowth ^ ((profile.batteryLevel or 1) - 1)) or 0,
+		batteryRemaining = math.max(0, (session.batteryReadyAt or 0) - now()),
+		siloDisabledRemaining = math.max(0, (session.siloDisabledUntil or 0) - now()),
+		isAdmin = ctx.isAdmin and ctx.isAdmin(player) or false,
 		nukeOwned = profile.nukeIsland,
 		nukeCharges = profile.nukeCharges,
 		nukeRemaining = math.max(0, profile.lastNukeAt + Config.Nuke.Cooldown - os.time()),
@@ -181,22 +204,32 @@ local function incomeLoop()
 				local profile = ctx.Data.get(player)
 				if profile then
 					local mult = EconomyService.cashMultiplier(player)
+					local autoCollect = profile.autoCollect
+					local autoTotal = 0
 					local pops = {}
-					local total = 0
 					for zi, def in ipairs(BuildingDefs.List) do
 						local zone = slot.zones[zi]
 						if zone.level > 0 and not zone.destroyed then
 							local amt = BuildingDefs.income(def, zone.level) * Config.IncomeInterval * mult
-							total += amt
-							pops[#pops + 1] = { zi, amt }
+							if autoCollect then
+								autoTotal += amt
+								pops[#pops + 1] = { zi, amt }
+							else
+								-- Cash piles up at the building until the player
+								-- walks over to collect it (cap ~10 min income).
+								local cap = BuildingDefs.income(def, zone.level) * mult * 600
+								zone.pending = math.min((zone.pending or 0) + amt, cap)
+								ctx.Plot.updateCollect(slot, zi)
+							end
 						end
 					end
-					if total > 0 then
-						profile.cash += total
+					if autoCollect and autoTotal > 0 then
+						profile.cash += autoTotal
 						Remotes.Events.IncomePops:FireAllClients(slot.index, pops)
 					end
 					slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
 						.. "\n\u{1F4B5} " .. NumberFormat.abbrev(ctx.Plot.cityWorth(slot))
+						.. "  \u{1F465} " .. NumberFormat.abbrev(ctx.Plot.population(slot))
 					updateLeaderstats(player)
 					if ctx.Quests then
 						ctx.Quests.evaluate(player, {
@@ -291,6 +324,89 @@ local function onShopBuy(player, itemId)
 		end
 		notify(player, "\u{1F680} SILO " .. profile.siloCount .. " BUILT! You now fire "
 			.. profile.siloCount .. " rockets per launch!", "victory")
+	elseif itemId == "auto_collect" then
+		if profile.autoCollect then
+			notify(player, "\u{1F4B0} You already have Auto-Collect!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, Config.AutoCollectCost) then
+			notify(player, "Auto-Collect costs \u{1F4B5} " .. NumberFormat.abbrev(Config.AutoCollectCost) .. "!", "bad")
+			return
+		end
+		profile.autoCollect = true
+		-- Sweep up whatever's pending right now.
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			ctx.Plot.collectAll(player, slot)
+		end
+		notify(player, "\u{1F4B0} AUTO-COLLECT unlocked! Income now goes straight to your wallet.", "victory")
+	elseif itemId == "buy_defense" then
+		local lvl = profile.defenseLevel or 0
+		if lvl >= Config.Defense.MaxLevel then
+			notify(player, "\u{1F6E1}\u{FE0F} Air defense is max level!", "info")
+			return
+		end
+		local cost = math.floor(Config.Defense.BaseCost * Config.Defense.CostGrowth ^ lvl)
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Air defense upgrade costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.defenseLevel = lvl + 1
+		local slot = ctx.Plot.getSlot(player)
+		if slot and ctx.Defense then
+			ctx.Defense.updateTurrets(slot, profile.defenseLevel)
+		end
+		notify(player, "\u{1F6E1}\u{FE0F} AIR DEFENSE Lv" .. profile.defenseLevel
+			.. "! Better chance to shoot down incoming missiles & jets.", "victory")
+	elseif itemId == "buy_hangar" then
+		local slot = ctx.Plot.getSlot(player)
+		if not slot or not slot.zones[Layout.AirportZoneIndex] or slot.zones[Layout.AirportZoneIndex].level <= 0 then
+			notify(player, "\u{2708}\u{FE0F} Build an Airport first to buy hangars!", "bad")
+			return
+		end
+		local count = profile.hangars or 0
+		local cost = Config.Jets.HangarCosts[count + 1]
+		if not cost then
+			notify(player, "\u{2708}\u{FE0F} You already have the max " .. Config.Jets.MaxHangars .. " hangars!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Hangar " .. (count + 1) .. " costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.hangars = count + 1
+		if ctx.Jets then
+			ctx.Jets.updateHangars(slot, profile.hangars)
+		end
+		notify(player, "\u{2708}\u{FE0F} HANGAR " .. profile.hangars .. " BUILT! Launch " .. profile.hangars .. " jets per strike!", "victory")
+	elseif itemId == "upgrade_jet" then
+		local lvl = profile.jetLevel or 1
+		if lvl >= Config.Jets.MaxLevel then
+			notify(player, "\u{2708}\u{FE0F} Jets are max level!", "info")
+			return
+		end
+		local cost = math.floor(Config.Jets.BaseUpgradeCost * Config.Jets.CostGrowth ^ (lvl - 1))
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Jet upgrade costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.jetLevel = lvl + 1
+		notify(player, "\u{2708}\u{FE0F} JETS upgraded to Lv" .. profile.jetLevel .. "!", "buy")
+	elseif itemId == "buy_battery" then
+		if profile.batteryUnlocked then
+			notify(player, "\u{1F680} You already own the Missile Battery!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, Config.Battery.UnlockCost) then
+			notify(player, "The Missile Battery costs \u{1F4B5} " .. NumberFormat.abbrev(Config.Battery.UnlockCost) .. "!", "bad")
+			return
+		end
+		profile.batteryUnlocked = true
+		local slot = ctx.Plot.getSlot(player)
+		if slot and ctx.Battery then
+			ctx.Battery.showIsland(slot, true)
+		end
+		notify(player, "\u{1F680} MISSILE BATTERY built on your side island! Fires " .. Config.Battery.Volley .. " missiles at once.", "victory")
 	elseif itemId == "pass_cash" then
 		if Config.GamePassCash2x > 0 then
 			MarketplaceService:PromptGamePassPurchase(player, Config.GamePassCash2x)

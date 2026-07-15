@@ -265,14 +265,26 @@ function PlotService.assign(player)
 			repairAt = 0,
 			lastHitAt = 0,
 			locked = zi > profile.unlocked,
+			pending = 0,
 		}
 		setZoneGround(slot, zi, slot.zones[zi].locked)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
+		PlotService.updateCollect(slot, zi)
 	end
 
 	slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
 	PlotService.updateSilos(slot, profile.siloCount or 1)
+	PlotService.updateRocketVisual(slot, profile.rocketLevel or 1)
+	if ctx.Defense then
+		ctx.Defense.updateTurrets(slot, profile.defenseLevel or 0)
+	end
+	if ctx.Jets then
+		ctx.Jets.updateHangars(slot, profile.hangars or 0)
+	end
+	if ctx.Battery then
+		ctx.Battery.showIsland(slot, profile.batteryUnlocked or false)
+	end
 
 	local function place(character)
 		local hrp = character:WaitForChild("HumanoidRootPart", 8)
@@ -301,11 +313,21 @@ function PlotService.release(player)
 	slot.owner = nil
 	slot.bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
 	PlotService.updateSilos(slot, 1)
+	if ctx.Defense then
+		ctx.Defense.updateTurrets(slot, 0)
+	end
+	if ctx.Jets then
+		ctx.Jets.updateHangars(slot, 0)
+	end
+	if ctx.Battery then
+		ctx.Battery.showIsland(slot, false)
+	end
 	for zi in ipairs(BuildingDefs.List) do
-		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
+		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true, pending = 0 }
 		setZoneGround(slot, zi, true)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
+		PlotService.updateCollect(slot, zi)
 	end
 	playerSlot[player] = nil
 end
@@ -337,6 +359,61 @@ function PlotService.cityWorth(slot)
 	return worth
 end
 
+-- Total living population across intact buildings.
+function PlotService.population(slot)
+	local pop = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level > 0 and not zone.destroyed then
+			pop += BuildingDefs.population(def, zone.level)
+		end
+	end
+	return pop
+end
+
+-- Refresh the floating "collect" cash label on a zone.
+function PlotService.updateCollect(slot, zi)
+	local data = slot.zoneData[zi]
+	local zone = slot.zones[zi]
+	local gui = data.collectGui
+	if not gui then
+		return
+	end
+	local pending = zone.pending or 0
+	local profile = slot.owner and ctx.Data.get(slot.owner)
+	if profile and profile.autoCollect then
+		gui.Enabled = false
+		return
+	end
+	if pending >= 1 and zone.level > 0 and not zone.destroyed then
+		gui.Enabled = true
+		data.collectLabel.Text = "\u{1F4B5} " .. NumberFormat.abbrev(pending)
+	else
+		gui.Enabled = false
+	end
+end
+
+function PlotService.collectZone(player, slot, zi)
+	local zone = slot.zones[zi]
+	local pending = math.floor(zone.pending or 0)
+	if pending < 1 then
+		return 0
+	end
+	zone.pending = 0
+	ctx.Economy.addCash(player, pending)
+	PlotService.updateCollect(slot, zi)
+	Remotes.Events.IncomePops:FireAllClients(slot.index, { { zi, pending } })
+	return pending
+end
+
+function PlotService.collectAll(player, slot)
+	local total = 0
+	for zi in ipairs(BuildingDefs.List) do
+		total += PlotService.collectZone(player, slot, zi)
+	end
+	return total
+end
+
 function PlotService.destroyZone(slot, zi, repairAfter)
 	local zone = slot.zones[zi]
 	zone.destroyed = true
@@ -346,21 +423,25 @@ function PlotService.destroyZone(slot, zi, repairAfter)
 end
 
 -- Missile blast: damages every intact building within the radius.
--- Returns total worth destroyed and how many buildings fell.
-function PlotService.applyBlast(slot, pos, damage)
+-- Returns total worth destroyed, how many buildings fell, and population lost.
+-- Also makes the victim lose some cash directly.
+function PlotService.applyBlast(slot, pos, damage, radius)
+	radius = radius or Config.Rocket.BlastRadius
 	local worthDestroyed = 0
 	local destroyedCount = 0
+	local popLost = 0
 	for zi, def in ipairs(BuildingDefs.List) do
 		local zone = slot.zones[zi]
 		if zone.level > 0 and not zone.destroyed then
 			local center = Layout.zoneCenter(slot.index, zi)
 			local dx = center.X - pos.X
 			local dz = center.Z - pos.Z
-			if math.sqrt(dx * dx + dz * dz) <= Config.Rocket.BlastRadius then
+			if math.sqrt(dx * dx + dz * dz) <= radius then
 				zone.hp -= damage
 				zone.lastHitAt = now()
 				if zone.hp <= 0 then
 					worthDestroyed += BuildingDefs.totalWorth(def, zone.level)
+					popLost += BuildingDefs.population(def, zone.level)
 					destroyedCount += 1
 					PlotService.destroyZone(slot, zi, Config.MissileRepairTime)
 				else
@@ -369,7 +450,21 @@ function PlotService.applyBlast(slot, pos, damage)
 			end
 		end
 	end
-	return worthDestroyed, destroyedCount
+	-- Victim also loses cash proportional to the damage dealt.
+	if worthDestroyed > 0 and slot.owner then
+		local profile = ctx.Data.get(slot.owner)
+		if profile then
+			local loss = math.floor(worthDestroyed * Config.VictimCashLossRate)
+			profile.cash = math.max(0, profile.cash - loss)
+		end
+	end
+	return worthDestroyed, destroyedCount, popLost
+end
+
+-- True if this slot has an intact rocket silo zone owner can launch from.
+function PlotService.zoneLevel(slot, zi)
+	local zone = slot.zones[zi]
+	return zone and zone.level or 0
 end
 
 -- Nuke: flattens the whole city, staggered rebuild, temporary immunity.
@@ -406,8 +501,42 @@ function PlotService.setSiloRocket(slot, siloIndex, visible)
 	if not group then
 		return
 	end
-	for _, p in ipairs(group.rocketParts) do
-		p.Transparency = visible and 0 or 1
+	for _, p in ipairs(group.rocketModel:GetChildren()) do
+		if p:IsA("BasePart") then
+			p.Transparency = visible and 0 or 1
+		end
+	end
+end
+
+-- Grow and restyle every silo rocket to match the rocket level.
+local ROCKET_TIERS = {
+	{ 1, Color3.fromRGB(240, 240, 245), Color3.fromRGB(230, 60, 60) },
+	{ 10, Color3.fromRGB(200, 220, 250), Color3.fromRGB(60, 120, 240) },
+	{ 25, Color3.fromRGB(150, 235, 160), Color3.fromRGB(40, 180, 70) },
+	{ 45, Color3.fromRGB(250, 210, 90), Color3.fromRGB(240, 150, 30) },
+	{ 70, Color3.fromRGB(210, 130, 250), Color3.fromRGB(150, 40, 220) },
+}
+function PlotService.updateRocketVisual(slot, level)
+	local scale = 1 + math.min(level, Config.Rocket.MaxLevel) / 100 * 1.4 -- up to ~2.4x
+	local body, nose = ROCKET_TIERS[1][2], ROCKET_TIERS[1][3]
+	for _, tier in ipairs(ROCKET_TIERS) do
+		if level >= tier[1] then
+			body, nose = tier[2], tier[3]
+		end
+	end
+	for _, group in ipairs(slot.siloGroups) do
+		local rm = group.rocketModel
+		if rm and rm.PrimaryPart then
+			-- ScaleTo is absolute relative to the model's build-time size.
+			pcall(function()
+				rm:ScaleTo(scale)
+			end)
+			for _, p in ipairs(rm:GetChildren()) do
+				if p:IsA("BasePart") then
+					p.Color = (p.Name == "SiloRocket") and body or nose
+				end
+			end
+		end
 	end
 end
 
@@ -500,14 +629,51 @@ function PlotService.init(context)
 	for _, slot in ipairs(slots) do
 		slot.zones = {}
 		for zi in ipairs(BuildingDefs.List) do
-			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
+			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true, pending = 0 }
 			setZoneGround(slot, zi, true)
+			-- Floating "collect" cash label above the building.
+			local data = slot.zoneData[zi]
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "CollectGui"
+			gui.Size = UDim2.new(10, 0, 4, 0)
+			gui.StudsOffset = Vector3.new(0, 12, 0)
+			gui.MaxDistance = 220
+			gui.Enabled = false
+			gui.Adornee = data.plate
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromScale(1, 1)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.FredokaOne
+			label.TextScaled = true
+			label.TextColor3 = Color3.fromRGB(120, 245, 100)
+			label.TextStrokeColor3 = Color3.new(0, 0, 0)
+			label.TextStrokeTransparency = 0
+			label.Text = ""
+			label.Parent = gui
+			gui.Parent = data.plate
+			data.collectGui = gui
+			data.collectLabel = label
 			PlotService.updatePad(slot, zi)
 		end
 		for zi in ipairs(BuildingDefs.List) do
-			local pad = slot.zoneData[zi].pad
-			pad.Touched:Connect(function(hit)
+			local data = slot.zoneData[zi]
+			data.pad.Touched:Connect(function(hit)
 				onPadTouched(slot, zi, hit)
+			end)
+			-- Stepping onto the building tile collects its piled-up cash.
+			data.plate.Touched:Connect(function(hit)
+				local character = hit.Parent
+				local player = character and Players:GetPlayerFromCharacter(character)
+				if player and slot.owner == player then
+					local dKey = player.UserId .. ":collect:" .. zi
+					if not touchDebounce[dKey] or now() - touchDebounce[dKey] > 0.5 then
+						touchDebounce[dKey] = now()
+						local got = PlotService.collectZone(player, slot, zi)
+						if got > 0 then
+							ctx.Economy.pushState(player)
+						end
+					end
+				end
 			end)
 		end
 	end

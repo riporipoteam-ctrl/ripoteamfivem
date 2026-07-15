@@ -21,6 +21,65 @@ Config.Silos = {
 	Costs = { 0, 25e6, 25e9 }, -- silo 1 free, then 25M, then 25B
 }
 
+-- Jets (need an Airport built): buy hangars, upgrade jets, strike cities or
+-- DISABLE enemy rocket silos for a while.
+Config.Jets = {
+	MaxHangars = 3,
+	HangarCosts = { 5e6, 100e6, 2e9 },
+	MaxLevel = 50,
+	BaseDamage = 2000,
+	DamageGrowth = 1.25,
+	BaseUpgradeCost = 2e6,
+	CostGrowth = 1.5,
+	Cooldown = 120,
+	FlightTime = 8,
+	SiloDisable = 75, -- seconds the victim can't launch rockets
+}
+
+-- Air defense: each level adds intercept chance vs missiles and jets.
+Config.Defense = {
+	MaxLevel = 12,
+	BaseCost = 100e3,
+	CostGrowth = 6,
+	MissileChancePerLevel = 0.05, -- capped below
+	JetChancePerLevel = 0.04,
+	MaxChance = 0.6,
+}
+
+-- Missile battery: a small island of BIG silos next to your island.
+-- No aiming — six missiles rain on random parts of the target city.
+Config.Battery = {
+	UnlockCost = 50e6,
+	MaxLevel = 20,
+	BaseDamage = 3000,
+	DamageGrowth = 1.4,
+	BaseUpgradeCost = 50e6,
+	CostGrowth = 8,
+	Cooldown = 600, -- big reload
+	Volley = 6,
+}
+
+-- Population: each building type houses people (per level). Getting bombed
+-- costs you population AND money.
+Config.PopulationPer = {
+	house = 4, apartments = 10, shops = 6, bank = 8, factory = 12, solar = 5,
+	downtown = 40, stadium = 30, airport = 25, military = 20, wind = 8,
+	space = 35, techhub = 45, casino = 30, port = 40, goldtower = 60,
+}
+Config.VictimCashLossRate = 0.15 -- % of destroyed worth the victim also loses
+
+-- Pilot random event (airport owners): accept his landing for a payout, or
+-- decline and risk him crashing into your city.
+Config.Pilot = {
+	MinReward = 100e3,
+	RewardMinutes = 5, -- plus income-scaled bonus
+	DecideSeconds = 25,
+}
+
+-- Admins: put Roblox UserIds here to unlock the in-game Admin Panel.
+-- Find your id at roblox.com/users/profile (the number in the URL).
+Config.Admins = {}
+
 -- World layout
 Config.PlotCount = 5
 Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip
@@ -28,9 +87,10 @@ Config.PlotDistance = 700 -- big gaps between islands
 Config.ZoneSize = 40
 Config.GroundY = 4
 
--- Economy
-Config.StartingCash = 1000
+-- Economy: everyone starts from ZERO. The first house is free.
+Config.StartingCash = 0
 Config.StartingGems = 25
+Config.AutoCollectCost = 200e3 -- buy once, income goes straight to wallet
 Config.IncomeInterval = 2
 Config.AutosaveInterval = 120
 Config.BuildingMaxLevel = 60

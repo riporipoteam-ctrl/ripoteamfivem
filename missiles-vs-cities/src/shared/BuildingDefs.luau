@@ -30,8 +30,19 @@ for i, def in ipairs(BuildingDefs.List) do
 end
 
 -- Cost to go from (targetLevel - 1) to targetLevel. Level 1 = the initial purchase.
+-- The very first house is FREE (players start from $0).
 function BuildingDefs.upgradeCost(def, targetLevel)
+	if def.id == "house" and targetLevel == 1 then
+		return 0
+	end
 	return math.floor(def.baseCost * Config.CostGrowth ^ (targetLevel - 1))
+end
+
+function BuildingDefs.population(def, level)
+	if level <= 0 then
+		return 0
+	end
+	return (Config.PopulationPer[def.id] or 5) * level
 end
 
 -- Cost to unlock this zone's land (islands expand area by area).

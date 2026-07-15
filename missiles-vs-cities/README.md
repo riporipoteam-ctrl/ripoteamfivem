@@ -42,6 +42,38 @@ tablet and console.
   and SFX on every interaction (buttons, panels, dialogue typewriter, quests,
   events, purchases, explosions...)
 
+## 🆕 Big update: economy, air war & events
+
+- **Start from $0** — your first House is FREE; everything after costs cash.
+- **Collect-to-earn**: income piles up over each building (green $ float).
+  Walk onto a building to collect it, or buy **Auto-Collect** (War panel) to
+  bank it automatically.
+- **Island expansion**: unlock new areas one pad at a time as you can afford them.
+- **Rockets grow**: each rocket upgrade makes your silo rocket bigger and
+  changes its colours; buy up to **3 silos** (fire more per launch).
+- **✈️ Airport & Jets**: build the Airport, buy **hangars**, upgrade jets, then
+  send them to **bomb a city** or **bomb rocket silos** (knocks the victim's
+  rockets offline for a while).
+- **🛡️ Air Defense**: turrets on your island that can shoot down incoming
+  missiles and jets — upgrade for a higher intercept chance.
+- **🚀 Missile Battery**: buy a small side-island of BIG silos. One BLOW UP
+  button rains a random volley across the target's whole city (long reload,
+  upgradeable).
+- **📹 Missile Cam**: when you launch, ride a camera behind your missile and
+  watch it strike — or hit SKIP.
+- **👥 Living cities**: more citizens and cars appear as your city grows; being
+  bombed costs you **population and cash**, and the attacker earns the value of
+  what they destroy.
+- **👨‍✈️ The Pilot event** (airport owners): an old cropduster radios in low on
+  fuel. **Accept** for a big payout (he lands, refuels, thanks you, takes off)
+  or **decline** and risk him crashing into your city.
+- **🎲 More random events** + **randomized daily rewards** (fresh set each week).
+- **🛠️ Admin Panel**: the game owner (and any UserIds in `Config.Admins`) get a
+  gold badge button with moderation/testing tools.
+- **Real Roblox SFX**, chill music, new sky, and a redesigned UI + notifications
+  that scale for **PC, mobile and console**. Missile aiming is now pixel-accurate
+  on touch and mouse.
+
 ## 🕹️ How to publish (10 minutes, free)
 
 1. Install **Roblox Studio** (free): https://create.roblox.com

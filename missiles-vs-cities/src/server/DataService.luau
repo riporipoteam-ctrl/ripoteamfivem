@@ -32,6 +32,12 @@ local function defaultProfile()
 		unlocked = 1, -- how many zone areas of the island are unlocked
 		rocketLevel = 1,
 		siloCount = 1,
+		autoCollect = false,
+		hangars = 0,
+		jetLevel = 1,
+		defenseLevel = 0,
+		batteryUnlocked = false,
+		batteryLevel = 1,
 		shields = 0,
 		barrage = 0,
 		nukeIsland = false,

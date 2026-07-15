@@ -23,6 +23,11 @@ local LeaderboardService = require(script.Parent.LeaderboardService)
 local CitizensService = require(script.Parent.CitizensService)
 local DecorService = require(script.Parent.DecorService)
 local NPCBuilder = require(script.Parent.NPCBuilder)
+local DefenseService = require(script.Parent.DefenseService)
+local JetService = require(script.Parent.JetService)
+local BatteryService = require(script.Parent.BatteryService)
+local PilotService = require(script.Parent.PilotService)
+local AdminService = require(script.Parent.AdminService)
 
 StarterPlayer.CameraMaxZoomDistance = 500
 Players.RespawnTime = 3
@@ -50,6 +55,11 @@ local ctx = {
 	Events = EventsService,
 	Cosmetics = CosmeticsService,
 	Leaderboard = LeaderboardService,
+	Defense = DefenseService,
+	Jets = JetService,
+	Battery = BatteryService,
+	Pilot = PilotService,
+	Admin = AdminService,
 	eventCashMult = 1,
 	session = {}, -- [player] = { giftReadyAt, rocketReadyAt, passCash, passDamage }
 }
@@ -62,6 +72,11 @@ QuestService.init(ctx)
 CosmeticsService.init(ctx)
 EventsService.init(ctx)
 LeaderboardService.init(ctx)
+DefenseService.init(ctx)
+JetService.init(ctx)
+BatteryService.init(ctx)
+PilotService.init(ctx)
+AdminService.init(ctx)
 CitizensService.init(ctx)
 DecorService.init(ctx)
 

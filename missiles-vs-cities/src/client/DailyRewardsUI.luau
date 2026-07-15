@@ -42,16 +42,16 @@ local function makeCard(parent, dayNumber, big)
 		Text = "DAY " .. dayNumber,
 	}, card)
 
-	UILib.text({
+	local emojiLabel = UILib.text({
 		Size = UDim2.new(1, -8, 0, big and 80 or 38),
 		Position = UDim2.new(0, 4, 0, big and 44 or 28),
-		Text = reward.emoji,
+		Text = reward and reward.emoji or "\u{2753}",
 	}, card)
 
-	UILib.text({
+	local nameLabel = UILib.text({
 		Size = UDim2.new(1, -8, 0, big and 30 or 20),
 		Position = UDim2.new(0, 4, 0, big and 130 or 66),
-		Text = reward.label,
+		Text = reward and reward.label or "Mystery",
 		TextColor3 = big and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(235, 250, 255),
 	}, card)
 
@@ -66,13 +66,23 @@ local function makeCard(parent, dayNumber, big)
 		end
 	end)
 
-	cards[dayNumber] = { button = statusButton }
+	cards[dayNumber] = { button = statusButton, emoji = emojiLabel, name = nameLabel }
 	return card
 end
 
 local function refresh()
 	if not dailyData then
 		return
+	end
+	-- Paint the randomized rewards the server sent this cycle.
+	if dailyData.rewards then
+		for dayNumber, card in pairs(cards) do
+			local reward = dailyData.rewards[dayNumber]
+			if reward then
+				card.emoji.Text = reward.emoji
+				card.name.Text = reward.label
+			end
+		end
 	end
 	for dayNumber, card in pairs(cards) do
 		local button = card.button

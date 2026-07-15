@@ -48,6 +48,23 @@ function UILib.corner(parent, radius)
 	return c
 end
 
+-- Adds a UIScale that keeps UI a sensible size on phones, tablets, TVs.
+-- Baselined to a ~900px-tall window; shrinks on small screens.
+function UILib.autoScale(frame)
+	local scaleObj = Instance.new("UIScale")
+	scaleObj.Parent = frame
+	local function update()
+		local cam = workspace.CurrentCamera
+		local vh = cam and cam.ViewportSize.Y or 900
+		scaleObj.Scale = math.clamp(vh / 900, 0.55, 1.15)
+	end
+	update()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+	end
+	return scaleObj
+end
+
 function UILib.stroke(parent, thickness, color)
 	local s = Instance.new("UIStroke")
 	s.Thickness = thickness or 3
@@ -220,6 +237,29 @@ function UILib.icon(kind, parent)
 		outer.Rotation = 45
 		local inner = shape({ Size = UDim2.fromScale(0.32, 0.32), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(225, 160, 255), Round = 4 })
 		inner.Rotation = 45
+	elseif kind == "admin" then
+		-- Gold shield badge with a star.
+		local shield = shape({ Size = UDim2.fromScale(0.66, 0.74), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(240, 190, 50), Round = 6 })
+		shape({ Size = UDim2.fromScale(0.44, 0.5), Position = UDim2.fromScale(0.5, 0.46), BackgroundColor3 = Color3.fromRGB(255, 225, 120), Round = 5 })
+		local star = Instance.new("TextLabel")
+		star.AnchorPoint = Vector2.new(0.5, 0.5)
+		star.Position = UDim2.fromScale(0.5, 0.48)
+		star.Size = UDim2.fromScale(0.6, 0.6)
+		star.BackgroundTransparency = 1
+		star.Font = UILib.Font
+		star.TextScaled = true
+		star.Text = "\u{2605}"
+		star.TextColor3 = Color3.fromRGB(180, 120, 20)
+		star.Parent = box
+		local _ = shield
+	elseif kind == "jet" then
+		local body = shape({ Size = UDim2.fromScale(0.2, 0.6), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(120, 140, 170), Round = 4 })
+		shape({ Size = UDim2.fromScale(0.8, 0.16), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(150, 170, 200), Round = 3 })
+		shape({ Size = UDim2.fromScale(0.34, 0.12), Position = UDim2.fromScale(0.5, 0.78), BackgroundColor3 = Color3.fromRGB(150, 170, 200), Round = 3 })
+		local _ = body
+	elseif kind == "shield" then
+		shape({ Size = UDim2.fromScale(0.66, 0.74), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(90, 180, 255), Round = 6 })
+		shape({ Size = UDim2.fromScale(0.4, 0.46), Position = UDim2.fromScale(0.5, 0.46), BackgroundColor3 = Color3.fromRGB(150, 210, 255), Round = 5 })
 	elseif kind == "cash" then
 		shape({ Size = UDim2.fromScale(0.82, 0.52), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(88, 190, 70), Round = 5 })
 		shape({ Size = UDim2.fromScale(0.66, 0.36), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(120, 215, 95), Round = 4 })
@@ -259,6 +299,7 @@ function UILib.panel(name, title, size, displayOrder)
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 	}, gui)
+	UILib.autoScale(frame) -- keep panels usable on phones/tablets/TVs
 
 	local header = UILib.frame({
 		Name = "Header",

@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX48"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX49"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX50"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><External>null</External><External>nil</External><Item class="Workspace" referent="RBX59"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="Lighting" referent="RBX60"><Properties><string name="Name">Lighting</string><token name="Technology">4</token><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX61"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">BuildingDefs</string><ProtectedString name="Source">-- The 12 buildable city zones, in plot order (4 columns x 3 rows).
 
 local Config = require(script.Parent.Config)
 
@@ -30,8 +30,19 @@ for i, def in ipairs(BuildingDefs.List) do
 end
 
 -- Cost to go from (targetLevel - 1) to targetLevel. Level 1 = the initial purchase.
+-- The very first house is FREE (players start from $0).
 function BuildingDefs.upgradeCost(def, targetLevel)
+	if def.id == "house" and targetLevel == 1 then
+		return 0
+	end
 	return math.floor(def.baseCost * Config.CostGrowth ^ (targetLevel - 1))
+end
+
+function BuildingDefs.population(def, level)
+	if level &lt;= 0 then
+		return 0
+	end
+	return (Config.PopulationPer[def.id] or 5) * level
 end
 
 -- Cost to unlock this zone's land (islands expand area by area).
@@ -83,6 +94,65 @@ Config.Silos = {
 	Costs = { 0, 25e6, 25e9 }, -- silo 1 free, then 25M, then 25B
 }
 
+-- Jets (need an Airport built): buy hangars, upgrade jets, strike cities or
+-- DISABLE enemy rocket silos for a while.
+Config.Jets = {
+	MaxHangars = 3,
+	HangarCosts = { 5e6, 100e6, 2e9 },
+	MaxLevel = 50,
+	BaseDamage = 2000,
+	DamageGrowth = 1.25,
+	BaseUpgradeCost = 2e6,
+	CostGrowth = 1.5,
+	Cooldown = 120,
+	FlightTime = 8,
+	SiloDisable = 75, -- seconds the victim can't launch rockets
+}
+
+-- Air defense: each level adds intercept chance vs missiles and jets.
+Config.Defense = {
+	MaxLevel = 12,
+	BaseCost = 100e3,
+	CostGrowth = 6,
+	MissileChancePerLevel = 0.05, -- capped below
+	JetChancePerLevel = 0.04,
+	MaxChance = 0.6,
+}
+
+-- Missile battery: a small island of BIG silos next to your island.
+-- No aiming — six missiles rain on random parts of the target city.
+Config.Battery = {
+	UnlockCost = 50e6,
+	MaxLevel = 20,
+	BaseDamage = 3000,
+	DamageGrowth = 1.4,
+	BaseUpgradeCost = 50e6,
+	CostGrowth = 8,
+	Cooldown = 600, -- big reload
+	Volley = 6,
+}
+
+-- Population: each building type houses people (per level). Getting bombed
+-- costs you population AND money.
+Config.PopulationPer = {
+	house = 4, apartments = 10, shops = 6, bank = 8, factory = 12, solar = 5,
+	downtown = 40, stadium = 30, airport = 25, military = 20, wind = 8,
+	space = 35, techhub = 45, casino = 30, port = 40, goldtower = 60,
+}
+Config.VictimCashLossRate = 0.15 -- % of destroyed worth the victim also loses
+
+-- Pilot random event (airport owners): accept his landing for a payout, or
+-- decline and risk him crashing into your city.
+Config.Pilot = {
+	MinReward = 100e3,
+	RewardMinutes = 5, -- plus income-scaled bonus
+	DecideSeconds = 25,
+}
+
+-- Admins: put Roblox UserIds here to unlock the in-game Admin Panel.
+-- Find your id at roblox.com/users/profile (the number in the URL).
+Config.Admins = {}
+
 -- World layout
 Config.PlotCount = 5
 Config.PlotSize = 272 -- 4x4 zone grid + rocket silo strip
@@ -90,9 +160,10 @@ Config.PlotDistance = 700 -- big gaps between islands
 Config.ZoneSize = 40
 Config.GroundY = 4
 
--- Economy
-Config.StartingCash = 1000
+-- Economy: everyone starts from ZERO. The first house is free.
+Config.StartingCash = 0
 Config.StartingGems = 25
+Config.AutoCollectCost = 200e3 -- buy once, income goes straight to wallet
 Config.IncomeInterval = 2
 Config.AutosaveInterval = 120
 Config.BuildingMaxLevel = 60
@@ -299,6 +370,28 @@ function Layout.nukePadPos(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
 	return Vector3.new(c.X - 38, Config.GroundY, c.Z + Config.PlotSize / 2 + 36)
 end
+
+-- Small missile-battery island floating beside each player island.
+function Layout.batteryIslandCenter(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X - Config.PlotSize / 2 - 90, 0, c.Z + 40)
+end
+
+-- Air-defense turret corner spots (up to 4).
+function Layout.defensePos(plotIndex, turretIndex)
+	local c = Layout.plotCenter(plotIndex)
+	local half = Config.PlotSize / 2 - 10
+	local corners = {
+		Vector3.new(c.X - half, Config.GroundY, c.Z - half),
+		Vector3.new(c.X + half, Config.GroundY, c.Z - half),
+		Vector3.new(c.X - half, Config.GroundY, c.Z + half),
+		Vector3.new(c.X + half, Config.GroundY, c.Z + half),
+	}
+	return corners[((turretIndex - 1) % 4) + 1]
+end
+
+-- The airport zone (jets take off from here).
+Layout.AirportZoneIndex = 9
 
 function Layout.plotSpawn(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
@@ -532,6 +625,14 @@ local EVENTS = {
 	"ClaimGift", -- client -&gt; server
 	"GameEvent", -- server -&gt; all: random world events (frenzy, meteors, ...)
 	"RequestRebirth", -- client -&gt; server
+	"RequestJet", -- client -&gt; server: jet strike (city or silos)
+	"RequestBattery", -- client -&gt; server: battery volley
+	"UpgradeBattery", -- client -&gt; server
+	"JetEvent", -- server -&gt; all: jet flight FX
+	"PlaneEvent", -- server -&gt; all: pilot plane FX (landing / crash)
+	"PilotOffer", -- server -&gt; client: the old pilot asks to land
+	"PilotAnswer", -- client -&gt; server: accept / decline
+	"AdminAction", -- client -&gt; server (validated against Config.Admins)
 }
 local FUNCTIONS = {
 	"GetSnapshot", -- client asks for initial state
@@ -690,7 +791,372 @@ function SoundBook.playAt(key, position, props)
 end
 
 return SoundBook
-</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX51"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX27"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
+</ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX62"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX33"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">AdminService</string><ProtectedString name="Source">-- Admin panel backend. Only UserIds listed in Config.Admins can use these.
+-- Actions are whitelisted and validated server-side; never trust the client.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local AdminService = {}
+
+local ctx
+
+local function isAdmin(player)
+	-- The game's owner is always an admin.
+	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
+		return true
+	end
+	for _, id in ipairs(Config.Admins) do
+		if id == player.UserId then
+			return true
+		end
+	end
+	return false
+end
+AdminService.isAdmin = isAdmin
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function onAdminAction(player, action, arg)
+	if not isAdmin(player) then
+		return -- silent: not an admin
+	end
+	local profile = ctx.Data.get(player)
+	if not profile then
+		return
+	end
+
+	if action == "give_cash" then
+		local amount = tonumber(arg) or 1e9
+		profile.cash += amount
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: +\u{1F4B5} " .. NumberFormat.abbrev(amount), "victory")
+	elseif action == "give_gems" then
+		local amount = tonumber(arg) or 1000
+		profile.gems += amount
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: +\u{1F48E} " .. amount, "victory")
+	elseif action == "max_rockets" then
+		profile.rocketLevel = Config.Rocket.MaxLevel
+		profile.siloCount = Config.Silos.Max
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			ctx.Plot.updateSilos(slot, profile.siloCount)
+			ctx.Plot.updateRocketVisual(slot, profile.rocketLevel)
+		end
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: rockets maxed!", "victory")
+	elseif action == "give_nuke" then
+		profile.nukeIsland = true
+		profile.lastNukeAt = 0
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: nuke access + reset cooldown!", "victory")
+	elseif action == "repair" then
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			ctx.Plot.repairAll(slot)
+		end
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: city repaired!", "good")
+	elseif action == "unlock_all" then
+		local BuildingDefs = require(Shared.BuildingDefs)
+		profile.unlocked = #BuildingDefs.List
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			ctx.Plot.resetBuildings(player) -- re-derives locks with new unlocked count
+		end
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: all areas unlocked!", "victory")
+	elseif action == "trigger_event" then
+		if ctx.Events then
+			ctx.Events.fireRandom()
+		end
+		notify(player, "\u{1F6E0}\u{FE0F} Admin: random event triggered!", "info")
+	elseif action == "trigger_pilot" then
+		local slot = ctx.Plot.getSlot(player)
+		if slot and ctx.Pilot then
+			ctx.Pilot.trigger(slot)
+		end
+	end
+	ctx.Economy.pushState(player)
+end
+
+function AdminService.init(context)
+	ctx = context
+	ctx.isAdmin = isAdmin
+	Remotes.Events.AdminAction.OnServerEvent:Connect(onAdminAction)
+end
+
+return AdminService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">BatteryService</string><ProtectedString name="Source">-- Missile Battery: a small island beside each player island holding several
+-- BIG silos. No aiming — one "BLOW UP" button rains a volley across random
+-- parts of the target city. Big cooldown; upgradeable damage.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local BatteryService = {}
+
+local ctx
+local rng = Random.new()
+
+local function now()
+	return os.clock()
+end
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function announceBattery(player, target)
+	Remotes.Events.Notify:FireAllClients({
+		msg = "\u{1F680} " .. player.DisplayName .. " unleashed a MISSILE BATTERY on " .. target.DisplayName .. "!",
+		kind = "bad",
+	})
+end
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+-- Builds the little battery island (hidden until unlocked).
+function BatteryService.buildIsland(slot)
+	local c = Layout.batteryIslandCenter(slot.index)
+	local folder = Instance.new("Folder")
+	folder.Name = "BatteryIsland"
+	folder.Parent = slot.folder
+	folder:SetAttribute("Hidden", true)
+
+	part({
+		Name = "Base",
+		Size = Vector3.new(70, 8, 60),
+		Position = Vector3.new(c.X, -1, c.Z),
+		Color = Color3.fromRGB(96, 96, 104),
+		Material = Enum.Material.Concrete,
+		Parent = folder,
+	})
+	part({
+		Name = "Rim",
+		Size = Vector3.new(82, 6, 72),
+		Position = Vector3.new(c.X, -1.6, c.Z),
+		Color = Color3.fromRGB(226, 200, 140),
+		Material = Enum.Material.Sand,
+		Parent = folder,
+	})
+
+	local launchPositions = {}
+	local cols, rowsN = 3, 2
+	for r = 0, rowsN - 1 do
+		for cc = 0, cols - 1 do
+			local sx = c.X - 18 + cc * 18
+			local sz = c.Z - 10 + r * 20
+			-- Big silo tube.
+			part({
+				Name = "BigSilo",
+				Size = Vector3.new(7, 4, 7),
+				Position = Vector3.new(sx, Config.GroundY + 2, sz),
+				Color = Color3.fromRGB(60, 62, 68),
+				Material = Enum.Material.DiamondPlate,
+				Parent = folder,
+			})
+			local rocket = part({
+				Name = "BigRocket",
+				Size = Vector3.new(4, 12, 4),
+				Position = Vector3.new(sx, Config.GroundY + 9, sz),
+				Color = Color3.fromRGB(220, 80, 60),
+				Material = Enum.Material.Metal,
+				Parent = folder,
+			})
+			part({
+				Name = "BigNose",
+				Size = Vector3.new(2.6, 3, 2.6),
+				Position = Vector3.new(sx, Config.GroundY + 16, sz),
+				Color = Color3.fromRGB(250, 210, 90),
+				Material = Enum.Material.Neon,
+				Parent = folder,
+			})
+			launchPositions[#launchPositions + 1] = Vector3.new(sx, Config.GroundY + 16, sz)
+		end
+	end
+
+	-- BLOW UP battery pad the owner steps on.
+	local pad = part({
+		Name = "BatteryPad",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 14, 14),
+		CFrame = CFrame.new(c.X, Config.GroundY + 0.5, c.Z + 24) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(235, 60, 60),
+		Material = Enum.Material.Neon,
+		Parent = folder,
+	})
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(18, 0, 7, 0)
+	gui.StudsOffset = Vector3.new(0, 6, 0)
+	gui.MaxDistance = 260
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 200, 200)
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Text = "\u{1F680} MISSILE BATTERY\nOpen the Attack menu to fire"
+	label.Parent = gui
+	gui.Parent = pad
+
+	slot.batteryFolder = folder
+	slot.batteryLaunchPositions = launchPositions
+end
+
+function BatteryService.showIsland(slot, visible)
+	if not slot.batteryFolder then
+		return
+	end
+	slot.batteryFolder.Parent = visible and slot.folder or nil
+end
+
+local function batteryDamage(profile)
+	local level = profile.batteryLevel or 1
+	return math.floor(Config.Battery.BaseDamage * Config.Battery.DamageGrowth ^ (level - 1))
+end
+
+local function impactBatteryMissile(attackerUserId, targetUserId, pos, damage, isLast)
+	local target = Players:GetPlayerByUserId(targetUserId)
+	local attacker = Players:GetPlayerByUserId(attackerUserId)
+	if not target then
+		return
+	end
+	local slot = ctx.Plot.getSlot(target)
+	if not slot then
+		return
+	end
+	if ctx.Defense and ctx.Defense.tryIntercept(slot, "missile", pos) then
+		return
+	end
+	local worth, count, popLost = ctx.Plot.applyBlast(slot, pos, damage)
+	if count &gt; 0 and attacker then
+		ctx.Economy.addCash(attacker, worth)
+		local aProfile = ctx.Data.get(attacker)
+		if aProfile then
+			aProfile.stats.stolen += worth
+		end
+		ctx.Economy.pushState(attacker)
+	end
+	if isLast then
+		notify(target, "\u{1F680} A MISSILE BATTERY volley hit your city!", "bad")
+		ctx.Economy.pushState(target)
+	end
+end
+
+local function onRequestBattery(player, targetUserId)
+	if type(targetUserId) ~= "number" then
+		return
+	end
+	local session = ctx.session[player]
+	local profile = ctx.Data.get(player)
+	local mySlot = ctx.Plot.getSlot(player)
+	if not session or not profile or not mySlot then
+		return
+	end
+	if not profile.batteryUnlocked then
+		notify(player, "\u{1F680} Buy the Missile Battery first!", "bad")
+		return
+	end
+	if now() &lt; (session.batteryReadyAt or 0) then
+		notify(player, "\u{1F680} Battery reloading! " .. NumberFormat.clock((session.batteryReadyAt or 0) - now()), "bad")
+		return
+	end
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target or target == player then
+		notify(player, "That player isn't here!", "bad")
+		return
+	end
+	local targetSlot = ctx.Plot.getSlot(target)
+	if not targetSlot or ctx.Plot.isImmune(targetSlot) then
+		notify(player, "\u{1F6E1}\u{FE0F} That city is protected right now!", "bad")
+		return
+	end
+
+	session.batteryReadyAt = now() + Config.Battery.Cooldown
+	local damage = batteryDamage(profile)
+	local launches = mySlot.batteryLaunchPositions or {}
+	local minX, minZ, maxX, maxZ = Layout.plotBounds(targetSlot.index)
+
+	for i = 1, Config.Battery.Volley do
+		local from = launches[((i - 1) % #launches) + 1] or Layout.batteryIslandCenter(mySlot.index)
+		-- Random spread across the enemy city (no aiming).
+		local pos = Vector3.new(rng:NextNumber(minX, maxX), Layout.GroundY, rng:NextNumber(minZ, maxZ))
+		local flight = Config.Rocket.FlightTime + rng:NextNumber(0, 2)
+		Remotes.Events.MissileEvent:FireAllClients({
+			kind = "rocket",
+			from = from,
+			to = pos,
+			flight = flight,
+			attacker = player.DisplayName,
+			previewFor = (i == 1) and player.UserId or nil,
+		})
+		task.delay(flight, impactBatteryMissile, player.UserId, target.UserId, pos, damage, i == Config.Battery.Volley)
+	end
+
+	Remotes.Events.Alarm:FireClient(target, {
+		kind = "battery",
+		pos = Layout.plotCenter(targetSlot.index),
+		eta = Config.Rocket.FlightTime,
+	})
+	announceBattery(player, target)
+	ctx.Economy.pushState(player)
+end
+
+local function onUpgradeBattery(player)
+	local profile = ctx.Data.get(player)
+	if not profile or not profile.batteryUnlocked then
+		return
+	end
+	local lvl = profile.batteryLevel or 1
+	if lvl &gt;= Config.Battery.MaxLevel then
+		notify(player, "\u{1F680} Battery is max level!", "info")
+		return
+	end
+	local cost = math.floor(Config.Battery.BaseUpgradeCost * Config.Battery.CostGrowth ^ (lvl - 1))
+	if not ctx.Economy.trySpend(player, cost) then
+		notify(player, "Battery upgrade costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+		return
+	end
+	profile.batteryLevel = lvl + 1
+	notify(player, "\u{1F680} Missile Battery upgraded to Lv" .. profile.batteryLevel .. "!", "buy")
+	ctx.Economy.pushState(player)
+end
+
+function BatteryService.init(context)
+	ctx = context
+	for _, slot in ipairs(ctx.World.slots) do
+		BatteryService.buildIsland(slot)
+		BatteryService.showIsland(slot, false)
+	end
+	Remotes.Events.RequestBattery.OnServerEvent:Connect(onRequestBattery)
+	Remotes.Events.UpgradeBattery.OnServerEvent:Connect(onUpgradeBattery)
+end
+
+return BatteryService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">BuildingVisuals</string><ProtectedString name="Source">-- Renders a zone's buildings for its level. Styles:
 --   houses   - little homes with pitched wedge roofs
 --   towers   - city blocks with glowing windows + rooftop details
 --   panels   - solar/container fields
@@ -1122,7 +1588,7 @@ function BuildingVisuals.render(container, def, level, plotIndex, zoneIndex, cen
 end
 
 return BuildingVisuals
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CitizensService</string><ProtectedString name="Source">-- Small citizen avatars (real R15 rigs, scaled down) that walk the road
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">CitizensService</string><ProtectedString name="Source">-- Small citizen avatars (real R15 rigs, scaled down) that walk the road
 -- network of every occupied island, following intersection-to-intersection
 -- paths with walk animations.
 
@@ -1134,13 +1600,44 @@ local Layout = require(Shared.Layout)
 
 local CitizensService = {}
 
-local CITIZENS_PER_ISLAND = 4
 local WALK_ANIM = "rbxassetid://507777826" -- Roblox default R15 walk
+local MAX_CITIZENS = 12
+local MAX_CARS = 6
+
+local CAR_COLORS = {
+	Color3.fromRGB(220, 60, 60), Color3.fromRGB(60, 110, 220), Color3.fromRGB(240, 200, 60),
+	Color3.fromRGB(90, 90, 100), Color3.fromRGB(230, 230, 235), Color3.fromRGB(80, 180, 90),
+}
 
 local ctx
 local rng = Random.new()
 local folder
+local carFolder
 local citizens = {} -- [slotIndex] = { {model, alive}, ... }
+local cars = {} -- [slotIndex] = { {model, alive}, ... }
+
+-- Population/citizen/car counts scale with how many buildings the city has.
+local function builtZones(slot)
+	local n = 0
+	for _, zone in pairs(slot.zones) do
+		if zone.level &gt; 0 and not zone.destroyed then
+			n += 1
+		end
+	end
+	return n
+end
+
+local function targetCitizens(slot)
+	return math.clamp(2 + builtZones(slot), 2, MAX_CITIZENS)
+end
+
+local function targetCars(slot)
+	local n = builtZones(slot)
+	if n &lt; 3 then
+		return 0
+	end
+	return math.clamp(math.floor(n / 2), 1, MAX_CARS)
+end
 
 local SHIRT_COLORS = {
 	Color3.fromRGB(235, 60, 60), Color3.fromRGB(60, 150, 240), Color3.fromRGB(88, 200, 60),
@@ -1240,14 +1737,92 @@ end
 
 local function clearIsland(slotIndex)
 	local list = citizens[slotIndex]
-	if not list then
-		return
+	if list then
+		for _, record in ipairs(list) do
+			record.alive = false
+			record.model:Destroy()
+		end
+		citizens[slotIndex] = nil
 	end
-	for _, record in ipairs(list) do
-		record.alive = false
-		record.model:Destroy()
+	local clist = cars[slotIndex]
+	if clist then
+		for _, record in ipairs(clist) do
+			record.alive = false
+			record.model:Destroy()
+		end
+		cars[slotIndex] = nil
 	end
-	citizens[slotIndex] = nil
+end
+
+-- Simple blocky car that drives the road grid.
+local function makeCar()
+	local model = Instance.new("Model")
+	local color = CAR_COLORS[rng:NextInteger(1, #CAR_COLORS)]
+	local function p(name, size, off, c)
+		local piece = Instance.new("Part")
+		piece.Name = name
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.Size = size
+		piece.Color = c
+		piece.Material = Enum.Material.SmoothPlastic
+		piece.Parent = model
+		piece.CFrame = CFrame.new(off)
+		return piece
+	end
+	local body = p("Body", Vector3.new(4, 1.6, 8), Vector3.new(0, 1.2, 0), color)
+	p("Cabin", Vector3.new(3.4, 1.4, 4), Vector3.new(0, 2.5, -0.5), color)
+	p("Glass", Vector3.new(3.5, 1.1, 4.1), Vector3.new(0, 2.6, -0.5), Color3.fromRGB(120, 180, 220))
+	for _, wx in ipairs({ -1.8, 1.8 }) do
+		for _, wz in ipairs({ -2.6, 2.6 }) do
+			local w = p("Wheel", Vector3.new(0.7, 1.4, 1.4), Vector3.new(wx, 0.7, wz), Color3.fromRGB(30, 30, 30))
+			w.Shape = Enum.PartType.Cylinder
+			w.CFrame = CFrame.new(wx, 0.7, wz) * CFrame.Angles(0, 0, math.rad(90))
+		end
+	end
+	model.PrimaryPart = body
+	return model
+end
+
+local function driveCar(record, slotIndex)
+	task.spawn(function()
+		local model = record.model
+		local ix = rng:NextInteger(1, #Layout.RoadXs)
+		local iz = rng:NextInteger(1, #Layout.RoadZs)
+		local pos = Layout.intersection(slotIndex, ix, iz) + Vector3.new(0, 1.5, 0)
+		while record.alive and model.Parent do
+			if rng:NextNumber() &lt; 0.5 then
+				ix = math.clamp(ix + (rng:NextNumber() &lt; 0.5 and -1 or 1), 1, #Layout.RoadXs)
+			else
+				iz = math.clamp(iz + (rng:NextNumber() &lt; 0.5 and -1 or 1), 1, #Layout.RoadZs)
+			end
+			local target = Layout.intersection(slotIndex, ix, iz) + Vector3.new(0, 1.5, 0)
+			local dist = (target - pos).Magnitude
+			local speed = 22
+			local dur = math.max(dist / speed, 0.2)
+			local t0 = os.clock()
+			local startPos = pos
+			while record.alive and os.clock() - t0 &lt; dur do
+				local a = (os.clock() - t0) / dur
+				local p = startPos:Lerp(target, a)
+				model:PivotTo(CFrame.lookAt(p, target))
+				task.wait()
+			end
+			pos = target
+			task.wait(rng:NextNumber(0.1, 0.5))
+		end
+	end)
+end
+
+local function spawnCar(slot)
+	local model = makeCar()
+	model.Name = "Car_" .. slot.index
+	model.Parent = carFolder
+	local start = Layout.intersection(slot.index, rng:NextInteger(1, #Layout.RoadXs), rng:NextInteger(1, #Layout.RoadZs))
+	model:PivotTo(CFrame.new(start + Vector3.new(0, 1.5, 0)))
+	local record = { model = model, alive = true }
+	driveCar(record, slot.index)
+	return record
 end
 
 function CitizensService.init(context)
@@ -1255,30 +1830,62 @@ function CitizensService.init(context)
 	folder = Instance.new("Folder")
 	folder.Name = "Citizens"
 	folder.Parent = workspace
+	carFolder = Instance.new("Folder")
+	carFolder.Name = "Cars"
+	carFolder.Parent = workspace
 
 	task.spawn(function()
 		while true do
 			task.wait(5)
 			for _, slot in ipairs(ctx.Plot.slots()) do
 				if slot.owner then
+					-- Citizens scale with city size.
 					local list = citizens[slot.index]
 					if not list then
 						list = {}
 						citizens[slot.index] = list
 					end
-					-- Cull dead entries, top up to target population.
 					for i = #list, 1, -1 do
 						if not list[i].model.Parent then
 							table.remove(list, i)
 						end
 					end
-					if #list &lt; CITIZENS_PER_ISLAND then
+					local wantP = targetCitizens(slot)
+					if #list &lt; wantP then
 						local record = spawnCitizen(slot)
 						if record then
 							list[#list + 1] = record
 						end
+					elseif #list &gt; wantP then
+						local rec = table.remove(list)
+						if rec then
+							rec.alive = false
+							rec.model:Destroy()
+						end
 					end
-				elseif citizens[slot.index] then
+
+					-- Cars appear once the city has a few buildings.
+					local clist = cars[slot.index]
+					if not clist then
+						clist = {}
+						cars[slot.index] = clist
+					end
+					for i = #clist, 1, -1 do
+						if not clist[i].model.Parent then
+							table.remove(clist, i)
+						end
+					end
+					local wantC = targetCars(slot)
+					if #clist &lt; wantC then
+						clist[#clist + 1] = spawnCar(slot)
+					elseif #clist &gt; wantC then
+						local rec = table.remove(clist)
+						if rec then
+							rec.alive = false
+							rec.model:Destroy()
+						end
+					end
+				elseif citizens[slot.index] or cars[slot.index] then
 					clearIsland(slot.index)
 				end
 			end
@@ -1287,7 +1894,7 @@ function CitizensService.init(context)
 end
 
 return CitizensService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">CombatService</string><ProtectedString name="Source">-- Rockets and nukes: validation, cooldowns, flights, impacts, payouts.
 -- Clients only render FX; every gameplay decision happens here.
 
 local Players = game:GetService("Players")
@@ -1356,7 +1963,16 @@ local function impactRocket(attackerUserId, targetUserId, pos, damage)
 		return
 	end
 
-	local worth, count = ctx.Plot.applyBlast(slot, pos, damage)
+	-- Air defense may shoot the missile down before impact.
+	if ctx.Defense and ctx.Defense.tryIntercept(slot, "missile", pos) then
+		notify(target, "\u{1F6E1}\u{FE0F} Your air defense intercepted an incoming missile!", "good")
+		if attacker then
+			notify(attacker, "\u{1F6E1}\u{FE0F} " .. target.DisplayName .. "'s air defense shot down your missile!", "bad")
+		end
+		return
+	end
+
+	local worth, count, popLost = ctx.Plot.applyBlast(slot, pos, damage)
 	if count &gt; 0 and attacker then
 		ctx.Economy.addCash(attacker, worth)
 		local aProfile = ctx.Data.get(attacker)
@@ -1369,7 +1985,7 @@ local function impactRocket(attackerUserId, targetUserId, pos, damage)
 		notify(attacker, "\u{1F4A5} Destroyed " .. count .. " buildings! +\u{1F4B5} "
 			.. NumberFormat.abbrev(worth), "victory")
 		notify(target, "\u{1F4A5} " .. attacker.DisplayName .. "'s missile destroyed "
-			.. count .. " of your buildings!", "bad")
+			.. count .. " buildings! \u{1F465} -" .. NumberFormat.abbrev(popLost) .. " people", "bad")
 		ctx.Economy.pushState(attacker)
 	elseif attacker then
 		notify(attacker, "\u{1F4A8} Missile hit, but nothing was destroyed...", "info")
@@ -1459,6 +2075,7 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 			to = pos,
 			flight = flight,
 			attacker = player.DisplayName,
+			previewFor = player.UserId,
 		})
 		Remotes.Events.Alarm:FireClient(target, { kind = "nuke", pos = pos, eta = flight })
 		notifyAll("\u{2622}\u{FE0F} " .. player.DisplayName .. " has launched a NUKE at "
@@ -1474,6 +2091,11 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 			ctx.Quests.onEvent(player, "nuke", 1)
 		end
 	else
+		if now() &lt; (session.siloDisabledUntil or 0) then
+			notify(player, "\u{2708}\u{FE0F} Your silos were bombed! Rockets offline for "
+				.. NumberFormat.clock((session.siloDisabledUntil or 0) - now()), "bad")
+			return
+		end
 		if now() &lt; (session.rocketReadyAt or 0) then
 			notify(player, "\u{1F680} Rocket reloading! "
 				.. NumberFormat.clock((session.rocketReadyAt or 0) - now()), "bad")
@@ -1499,6 +2121,7 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 				to = hitPos,
 				flight = flight,
 				attacker = player.DisplayName,
+				previewFor = (s == 1) and player.UserId or nil, -- first rocket = camera
 			})
 			task.delay(flight, impactRocket, player.UserId, target.UserId, hitPos, damage)
 		end
@@ -1539,7 +2162,15 @@ local function onUpgradeRocket(player)
 		return
 	end
 	profile.rocketLevel += 1
-	notify(player, "\u{1F680} Rocket upgraded to Lv" .. profile.rocketLevel .. "!", "buy")
+	local slot = ctx.Plot.getSlot(player)
+	if slot then
+		ctx.Plot.updateRocketVisual(slot, profile.rocketLevel)
+	end
+	if ctx.Quests then
+		ctx.Quests.onEvent(player, "rocket_upgrade", 1)
+	end
+	notify(player, "\u{1F680} Rocket upgraded to Lv" .. profile.rocketLevel
+		.. "! It's bigger and hits harder.", "buy")
 	ctx.Economy.pushState(player)
 end
 
@@ -1567,7 +2198,7 @@ function CombatService.init(context)
 end
 
 return CombatService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">CosmeticsService</string><ProtectedString name="Source">-- Character shop cosmetics: speed/jump tiers, overhead titles, rainbow trail.
 -- Purchases come through the ShopBuy remote (handled by EconomyService,
 -- which calls buy() here); effects are applied on every character spawn.
 
@@ -1751,7 +2382,7 @@ function CosmeticsService.init(context)
 end
 
 return CosmeticsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- DataStore persistence with retries and graceful degradation: if DataStores
 -- are unavailable (unpublished place / Studio without API access) the game
 -- still runs, it just won't save.
 
@@ -1785,6 +2416,12 @@ local function defaultProfile()
 		unlocked = 1, -- how many zone areas of the island are unlocked
 		rocketLevel = 1,
 		siloCount = 1,
+		autoCollect = false,
+		hangars = 0,
+		jetLevel = 1,
+		defenseLevel = 0,
+		batteryUnlocked = false,
+		batteryLevel = 1,
 		shields = 0,
 		barrage = 0,
 		nukeIsland = false,
@@ -1901,7 +2538,7 @@ function DataService.allPlayers()
 end
 
 return DataService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">DecorService</string><ProtectedString name="Source">-- Inserts real Roblox Creator Store models (trees, benches, lamps, fountain,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">DecorService</string><ProtectedString name="Source">-- Inserts real Roblox Creator Store models (trees, benches, lamps, fountain,
 -- rocks, a car) onto every island, plus a community skybox. Everything is
 -- pcall-guarded: if an asset fails to load (offline Studio, moderated id),
 -- the game keeps its built-in part decorations instead.
@@ -2076,7 +2713,128 @@ function DecorService.init(ctx)
 end
 
 return DecorService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">DefenseService</string><ProtectedString name="Source">-- Air defense: turret models on the island that give a chance to intercept
+-- incoming missiles and jets. More levels = more turrets + higher chance.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local Remotes = require(Shared.Remotes)
+
+local DefenseService = {}
+
+local ctx
+local rng = Random.new()
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+local function buildTurret(pos, parent)
+	local model = Instance.new("Model")
+	model.Name = "Turret"
+	part({
+		Name = "Base",
+		Size = Vector3.new(5, 2, 5),
+		Position = pos + Vector3.new(0, 1, 0),
+		Color = Color3.fromRGB(70, 80, 70),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	local dome = part({
+		Name = "Dome",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(3.5, 3.5, 3.5),
+		Position = pos + Vector3.new(0, 3, 0),
+		Color = Color3.fromRGB(90, 110, 90),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	-- Twin barrels angled up.
+	for _, dx in ipairs({ -0.8, 0.8 }) do
+		part({
+			Name = "Barrel",
+			Size = Vector3.new(0.6, 0.6, 6),
+			CFrame = CFrame.new(pos + Vector3.new(dx, 4, 1.5)) * CFrame.Angles(math.rad(-35), 0, 0),
+			Color = Color3.fromRGB(40, 45, 40),
+			Material = Enum.Material.Metal,
+			Parent = model,
+		})
+	end
+	model.PrimaryPart = dome
+	model.Parent = parent
+	return model
+end
+
+-- Turret count grows with defense level (1 turret per 3 levels, up to 4).
+local function turretCount(level)
+	if level &lt;= 0 then
+		return 0
+	end
+	return math.clamp(1 + math.floor((level - 1) / 3), 1, 4)
+end
+
+function DefenseService.updateTurrets(slot, level)
+	slot.turrets = slot.turrets or {}
+	local want = turretCount(level)
+	-- Remove extras.
+	for i = #slot.turrets, want + 1, -1 do
+		slot.turrets[i]:Destroy()
+		slot.turrets[i] = nil
+	end
+	-- Add missing.
+	for i = #slot.turrets + 1, want do
+		slot.turrets[i] = buildTurret(Layout.defensePos(slot.index, i), slot.folder)
+	end
+end
+
+function DefenseService.interceptChance(level, kind)
+	if level &lt;= 0 then
+		return 0
+	end
+	local per = (kind == "jet") and Config.Defense.JetChancePerLevel or Config.Defense.MissileChancePerLevel
+	return math.min(level * per, Config.Defense.MaxChance)
+end
+
+-- Rolls interception; on success plays flak FX above the city.
+function DefenseService.tryIntercept(slot, kind, pos)
+	if not slot.owner then
+		return false
+	end
+	local profile = ctx.Data.get(slot.owner)
+	local level = profile and profile.defenseLevel or 0
+	if level &lt;= 0 then
+		return false
+	end
+	if rng:NextNumber() &lt;= DefenseService.interceptChance(level, kind) then
+		Remotes.Events.GameEvent:FireAllClients({
+			kind = "intercept",
+			pos = pos or Layout.plotCenter(slot.index),
+		})
+		return true
+	end
+	return false
+end
+
+function DefenseService.init(context)
+	ctx = context
+end
+
+return DefenseService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source">-- Income ticks, cash/gems, state pushes to clients, leaderstats,
 -- the free-gift timer, the gem shop and gamepass hooks.
 
 local Players = game:GetService("Players")
@@ -2088,6 +2846,7 @@ local Config = require(Shared.Config)
 local BuildingDefs = require(Shared.BuildingDefs)
 local NumberFormat = require(Shared.NumberFormat)
 local Remotes = require(Shared.Remotes)
+local Layout = require(Shared.Layout)
 
 local EconomyService = {}
 
@@ -2213,6 +2972,28 @@ function EconomyService.pushState(player)
 		rocketRemaining = math.max(0, (session.rocketReadyAt or 0) - now()),
 		siloCount = profile.siloCount or 1,
 		nextSiloCost = Config.Silos.Costs[(profile.siloCount or 1) + 1] or 0,
+		autoCollect = profile.autoCollect or false,
+		autoCollectCost = Config.AutoCollectCost,
+		population = slot and ctx.Plot.population(slot) or 0,
+		hangars = profile.hangars or 0,
+		nextHangarCost = Config.Jets.HangarCosts[(profile.hangars or 0) + 1] or 0,
+		jetLevel = profile.jetLevel or 1,
+		jetCost = (profile.jetLevel or 1) &lt; Config.Jets.MaxLevel
+			and math.floor(Config.Jets.BaseUpgradeCost * Config.Jets.CostGrowth ^ ((profile.jetLevel or 1) - 1)) or 0,
+		jetRemaining = math.max(0, (session.jetReadyAt or 0) - now()),
+		hasAirport = slot and slot.zones[Layout.AirportZoneIndex]
+			and slot.zones[Layout.AirportZoneIndex].level &gt; 0 or false,
+		defenseLevel = profile.defenseLevel or 0,
+		defenseCost = (profile.defenseLevel or 0) &lt; Config.Defense.MaxLevel
+			and math.floor(Config.Defense.BaseCost * Config.Defense.CostGrowth ^ (profile.defenseLevel or 0)) or 0,
+		batteryUnlocked = profile.batteryUnlocked or false,
+		batteryCost = Config.Battery.UnlockCost,
+		batteryLevel = profile.batteryLevel or 1,
+		batteryUpgradeCost = (profile.batteryLevel or 1) &lt; Config.Battery.MaxLevel
+			and math.floor(Config.Battery.BaseUpgradeCost * Config.Battery.CostGrowth ^ ((profile.batteryLevel or 1) - 1)) or 0,
+		batteryRemaining = math.max(0, (session.batteryReadyAt or 0) - now()),
+		siloDisabledRemaining = math.max(0, (session.siloDisabledUntil or 0) - now()),
+		isAdmin = ctx.isAdmin and ctx.isAdmin(player) or false,
 		nukeOwned = profile.nukeIsland,
 		nukeCharges = profile.nukeCharges,
 		nukeRemaining = math.max(0, profile.lastNukeAt + Config.Nuke.Cooldown - os.time()),
@@ -2259,22 +3040,32 @@ local function incomeLoop()
 				local profile = ctx.Data.get(player)
 				if profile then
 					local mult = EconomyService.cashMultiplier(player)
+					local autoCollect = profile.autoCollect
+					local autoTotal = 0
 					local pops = {}
-					local total = 0
 					for zi, def in ipairs(BuildingDefs.List) do
 						local zone = slot.zones[zi]
 						if zone.level &gt; 0 and not zone.destroyed then
 							local amt = BuildingDefs.income(def, zone.level) * Config.IncomeInterval * mult
-							total += amt
-							pops[#pops + 1] = { zi, amt }
+							if autoCollect then
+								autoTotal += amt
+								pops[#pops + 1] = { zi, amt }
+							else
+								-- Cash piles up at the building until the player
+								-- walks over to collect it (cap ~10 min income).
+								local cap = BuildingDefs.income(def, zone.level) * mult * 600
+								zone.pending = math.min((zone.pending or 0) + amt, cap)
+								ctx.Plot.updateCollect(slot, zi)
+							end
 						end
 					end
-					if total &gt; 0 then
-						profile.cash += total
+					if autoCollect and autoTotal &gt; 0 then
+						profile.cash += autoTotal
 						Remotes.Events.IncomePops:FireAllClients(slot.index, pops)
 					end
 					slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
 						.. "\n\u{1F4B5} " .. NumberFormat.abbrev(ctx.Plot.cityWorth(slot))
+						.. "  \u{1F465} " .. NumberFormat.abbrev(ctx.Plot.population(slot))
 					updateLeaderstats(player)
 					if ctx.Quests then
 						ctx.Quests.evaluate(player, {
@@ -2369,6 +3160,89 @@ local function onShopBuy(player, itemId)
 		end
 		notify(player, "\u{1F680} SILO " .. profile.siloCount .. " BUILT! You now fire "
 			.. profile.siloCount .. " rockets per launch!", "victory")
+	elseif itemId == "auto_collect" then
+		if profile.autoCollect then
+			notify(player, "\u{1F4B0} You already have Auto-Collect!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, Config.AutoCollectCost) then
+			notify(player, "Auto-Collect costs \u{1F4B5} " .. NumberFormat.abbrev(Config.AutoCollectCost) .. "!", "bad")
+			return
+		end
+		profile.autoCollect = true
+		-- Sweep up whatever's pending right now.
+		local slot = ctx.Plot.getSlot(player)
+		if slot then
+			ctx.Plot.collectAll(player, slot)
+		end
+		notify(player, "\u{1F4B0} AUTO-COLLECT unlocked! Income now goes straight to your wallet.", "victory")
+	elseif itemId == "buy_defense" then
+		local lvl = profile.defenseLevel or 0
+		if lvl &gt;= Config.Defense.MaxLevel then
+			notify(player, "\u{1F6E1}\u{FE0F} Air defense is max level!", "info")
+			return
+		end
+		local cost = math.floor(Config.Defense.BaseCost * Config.Defense.CostGrowth ^ lvl)
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Air defense upgrade costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.defenseLevel = lvl + 1
+		local slot = ctx.Plot.getSlot(player)
+		if slot and ctx.Defense then
+			ctx.Defense.updateTurrets(slot, profile.defenseLevel)
+		end
+		notify(player, "\u{1F6E1}\u{FE0F} AIR DEFENSE Lv" .. profile.defenseLevel
+			.. "! Better chance to shoot down incoming missiles &amp; jets.", "victory")
+	elseif itemId == "buy_hangar" then
+		local slot = ctx.Plot.getSlot(player)
+		if not slot or not slot.zones[Layout.AirportZoneIndex] or slot.zones[Layout.AirportZoneIndex].level &lt;= 0 then
+			notify(player, "\u{2708}\u{FE0F} Build an Airport first to buy hangars!", "bad")
+			return
+		end
+		local count = profile.hangars or 0
+		local cost = Config.Jets.HangarCosts[count + 1]
+		if not cost then
+			notify(player, "\u{2708}\u{FE0F} You already have the max " .. Config.Jets.MaxHangars .. " hangars!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Hangar " .. (count + 1) .. " costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.hangars = count + 1
+		if ctx.Jets then
+			ctx.Jets.updateHangars(slot, profile.hangars)
+		end
+		notify(player, "\u{2708}\u{FE0F} HANGAR " .. profile.hangars .. " BUILT! Launch " .. profile.hangars .. " jets per strike!", "victory")
+	elseif itemId == "upgrade_jet" then
+		local lvl = profile.jetLevel or 1
+		if lvl &gt;= Config.Jets.MaxLevel then
+			notify(player, "\u{2708}\u{FE0F} Jets are max level!", "info")
+			return
+		end
+		local cost = math.floor(Config.Jets.BaseUpgradeCost * Config.Jets.CostGrowth ^ (lvl - 1))
+		if not EconomyService.trySpend(player, cost) then
+			notify(player, "Jet upgrade costs \u{1F4B5} " .. NumberFormat.abbrev(cost) .. "!", "bad")
+			return
+		end
+		profile.jetLevel = lvl + 1
+		notify(player, "\u{2708}\u{FE0F} JETS upgraded to Lv" .. profile.jetLevel .. "!", "buy")
+	elseif itemId == "buy_battery" then
+		if profile.batteryUnlocked then
+			notify(player, "\u{1F680} You already own the Missile Battery!", "info")
+			return
+		end
+		if not EconomyService.trySpend(player, Config.Battery.UnlockCost) then
+			notify(player, "The Missile Battery costs \u{1F4B5} " .. NumberFormat.abbrev(Config.Battery.UnlockCost) .. "!", "bad")
+			return
+		end
+		profile.batteryUnlocked = true
+		local slot = ctx.Plot.getSlot(player)
+		if slot and ctx.Battery then
+			ctx.Battery.showIsland(slot, true)
+		end
+		notify(player, "\u{1F680} MISSILE BATTERY built on your side island! Fires " .. Config.Battery.Volley .. " missiles at once.", "victory")
 	elseif itemId == "pass_cash" then
 		if Config.GamePassCash2x &gt; 0 then
 			MarketplaceService:PromptGamePassPurchase(player, Config.GamePassCash2x)
@@ -2490,7 +3364,7 @@ function EconomyService.init(context)
 end
 
 return EconomyService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">EventsService</string><ProtectedString name="Source">-- Random world events on a timer: Cash Frenzy, Gem Rain, Meteor Shower,
 -- Supply Drop. Keeps servers lively and unpredictable.
 
 local Players = game:GetService("Players")
@@ -2664,7 +3538,21 @@ local function supplyDrop()
 	end)
 end
 
-local EVENTS = { cashFrenzy, gemRain, meteorShower, supplyDrop }
+-- Double-gems minute: gifts and gem rewards pay extra (flavour announce).
+local function goldRush()
+	announce("frenzy", "\u{2728} GOLD RUSH! Collect fast — income x3 for 45s!", 45)
+	ctx.eventCashMult = 3
+	task.delay(45, function()
+		ctx.eventCashMult = 1
+	end)
+end
+
+local EVENTS = { cashFrenzy, gemRain, meteorShower, supplyDrop, goldRush }
+
+function EventsService.fireRandom()
+	local event = EVENTS[rng:NextInteger(1, #EVENTS)]
+	task.spawn(event)
+end
 
 function EventsService.init(context)
 	ctx = context
@@ -2673,15 +3561,258 @@ function EventsService.init(context)
 		while true do
 			task.wait(rng:NextNumber(Config.Events.MinInterval, Config.Events.MaxInterval))
 			if #Players:GetPlayers() &gt; 0 then
-				local event = EVENTS[rng:NextInteger(1, #EVENTS)]
-				task.spawn(event)
+				EventsService.fireRandom()
 			end
 		end
 	end)
 end
 
 return EventsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard (OrderedDataStore),
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">JetService</string><ProtectedString name="Source">-- Jets: needs an Airport built. Buy hangars (1 jet each), upgrade jets, then
+-- strike an enemy city OR their rocket silos. Silo strikes knock the victim's
+-- rockets offline for a while. Air defense can shoot jets down.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local JetService = {}
+
+local ctx
+
+local function now()
+	return os.clock()
+end
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+-- A small hangar with a parked jet, placed near the airport zone.
+local function buildHangar(slot, index)
+	local airportCenter = Layout.zoneCenter(slot.index, Layout.AirportZoneIndex)
+	local pos = airportCenter + Vector3.new((index - 2) * 16, 0, 22)
+	local model = Instance.new("Model")
+	model.Name = "Hangar" .. index
+	part({
+		Name = "Pad",
+		Size = Vector3.new(14, 0.3, 14),
+		Position = pos + Vector3.new(0, 0.2, 0),
+		Color = Color3.fromRGB(90, 90, 96),
+		Material = Enum.Material.Concrete,
+		Parent = model,
+	})
+	-- Parked jet: body + wings + tail.
+	local jet = Instance.new("Model")
+	jet.Name = "Jet"
+	local body = part({
+		Name = "Body",
+		Size = Vector3.new(2.4, 2, 10),
+		Position = pos + Vector3.new(0, 2, 0),
+		Color = Color3.fromRGB(90, 100, 120),
+		Material = Enum.Material.Metal,
+		Parent = jet,
+	})
+	part({
+		Name = "Nose",
+		Size = Vector3.new(1.6, 1.4, 3),
+		Position = pos + Vector3.new(0, 2, -6),
+		Color = Color3.fromRGB(60, 70, 90),
+		Parent = jet,
+	})
+	part({
+		Name = "Wings",
+		Size = Vector3.new(12, 0.5, 3),
+		Position = pos + Vector3.new(0, 2, 0.5),
+		Color = Color3.fromRGB(110, 120, 140),
+		Parent = jet,
+	})
+	part({
+		Name = "Tail",
+		Size = Vector3.new(0.5, 2.4, 2),
+		Position = pos + Vector3.new(0, 3.2, 4),
+		Color = Color3.fromRGB(110, 120, 140),
+		Parent = jet,
+	})
+	jet.PrimaryPart = body
+	jet.Parent = model
+	model.Parent = slot.folder
+	return model
+end
+
+function JetService.updateHangars(slot, count)
+	slot.hangars = slot.hangars or {}
+	for i = #slot.hangars, count + 1, -1 do
+		slot.hangars[i]:Destroy()
+		slot.hangars[i] = nil
+	end
+	for i = #slot.hangars + 1, count do
+		slot.hangars[i] = buildHangar(slot, i)
+	end
+end
+
+local function jetDamage(profile)
+	local level = profile.jetLevel or 1
+	return math.floor(Config.Jets.BaseDamage * Config.Jets.DamageGrowth ^ (level - 1))
+end
+
+local function jetLaunchPos(slot)
+	local c = Layout.zoneCenter(slot.index, Layout.AirportZoneIndex)
+	return c + Vector3.new(0, 30, 0)
+end
+
+-- mode: "city" (bomb buildings) or "silos" (knock rockets offline)
+local function impactJet(attackerUserId, targetUserId, mode, damage)
+	local target = Players:GetPlayerByUserId(targetUserId)
+	local attacker = Players:GetPlayerByUserId(attackerUserId)
+	if not target then
+		return
+	end
+	local slot = ctx.Plot.getSlot(target)
+	if not slot then
+		return
+	end
+
+	if ctx.Defense and ctx.Defense.tryIntercept(slot, "jet", Layout.plotCenter(slot.index)) then
+		if attacker then
+			notify(attacker, "\u{1F6E1}\u{FE0F} " .. target.DisplayName .. "'s air defense shot down your jet!", "bad")
+		end
+		notify(target, "\u{1F6E1}\u{FE0F} Your air defense downed an enemy jet!", "good")
+		return
+	end
+
+	if mode == "silos" then
+		local session = ctx.session[target]
+		if session then
+			session.siloDisabledUntil = now() + Config.Jets.SiloDisable
+		end
+		-- Visual: briefly hide the victim's silo rockets.
+		for i = 1, Config.Silos.Max do
+			ctx.Plot.setSiloRocket(slot, i, false)
+		end
+		task.delay(Config.Jets.SiloDisable, function()
+			if ctx.Plot.getSlot(target) == slot then
+				local p = ctx.Data.get(target)
+				for i = 1, (p and p.siloCount or 1) do
+					ctx.Plot.setSiloRocket(slot, i, true)
+				end
+			end
+		end)
+		notify(target, "\u{2708}\u{FE0F} Your ROCKET SILOS were bombed! Rockets offline for "
+			.. NumberFormat.clock(Config.Jets.SiloDisable) .. "!", "bad")
+		if attacker then
+			notify(attacker, "\u{2708}\u{FE0F} Direct hit on " .. target.DisplayName
+				.. "'s silos! Their rockets are down.", "victory")
+			ctx.Economy.pushState(attacker)
+		end
+		ctx.Economy.pushState(target)
+	else
+		-- City strike: hit a random spot with a jet-sized blast.
+		local minX, minZ, maxX, maxZ = Layout.plotBounds(slot.index)
+		local pos = Vector3.new((minX + maxX) / 2, Layout.GroundY, (minZ + maxZ) / 2)
+		local worth, count, popLost = ctx.Plot.applyBlast(slot, pos, damage, 46)
+		if count &gt; 0 and attacker then
+			ctx.Economy.addCash(attacker, worth)
+			notify(attacker, "\u{2708}\u{FE0F} Your jets destroyed " .. count .. " buildings! +\u{1F4B5} "
+				.. NumberFormat.abbrev(worth), "victory")
+			notify(target, "\u{2708}\u{FE0F} " .. attacker.DisplayName .. "'s jets bombed "
+				.. count .. " buildings! \u{1F465} -" .. NumberFormat.abbrev(popLost), "bad")
+			ctx.Economy.pushState(attacker)
+		elseif attacker then
+			notify(attacker, "\u{2708}\u{FE0F} Jets bombed the city but nothing was destroyed.", "info")
+		end
+		ctx.Economy.pushState(target)
+	end
+end
+
+local function onRequestJet(player, targetUserId, mode)
+	if type(targetUserId) ~= "number" then
+		return
+	end
+	mode = (mode == "silos") and "silos" or "city"
+	local session = ctx.session[player]
+	local profile = ctx.Data.get(player)
+	local mySlot = ctx.Plot.getSlot(player)
+	if not session or not profile or not mySlot then
+		return
+	end
+	if (profile.hangars or 0) &lt;= 0 then
+		notify(player, "\u{2708}\u{FE0F} Build an Airport and a hangar first!", "bad")
+		return
+	end
+	if now() &lt; (session.jetReadyAt or 0) then
+		notify(player, "\u{2708}\u{FE0F} Jets rearming! " .. NumberFormat.clock((session.jetReadyAt or 0) - now()), "bad")
+		return
+	end
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target or target == player then
+		notify(player, "That player isn't here!", "bad")
+		return
+	end
+	local targetSlot = ctx.Plot.getSlot(target)
+	if not targetSlot then
+		return
+	end
+	if ctx.Plot.isImmune(targetSlot) then
+		notify(player, "\u{1F6E1}\u{FE0F} " .. target.DisplayName .. " is protected right now!", "bad")
+		return
+	end
+
+	session.jetReadyAt = now() + Config.Jets.Cooldown
+	local hangars = math.clamp(profile.hangars or 1, 1, Config.Jets.MaxHangars)
+	local damage = jetDamage(profile)
+	local from = jetLaunchPos(mySlot)
+	local toCenter = Layout.plotCenter(targetSlot.index)
+
+	for i = 1, hangars do
+		local flight = Config.Jets.FlightTime + (i - 1) * 0.5
+		Remotes.Events.JetEvent:FireAllClients({
+			from = from + Vector3.new((i - 2) * 10, 0, 0),
+			to = Vector3.new(toCenter.X, Layout.GroundY + 20, toCenter.Z),
+			flight = flight,
+			mode = mode,
+		})
+		task.delay(flight, impactJet, player.UserId, target.UserId, mode, damage)
+	end
+
+	Remotes.Events.Alarm:FireClient(target, {
+		kind = "jet",
+		pos = toCenter,
+		eta = Config.Jets.FlightTime,
+	})
+	notify(target, "\u{2708}\u{FE0F} " .. player.DisplayName .. " is sending " .. hangars
+		.. " JET" .. (hangars &gt; 1 and "S" or "") .. " at your "
+		.. (mode == "silos" and "rocket silos" or "city") .. "!", "bad")
+	ctx.Economy.pushState(player)
+end
+
+function JetService.init(context)
+	ctx = context
+	Remotes.Events.RequestJet.OnServerEvent:Connect(onRequestJet)
+end
+
+return JetService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- Global "Richest Cities of All Time" leaderboard (OrderedDataStore),
 -- displayed on a board in EVERY island's town square.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -2846,7 +3977,7 @@ function LeaderboardService.init(context)
 end
 
 return LeaderboardService
-</ProtectedString></Properties></Item><Item class="Script" referent="RBX20"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
+</ProtectedString></Properties></Item><Item class="Script" referent="RBX24"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: server bootstrap.
 -- Builds the world, wires the services, manages player lifecycle.
 
 local Players = game:GetService("Players")
@@ -2871,6 +4002,11 @@ local LeaderboardService = require(script.Parent.LeaderboardService)
 local CitizensService = require(script.Parent.CitizensService)
 local DecorService = require(script.Parent.DecorService)
 local NPCBuilder = require(script.Parent.NPCBuilder)
+local DefenseService = require(script.Parent.DefenseService)
+local JetService = require(script.Parent.JetService)
+local BatteryService = require(script.Parent.BatteryService)
+local PilotService = require(script.Parent.PilotService)
+local AdminService = require(script.Parent.AdminService)
 
 StarterPlayer.CameraMaxZoomDistance = 500
 Players.RespawnTime = 3
@@ -2898,6 +4034,11 @@ local ctx = {
 	Events = EventsService,
 	Cosmetics = CosmeticsService,
 	Leaderboard = LeaderboardService,
+	Defense = DefenseService,
+	Jets = JetService,
+	Battery = BatteryService,
+	Pilot = PilotService,
+	Admin = AdminService,
 	eventCashMult = 1,
 	session = {}, -- [player] = { giftReadyAt, rocketReadyAt, passCash, passDamage }
 }
@@ -2910,6 +4051,11 @@ QuestService.init(ctx)
 CosmeticsService.init(ctx)
 EventsService.init(ctx)
 LeaderboardService.init(ctx)
+DefenseService.init(ctx)
+JetService.init(ctx)
+BatteryService.init(ctx)
+PilotService.init(ctx)
+AdminService.init(ctx)
 CitizensService.init(ctx)
 DecorService.init(ctx)
 
@@ -2971,7 +4117,7 @@ game:BindToClose(function()
 end)
 
 print("[MVC] Missiles vs Cities server ready. Max " .. Config.MaxPlayers .. " players per server.")
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Places the four NPCs on EVERY island's town square using real Roblox
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">NPCBuilder</string><ProtectedString name="Source">-- Places the four NPCs on EVERY island's town square using real Roblox
 -- avatar rigs (loaded once per NPC from actual Roblox accounts, then cloned),
 -- with idle animations. Falls back to a blocky figure if avatar loading
 -- fails (e.g. offline Studio).
@@ -2981,6 +4127,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local NPCDefs = require(Shared.NPCDefs)
+local RigUtil = require(script.Parent.RigUtil)
 
 local NPCBuilder = {}
 
@@ -3034,15 +4181,6 @@ local function loadAvatarBase(def)
 		end
 	end
 	return blockyFallback(def), false
-end
-
-local function anchorRig(model)
-	for _, piece in ipairs(model:GetDescendants()) do
-		if piece:IsA("BasePart") then
-			piece.Anchored = true
-			piece.CanCollide = false
-		end
-	end
 end
 
 local function decorate(model, def)
@@ -3109,18 +4247,11 @@ function NPCBuilder.build(world)
 			if anchor then
 				local model = bases[def.id]:Clone()
 				model.Name = "NPC_" .. def.id .. "_" .. slot.index
-				anchorRig(model)
 				model.Parent = folder
-
-				-- Snap the rig's feet to the ground using its real bounding
-				-- box (rig pivots vary between avatars and the fallback).
-				local bbCF, bbSize = model:GetBoundingBox()
-				local pivotY = model:GetPivot().Position.Y
-				local feetOffset = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
-				local pos = Vector3.new(anchor.X, anchor.Y + feetOffset + 0.1, anchor.Z)
-				local lookAt = Vector3.new(slot.npcLookAt.X, pos.Y, slot.npcLookAt.Z)
-				model:PivotTo(CFrame.lookAt(pos, lookAt))
-
+				-- Weld everything to the root and anchor only the root so
+				-- heads and hats never drift off.
+				RigUtil.freeze(model)
+				RigUtil.placeOnGround(model, anchor, anchor.Y, slot.npcLookAt)
 				decorate(model, def)
 				playIdle(model)
 			end
@@ -3133,7 +4264,181 @@ function NPCBuilder.build(world)
 end
 
 return NPCBuilder
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">PilotService</string><ProtectedString name="Source">-- Random event for AIRPORT owners: an old pilot in a cropduster appears in the
+-- distance on the radio, low on fuel, asking to land. Accept for a big payout
+-- (landing + refuel + thank-you + takeoff). Decline and he keeps flying, runs
+-- dry, and crashes into your city, costing you money and population.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Layout = require(Shared.Layout)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+
+local PilotService = {}
+
+local ctx
+local rng = Random.new()
+local pending = {} -- [player] = { answered = bool }
+
+local function notify(player, msg, kind)
+	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
+end
+
+local function airportOwners()
+	local list = {}
+	for _, slot in ipairs(ctx.Plot.slots()) do
+		if slot.owner then
+			local z = slot.zones[Layout.AirportZoneIndex]
+			if z and z.level &gt; 0 then
+				list[#list + 1] = slot
+			end
+		end
+	end
+	return list
+end
+
+-- Runs the whole pilot sequence for one player.
+function PilotService.trigger(slot)
+	local player = slot.owner
+	if not player or pending[player] then
+		return
+	end
+	pending[player] = { answered = false }
+
+	local c = Layout.plotCenter(slot.index)
+	local approach = c + Vector3.new(0, 90, 520) -- far out, high up
+	local runway = Layout.zoneCenter(slot.index, Layout.AirportZoneIndex) + Vector3.new(0, 4, 0)
+
+	-- Plane flies in from the distance (client FX).
+	Remotes.Events.PlaneEvent:FireAllClients({
+		phase = "approach",
+		plotIndex = slot.index,
+		from = approach,
+		to = c + Vector3.new(0, 70, 120),
+		flight = 8,
+	})
+	notify(player, "\u{1F4FB} *static* ...old pilot on the radio, approaching your airport...", "info")
+
+	-- The offer with accept/decline.
+	Remotes.Events.PilotOffer:FireClient(player, {
+		seconds = Config.Pilot.DecideSeconds,
+		reward = Config.Pilot.MinReward,
+	})
+
+	task.delay(Config.Pilot.DecideSeconds, function()
+		local state = pending[player]
+		if state and not state.answered then
+			-- No answer counts as a decline.
+			PilotService.resolve(player, false)
+		end
+	end)
+end
+
+function PilotService.resolve(player, accepted)
+	local state = pending[player]
+	if not state or state.answered then
+		return
+	end
+	state.answered = true
+	local slot = ctx.Plot.getSlot(player)
+	if not slot then
+		pending[player] = nil
+		return
+	end
+	local c = Layout.plotCenter(slot.index)
+	local runway = Layout.zoneCenter(slot.index, Layout.AirportZoneIndex) + Vector3.new(0, 4, 0)
+
+	if accepted then
+		Remotes.Events.PlaneEvent:FireAllClients({
+			phase = "land",
+			plotIndex = slot.index,
+			from = c + Vector3.new(0, 70, 120),
+			to = runway,
+			flight = 6,
+		})
+		notify(player, "\u{1F468}\u{200D}\u{2708}\u{FE0F} Pilot: \"Much obliged, partner! Bringin' her down now...\"", "good")
+		task.delay(6.5, function()
+			local profile = ctx.Data.get(player)
+			if profile then
+				local bonus = math.max(0, ctx.Economy.getIncomePerSec(player) * 60 * Config.Pilot.RewardMinutes)
+				local reward = Config.Pilot.MinReward + bonus
+				profile.cash += reward
+				notify(player, "\u{1F468}\u{200D}\u{2708}\u{FE0F} Pilot: \"Here's a lil' somethin' for the fuel and the kindness.\" +\u{1F4B5} "
+					.. NumberFormat.abbrev(reward), "victory")
+				ctx.Economy.pushState(player)
+			end
+			-- Refuel, thank-you, then take off.
+			task.delay(8, function()
+				notify(player, "\u{1F468}\u{200D}\u{2708}\u{FE0F} Pilot: \"All fueled up. Thank ya kindly — see ya in the skies!\"", "good")
+				Remotes.Events.PlaneEvent:FireAllClients({
+					phase = "takeoff",
+					plotIndex = slot.index,
+					from = runway,
+					to = c + Vector3.new(rng:NextNumber(-200, 200), 120, -520),
+					flight = 9,
+				})
+				pending[player] = nil
+			end)
+		end)
+	else
+		-- Declined: he keeps going, runs out of fuel, and crashes.
+		notify(player, "\u{1F468}\u{200D}\u{2708}\u{FE0F} Pilot: \"Well shoot... I'll try to make it past ya then...\"", "bad")
+		local minX, minZ, maxX, maxZ = Layout.plotBounds(slot.index)
+		local crashPos = Vector3.new(rng:NextNumber(minX, maxX), Layout.GroundY, rng:NextNumber(minZ, maxZ))
+		Remotes.Events.PlaneEvent:FireAllClients({
+			phase = "crash",
+			plotIndex = slot.index,
+			from = c + Vector3.new(0, 70, 120),
+			to = crashPos,
+			flight = 7,
+		})
+		task.delay(7.2, function()
+			if ctx.Plot.getSlot(player) ~= slot then
+				pending[player] = nil
+				return
+			end
+			local worth, count, popLost = ctx.Plot.applyBlast(slot, crashPos, 999999, 40)
+			if count &gt; 0 then
+				notify(player, "\u{1F4A5} The pilot ran out of fuel and CRASHED into your city! "
+					.. count .. " buildings lost, \u{1F465} -" .. NumberFormat.abbrev(popLost), "bad")
+			else
+				notify(player, "\u{1F4A5} The pilot crashed just outside your city. Lucky!", "info")
+			end
+			ctx.Economy.pushState(player)
+			pending[player] = nil
+		end)
+	end
+end
+
+local function onPilotAnswer(player, accepted)
+	PilotService.resolve(player, accepted == true)
+end
+
+function PilotService.init(context)
+	ctx = context
+	Remotes.Events.PilotAnswer.OnServerEvent:Connect(onPilotAnswer)
+
+	-- Periodically offer the event to a random airport owner.
+	task.spawn(function()
+		while true do
+			task.wait(rng:NextNumber(240, 420))
+			local owners = airportOwners()
+			if #owners &gt; 0 then
+				local slot = owners[rng:NextInteger(1, #owners)]
+				if slot.owner and not pending[slot.owner] then
+					PilotService.trigger(slot)
+				end
+			end
+		end
+	end)
+end
+
+return PilotService
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">PlotService</string><ProtectedString name="Source">-- Owns plot assignment and all zone state: buying/upgrading via step-on pads,
 -- damage, destruction, rebuild timers and HP regen.
 
 local Players = game:GetService("Players")
@@ -3400,14 +4705,26 @@ function PlotService.assign(player)
 			repairAt = 0,
 			lastHitAt = 0,
 			locked = zi &gt; profile.unlocked,
+			pending = 0,
 		}
 		setZoneGround(slot, zi, slot.zones[zi].locked)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
+		PlotService.updateCollect(slot, zi)
 	end
 
 	slot.bannerLabel.Text = "\u{1F3D9}\u{FE0F} " .. player.DisplayName
 	PlotService.updateSilos(slot, profile.siloCount or 1)
+	PlotService.updateRocketVisual(slot, profile.rocketLevel or 1)
+	if ctx.Defense then
+		ctx.Defense.updateTurrets(slot, profile.defenseLevel or 0)
+	end
+	if ctx.Jets then
+		ctx.Jets.updateHangars(slot, profile.hangars or 0)
+	end
+	if ctx.Battery then
+		ctx.Battery.showIsland(slot, profile.batteryUnlocked or false)
+	end
 
 	local function place(character)
 		local hrp = character:WaitForChild("HumanoidRootPart", 8)
@@ -3436,11 +4753,21 @@ function PlotService.release(player)
 	slot.owner = nil
 	slot.bannerLabel.Text = "\u{1F3DD}\u{FE0F} Empty Plot"
 	PlotService.updateSilos(slot, 1)
+	if ctx.Defense then
+		ctx.Defense.updateTurrets(slot, 0)
+	end
+	if ctx.Jets then
+		ctx.Jets.updateHangars(slot, 0)
+	end
+	if ctx.Battery then
+		ctx.Battery.showIsland(slot, false)
+	end
 	for zi in ipairs(BuildingDefs.List) do
-		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
+		slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true, pending = 0 }
 		setZoneGround(slot, zi, true)
 		renderZone(slot, zi)
 		PlotService.updatePad(slot, zi)
+		PlotService.updateCollect(slot, zi)
 	end
 	playerSlot[player] = nil
 end
@@ -3472,6 +4799,61 @@ function PlotService.cityWorth(slot)
 	return worth
 end
 
+-- Total living population across intact buildings.
+function PlotService.population(slot)
+	local pop = 0
+	for zi, def in ipairs(BuildingDefs.List) do
+		local zone = slot.zones[zi]
+		if zone.level &gt; 0 and not zone.destroyed then
+			pop += BuildingDefs.population(def, zone.level)
+		end
+	end
+	return pop
+end
+
+-- Refresh the floating "collect" cash label on a zone.
+function PlotService.updateCollect(slot, zi)
+	local data = slot.zoneData[zi]
+	local zone = slot.zones[zi]
+	local gui = data.collectGui
+	if not gui then
+		return
+	end
+	local pending = zone.pending or 0
+	local profile = slot.owner and ctx.Data.get(slot.owner)
+	if profile and profile.autoCollect then
+		gui.Enabled = false
+		return
+	end
+	if pending &gt;= 1 and zone.level &gt; 0 and not zone.destroyed then
+		gui.Enabled = true
+		data.collectLabel.Text = "\u{1F4B5} " .. NumberFormat.abbrev(pending)
+	else
+		gui.Enabled = false
+	end
+end
+
+function PlotService.collectZone(player, slot, zi)
+	local zone = slot.zones[zi]
+	local pending = math.floor(zone.pending or 0)
+	if pending &lt; 1 then
+		return 0
+	end
+	zone.pending = 0
+	ctx.Economy.addCash(player, pending)
+	PlotService.updateCollect(slot, zi)
+	Remotes.Events.IncomePops:FireAllClients(slot.index, { { zi, pending } })
+	return pending
+end
+
+function PlotService.collectAll(player, slot)
+	local total = 0
+	for zi in ipairs(BuildingDefs.List) do
+		total += PlotService.collectZone(player, slot, zi)
+	end
+	return total
+end
+
 function PlotService.destroyZone(slot, zi, repairAfter)
 	local zone = slot.zones[zi]
 	zone.destroyed = true
@@ -3481,21 +4863,25 @@ function PlotService.destroyZone(slot, zi, repairAfter)
 end
 
 -- Missile blast: damages every intact building within the radius.
--- Returns total worth destroyed and how many buildings fell.
-function PlotService.applyBlast(slot, pos, damage)
+-- Returns total worth destroyed, how many buildings fell, and population lost.
+-- Also makes the victim lose some cash directly.
+function PlotService.applyBlast(slot, pos, damage, radius)
+	radius = radius or Config.Rocket.BlastRadius
 	local worthDestroyed = 0
 	local destroyedCount = 0
+	local popLost = 0
 	for zi, def in ipairs(BuildingDefs.List) do
 		local zone = slot.zones[zi]
 		if zone.level &gt; 0 and not zone.destroyed then
 			local center = Layout.zoneCenter(slot.index, zi)
 			local dx = center.X - pos.X
 			local dz = center.Z - pos.Z
-			if math.sqrt(dx * dx + dz * dz) &lt;= Config.Rocket.BlastRadius then
+			if math.sqrt(dx * dx + dz * dz) &lt;= radius then
 				zone.hp -= damage
 				zone.lastHitAt = now()
 				if zone.hp &lt;= 0 then
 					worthDestroyed += BuildingDefs.totalWorth(def, zone.level)
+					popLost += BuildingDefs.population(def, zone.level)
 					destroyedCount += 1
 					PlotService.destroyZone(slot, zi, Config.MissileRepairTime)
 				else
@@ -3504,7 +4890,21 @@ function PlotService.applyBlast(slot, pos, damage)
 			end
 		end
 	end
-	return worthDestroyed, destroyedCount
+	-- Victim also loses cash proportional to the damage dealt.
+	if worthDestroyed &gt; 0 and slot.owner then
+		local profile = ctx.Data.get(slot.owner)
+		if profile then
+			local loss = math.floor(worthDestroyed * Config.VictimCashLossRate)
+			profile.cash = math.max(0, profile.cash - loss)
+		end
+	end
+	return worthDestroyed, destroyedCount, popLost
+end
+
+-- True if this slot has an intact rocket silo zone owner can launch from.
+function PlotService.zoneLevel(slot, zi)
+	local zone = slot.zones[zi]
+	return zone and zone.level or 0
 end
 
 -- Nuke: flattens the whole city, staggered rebuild, temporary immunity.
@@ -3541,8 +4941,42 @@ function PlotService.setSiloRocket(slot, siloIndex, visible)
 	if not group then
 		return
 	end
-	for _, p in ipairs(group.rocketParts) do
-		p.Transparency = visible and 0 or 1
+	for _, p in ipairs(group.rocketModel:GetChildren()) do
+		if p:IsA("BasePart") then
+			p.Transparency = visible and 0 or 1
+		end
+	end
+end
+
+-- Grow and restyle every silo rocket to match the rocket level.
+local ROCKET_TIERS = {
+	{ 1, Color3.fromRGB(240, 240, 245), Color3.fromRGB(230, 60, 60) },
+	{ 10, Color3.fromRGB(200, 220, 250), Color3.fromRGB(60, 120, 240) },
+	{ 25, Color3.fromRGB(150, 235, 160), Color3.fromRGB(40, 180, 70) },
+	{ 45, Color3.fromRGB(250, 210, 90), Color3.fromRGB(240, 150, 30) },
+	{ 70, Color3.fromRGB(210, 130, 250), Color3.fromRGB(150, 40, 220) },
+}
+function PlotService.updateRocketVisual(slot, level)
+	local scale = 1 + math.min(level, Config.Rocket.MaxLevel) / 100 * 1.4 -- up to ~2.4x
+	local body, nose = ROCKET_TIERS[1][2], ROCKET_TIERS[1][3]
+	for _, tier in ipairs(ROCKET_TIERS) do
+		if level &gt;= tier[1] then
+			body, nose = tier[2], tier[3]
+		end
+	end
+	for _, group in ipairs(slot.siloGroups) do
+		local rm = group.rocketModel
+		if rm and rm.PrimaryPart then
+			-- ScaleTo is absolute relative to the model's build-time size.
+			pcall(function()
+				rm:ScaleTo(scale)
+			end)
+			for _, p in ipairs(rm:GetChildren()) do
+				if p:IsA("BasePart") then
+					p.Color = (p.Name == "SiloRocket") and body or nose
+				end
+			end
+		end
 	end
 end
 
@@ -3635,14 +5069,51 @@ function PlotService.init(context)
 	for _, slot in ipairs(slots) do
 		slot.zones = {}
 		for zi in ipairs(BuildingDefs.List) do
-			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true }
+			slot.zones[zi] = { level = 0, hp = 0, destroyed = false, repairAt = 0, lastHitAt = 0, locked = true, pending = 0 }
 			setZoneGround(slot, zi, true)
+			-- Floating "collect" cash label above the building.
+			local data = slot.zoneData[zi]
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "CollectGui"
+			gui.Size = UDim2.new(10, 0, 4, 0)
+			gui.StudsOffset = Vector3.new(0, 12, 0)
+			gui.MaxDistance = 220
+			gui.Enabled = false
+			gui.Adornee = data.plate
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromScale(1, 1)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.FredokaOne
+			label.TextScaled = true
+			label.TextColor3 = Color3.fromRGB(120, 245, 100)
+			label.TextStrokeColor3 = Color3.new(0, 0, 0)
+			label.TextStrokeTransparency = 0
+			label.Text = ""
+			label.Parent = gui
+			gui.Parent = data.plate
+			data.collectGui = gui
+			data.collectLabel = label
 			PlotService.updatePad(slot, zi)
 		end
 		for zi in ipairs(BuildingDefs.List) do
-			local pad = slot.zoneData[zi].pad
-			pad.Touched:Connect(function(hit)
+			local data = slot.zoneData[zi]
+			data.pad.Touched:Connect(function(hit)
 				onPadTouched(slot, zi, hit)
+			end)
+			-- Stepping onto the building tile collects its piled-up cash.
+			data.plate.Touched:Connect(function(hit)
+				local character = hit.Parent
+				local player = character and Players:GetPlayerFromCharacter(character)
+				if player and slot.owner == player then
+					local dKey = player.UserId .. ":collect:" .. zi
+					if not touchDebounce[dKey] or now() - touchDebounce[dKey] &gt; 0.5 then
+						touchDebounce[dKey] = now()
+						local got = PlotService.collectZone(player, slot, zi)
+						if got &gt; 0 then
+							ctx.Economy.pushState(player)
+						end
+					end
+				end
 			end)
 		end
 	end
@@ -3657,7 +5128,7 @@ function PlotService.init(context)
 end
 
 return PlotService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">QuestService</string><ProtectedString name="Source">-- Quest chains: counters advance on gameplay events, stat quests are
 -- evaluated against live values every economy tick. Completions pay out
 -- automatically with a fanfare; repeatable end-quests loop forever.
 
@@ -3811,7 +5282,7 @@ function QuestService.init(context)
 end
 
 return QuestService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">RewardsService</string><ProtectedString name="Source">-- Daily reward streak (7-day calendar, day 7 = free nuke charge).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -3828,12 +5299,45 @@ local function notify(player, msg, kind)
 	Remotes.Events.Notify:FireClient(player, { msg = msg, kind = kind or "info" })
 end
 
+local rng = Random.new()
+
+-- Random reward pool. Day 7 is always the big FREE NUKE.
+local POOL = {
+	{ label = "50 Gems", emoji = "\u{1F48E}", kind = "gems", amount = 50 },
+	{ label = "120 Gems", emoji = "\u{1F48E}", kind = "gems", amount = 120 },
+	{ label = "300 Gems", emoji = "\u{1F48E}", kind = "gems", amount = 300 },
+	{ label = "Cash Boost", emoji = "\u{1F4B5}", kind = "cash_minutes", amount = 10 },
+	{ label = "Big Cash", emoji = "\u{1F4B0}", kind = "cash_minutes", amount = 30 },
+	{ label = "Shield", emoji = "\u{1F6E1}\u{FE0F}", kind = "shield", amount = 1 },
+	{ label = "Barrage", emoji = "\u{1F680}", kind = "barrage", amount = 1 },
+	{ label = "Nuke Charge", emoji = "\u{2622}\u{FE0F}", kind = "nuke_charge", amount = 1 },
+}
+
+-- Builds a fresh randomized 7-day set; day 7 is the guaranteed FREE NUKE.
+local function generateRewards()
+	local rewards = {}
+	for day = 1, 6 do
+		rewards[day] = POOL[rng:NextInteger(1, #POOL - 1)] -- exclude nuke from 1-6
+	end
+	rewards[7] = { label = "FREE NUKE", emoji = "\u{2622}\u{FE0F}", kind = "nuke_charge", amount = 1 }
+	return rewards
+end
+
 local function effectiveStreak(profile)
 	local daily = profile.daily
 	if daily.lastClaimAt &gt; 0 and os.time() - daily.lastClaimAt &gt; Config.DailyStreakBreak then
 		return 0 -- streak expired
 	end
 	return daily.streak
+end
+
+-- Ensures the player has a randomized reward set; regenerates on streak reset.
+local function ensureRewards(profile)
+	local streak = effectiveStreak(profile)
+	if not profile.daily.rewards or streak == 0 then
+		profile.daily.rewards = generateRewards()
+	end
+	return profile.daily.rewards
 end
 
 function RewardsService.getData(player)
@@ -3844,10 +5348,12 @@ function RewardsService.getData(player)
 	local streak = effectiveStreak(profile)
 	local sinceClaim = os.time() - profile.daily.lastClaimAt
 	local canClaim = profile.daily.lastClaimAt == 0 or sinceClaim &gt;= Config.DailyClaimWindow
+	local rewards = ensureRewards(profile)
 	return {
 		dayIndex = (streak % 7) + 1, -- the next day to claim
 		canClaim = canClaim,
 		nextIn = canClaim and 0 or (Config.DailyClaimWindow - sinceClaim),
+		rewards = rewards, -- randomized set the client renders
 	}
 end
 
@@ -3862,7 +5368,8 @@ local function onClaimDaily(player)
 		return
 	end
 
-	local reward = Config.DailyRewards[data.dayIndex]
+	local rewards = ensureRewards(profile)
+	local reward = rewards[data.dayIndex] or Config.DailyRewards[data.dayIndex]
 	if reward.kind == "gems" then
 		profile.gems += reward.amount
 		notify(player, "\u{1F48E} Day " .. data.dayIndex .. " reward: +" .. reward.amount .. " gems!", "victory")
@@ -3895,7 +5402,51 @@ function RewardsService.init(context)
 end
 
 return RewardsService
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">StoreModels</string><ProtectedString name="Source">-- Shared loader for Creator Store assets: inserts, sanitizes (strips ALL
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">RigUtil</string><ProtectedString name="Source">-- Shared helper for placing static avatar rigs so heads/hats never detach.
+-- Instead of anchoring every part (which breaks accessory welds), we weld all
+-- parts to the HumanoidRootPart and anchor only the root.
+
+local RigUtil = {}
+
+-- Welds every part of a rig to its root, then anchors the root only.
+function RigUtil.freeze(model)
+	local root = model.PrimaryPart
+		or model:FindFirstChild("HumanoidRootPart")
+		or model:FindFirstChildWhichIsA("BasePart")
+	if not root then
+		return
+	end
+	model.PrimaryPart = root
+	for _, obj in ipairs(model:GetDescendants()) do
+		if obj:IsA("BasePart") and obj ~= root then
+			obj.Anchored = false
+			-- Remove Motor6D/other joints so nothing animates loose, then weld
+			-- rigidly to root at its current relative pose.
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = root
+			weld.Part1 = obj
+			weld.Parent = root
+			obj.CanCollide = false
+		end
+	end
+	root.Anchored = true
+	root.CanCollide = false
+end
+
+-- Places a frozen rig so its feet touch groundY, facing lookTarget.
+function RigUtil.placeOnGround(model, footPos, groundY, lookTarget)
+	-- Pivot to a temp spot first so bounding box is meaningful.
+	model:PivotTo(CFrame.new(footPos + Vector3.new(0, 50, 0)))
+	local bbCF, bbSize = model:GetBoundingBox()
+	local pivotY = model:GetPivot().Position.Y
+	local feetOffset = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+	local pos = Vector3.new(footPos.X, groundY + feetOffset + 0.05, footPos.Z)
+	local look = lookTarget and Vector3.new(lookTarget.X, pos.Y, lookTarget.Z) or (pos + Vector3.new(0, 0, 1))
+	model:PivotTo(CFrame.lookAt(pos, look))
+end
+
+return RigUtil
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">StoreModels</string><ProtectedString name="Source">-- Shared loader for Creator Store assets: inserts, sanitizes (strips ALL
 -- scripts/sounds), normalizes scale, caches templates. Everything pcall'd —
 -- a broken id just means the caller falls back to part-built visuals.
 
@@ -3965,7 +5516,7 @@ function StoreModels.get(key, ids, opts)
 end
 
 return StoreModels
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map in classic stud-brick style: 5 far-apart islands, each with
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">WorldBuilder</string><ProtectedString name="Source">-- Builds the map in classic stud-brick style: 5 far-apart islands, each with
 -- the 4x4 expandable city grid, up to 3 rocket silos RIGHT BY SPAWN on the
 -- town square (shop, NPCs, leaderboard, rebirth shrine), a park strip at the
 -- back, and decorative filler islands so the ocean isn't empty.
@@ -4197,32 +5748,36 @@ local function buildSiloGroup(plotIndex, siloIndex, parent)
 		})
 	end
 
-	local rocketParts = {}
+	-- Rocket lives in its own model so it can be scaled up on upgrade.
+	local rocketModel = Instance.new("Model")
+	rocketModel.Name = "RocketModel"
 	local body = part({
 		Name = "SiloRocket",
 		Size = Vector3.new(4.4, 14, 4.4),
 		Position = pos + Vector3.new(0, 8, 0),
 		Color = Color3.fromRGB(240, 240, 245),
-		Parent = model,
+		Parent = rocketModel,
 	})
 	studs(body, { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }, 3)
-	rocketParts[#rocketParts + 1] = body
-	rocketParts[#rocketParts + 1] = part({
+	part({
 		Name = "SiloRocketNose",
 		Size = Vector3.new(3, 3.6, 3),
 		Position = pos + Vector3.new(0, 16.8, 0),
 		Color = Color3.fromRGB(230, 60, 60),
-		Parent = model,
+		Parent = rocketModel,
 	})
 	for _, off in ipairs({ Vector3.new(-2.8, 0, 0), Vector3.new(2.8, 0, 0), Vector3.new(0, 0, -2.8), Vector3.new(0, 0, 2.8) }) do
-		rocketParts[#rocketParts + 1] = part({
+		part({
 			Name = "SiloFin",
 			Size = Vector3.new(1.2, 4.4, 1.2),
 			Position = pos + off + Vector3.new(0, 2.2, 0),
 			Color = Color3.fromRGB(230, 60, 60),
-			Parent = model,
+			Parent = rocketModel,
 		})
 	end
+	rocketModel.PrimaryPart = body
+	rocketModel.Parent = model
+	local rocketParts = rocketModel:GetChildren()
 
 	if siloIndex == 1 then
 		local prompt = Instance.new("ProximityPrompt")
@@ -4238,7 +5793,7 @@ local function buildSiloGroup(plotIndex, siloIndex, parent)
 	end
 
 	model.Parent = parent
-	return { model = model, rocketParts = rocketParts, parent = parent }
+	return { model = model, rocketParts = rocketParts, rocketModel = rocketModel, basePos = pos, parent = parent }
 end
 
 local function buildTownSquare(plotIndex, folder)
@@ -4619,7 +6174,84 @@ function WorldBuilder.build()
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX52"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX47"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX46"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX63"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX58"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX57"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">AdminPanel</string><ProtectedString name="Source">-- Admin Panel: only visible to admins (UserIds in Config.Admins). A gold
+-- badge button opens a panel of moderation / testing tools.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local AdminPanel = {}
+
+local ctx
+local buttonGui
+local panelGui
+
+local ACTIONS = {
+	{ id = "give_cash", label = "\u{1F4B5} +$1B Cash", arg = 1e9 },
+	{ id = "give_gems", label = "\u{1F48E} +1000 Gems", arg = 1000 },
+	{ id = "max_rockets", label = "\u{1F680} Max Rockets + Silos" },
+	{ id = "give_nuke", label = "\u{2622}\u{FE0F} Nuke Access + Reset" },
+	{ id = "unlock_all", label = "\u{1F513} Unlock All Areas" },
+	{ id = "repair", label = "\u{1F527} Repair City" },
+	{ id = "trigger_event", label = "\u{1F3B2} Trigger Random Event" },
+	{ id = "trigger_pilot", label = "\u{1F468}\u{200D}\u{2708}\u{FE0F} Trigger Pilot Event" },
+}
+
+function AdminPanel.init(context)
+	ctx = context
+
+	local pg, content = UILib.panel("MVC_AdminPanel", "\u{1F6E0}\u{FE0F} ADMIN PANEL", UDim2.new(0, 400, 0, 470), 35)
+	panelGui = pg
+
+	for i, act in ipairs(ACTIONS) do
+		UILib.button({
+			Size = UDim2.new(1, -16, 0, 46),
+			Position = UDim2.new(0, 8, 0, 8 + (i - 1) * 54),
+			Text = act.label,
+			BackgroundColor3 = UILib.Colors.Gold,
+		}, content, function()
+			Remotes.Events.AdminAction:FireServer(act.id, act.arg)
+		end)
+	end
+
+	-- The launcher button (hidden unless the player is an admin).
+	buttonGui = UILib.screen("MVC_AdminBtn", 34)
+	local frame = Instance.new("Frame")
+	frame.BackgroundTransparency = 1
+	frame.AnchorPoint = Vector2.new(1, 0)
+	frame.Position = UDim2.new(1, -14, 0, 130)
+	frame.Size = UDim2.new(0, 76, 0, 88)
+	frame.Visible = false
+	frame.Parent = buttonGui
+
+	local button = UILib.button({
+		Size = UDim2.new(0, 68, 0, 60),
+		Position = UDim2.new(0, 4, 0, 0),
+		Text = "",
+		BackgroundColor3 = UILib.Colors.Gold,
+	}, frame, function()
+		panelGui.Enabled = not panelGui.Enabled
+	end)
+	local icon = UILib.icon("admin", button)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.Size = UDim2.new(0, 40, 0, 40)
+	UILib.text({
+		Size = UDim2.new(1, 0, 0, 22),
+		Position = UDim2.new(0, 0, 0, 62),
+		Text = "Admin",
+	}, frame)
+
+	ctx.State.changed.Event:Connect(function(state)
+		frame.Visible = state.isAdmin == true
+	end)
+end
+
+return AdminPanel
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">AlarmUI</string><ProtectedString name="Source">-- Incoming-strike warning: flashing red overlay, siren wail, countdown,
 -- and a red beacon beam marking exactly where the strike will land.
 
 local TweenService = game:GetService("TweenService")
@@ -4738,8 +6370,13 @@ local function showAlarm(payload)
 	title.TextColor3 = Color3.fromRGB(255, 60, 60)
 	title.TextStrokeColor3 = Color3.new(0, 0, 0)
 	title.TextStrokeTransparency = 0
-	title.Text = isNuke and "\u{2622}\u{FE0F} NUCLEAR STRIKE INCOMING \u{2622}\u{FE0F}"
-		or "\u{1F6A8} INCOMING MISSILE \u{1F6A8}"
+	local titleByKind = {
+		nuke = "\u{2622}\u{FE0F} NUCLEAR STRIKE INCOMING \u{2622}\u{FE0F}",
+		jet = "\u{2708}\u{FE0F} ENEMY JETS INBOUND \u{2708}\u{FE0F}",
+		battery = "\u{1F680} MISSILE BARRAGE INCOMING \u{1F680}",
+		rocket = "\u{1F6A8} INCOMING MISSILE \u{1F6A8}",
+	}
+	title.Text = titleByKind[payload.kind] or titleByKind.rocket
 	title.Parent = gui
 
 	local countdown = Instance.new("TextLabel")
@@ -4786,9 +6423,11 @@ function AlarmUI.init()
 end
 
 return AlarmUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view: cycle through other players' cities with arrows,
--- tap anywhere on their plot to move the target crosshair, then BLOW UP.
--- Also handles nuke mode (☢ button) and the barrage toggle.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">AttackView</string><ProtectedString name="Source">-- Top-down attack view. Modes:
+--   rocket / nuke : aim a crosshair (tap to place), then BLOW UP.
+--   jet           : no aiming; choose BOMB CITY or BOMB SILOS.
+--   battery       : no aiming; BLOW UP rains a random volley.
+-- Works on PC, mobile and console (ScreenPointToRay handles the GUI inset).
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -4806,23 +6445,28 @@ local AttackView = {}
 local ctx
 local player = Players.LocalPlayer
 
--- CurrentCamera can be recreated on respawn; always fetch it fresh.
 local function camera()
 	return workspace.CurrentCamera
 end
 
 local gui
 local nameLabel
+local hintLabel
 local fireButton
+local altButton -- "Bomb Silos" in jet mode
 local barrageButton
 local isOpen = false
-local nukeMode = false
+local mode = "rocket"
 local useBarrage = false
 local targets = {}
 local targetIndex = 1
 local crosshairPos = nil
 local crosshair = nil
 local inputConn = nil
+
+local function needsAim()
+	return mode == "rocket" or mode == "nuke"
+end
 
 local function destroyCrosshair()
 	if crosshair then
@@ -4834,9 +6478,11 @@ end
 local function placeCrosshair(pos)
 	destroyCrosshair()
 	crosshairPos = pos
+	if not needsAim() then
+		return
+	end
 	local model = Instance.new("Model")
 	model.Name = "MVC_Crosshair"
-
 	local ring = Instance.new("Part")
 	ring.Anchored = true
 	ring.CanCollide = false
@@ -4849,7 +6495,6 @@ local function placeCrosshair(pos)
 	ring.Material = Enum.Material.Neon
 	ring.Transparency = 0.25
 	ring.Parent = model
-
 	local dot = Instance.new("Part")
 	dot.Anchored = true
 	dot.CanCollide = false
@@ -4861,7 +6506,6 @@ local function placeCrosshair(pos)
 	dot.Color = Color3.fromRGB(255, 40, 40)
 	dot.Material = Enum.Material.Neon
 	dot.Parent = model
-
 	model.Parent = workspace
 	crosshair = model
 end
@@ -4896,21 +6540,27 @@ local function updateButtons()
 	if not state then
 		return
 	end
-	if nukeMode then
+	barrageButton.Visible = false
+	altButton.Visible = false
+
+	if mode == "nuke" then
 		local remaining = ctx.State.remaining("nukeRemaining")
-		if remaining &gt; 0 then
-			fireButton.Text = "\u{2622}\u{FE0F} " .. NumberFormat.clock(remaining)
-		else
-			fireButton.Text = "\u{2622}\u{FE0F} NUKE"
-		end
-		barrageButton.Visible = false
-	else
+		fireButton.Text = remaining &gt; 0 and ("\u{2622}\u{FE0F} " .. NumberFormat.clock(remaining)) or "\u{2622}\u{FE0F} NUKE"
+		fireButton.BackgroundColor3 = UILib.Colors.Purple
+	elseif mode == "jet" then
+		local remaining = ctx.State.remaining("jetRemaining")
+		fireButton.Text = remaining &gt; 0 and ("\u{2708}\u{FE0F} " .. NumberFormat.clock(remaining)) or "\u{2708}\u{FE0F} BOMB CITY"
+		fireButton.BackgroundColor3 = UILib.Colors.Blue
+		altButton.Visible = true
+		altButton.Text = "\u{1F680} BOMB SILOS"
+	elseif mode == "battery" then
+		local remaining = ctx.State.remaining("batteryRemaining")
+		fireButton.Text = remaining &gt; 0 and ("\u{1F680} " .. NumberFormat.clock(remaining)) or "\u{1F680} BLOW UP"
+		fireButton.BackgroundColor3 = UILib.Colors.Red
+	else -- rocket
 		local remaining = ctx.State.remaining("rocketRemaining")
-		if remaining &gt; 0 then
-			fireButton.Text = "\u{23F3} " .. NumberFormat.clock(remaining)
-		else
-			fireButton.Text = "BLOW UP"
-		end
+		fireButton.Text = remaining &gt; 0 and ("\u{23F3} " .. NumberFormat.clock(remaining)) or ("BLOW UP x" .. (state.siloCount or 1))
+		fireButton.BackgroundColor3 = UILib.Colors.Red
 		local barrage = state.barrage or 0
 		barrageButton.Visible = barrage &gt; 0
 		barrageButton.Text = (useBarrage and "\u{2705} " or "") .. "\u{1F680}x3 Barrage (" .. barrage .. ")"
@@ -4928,33 +6578,48 @@ function AttackView.close()
 		inputConn:Disconnect()
 		inputConn = nil
 	end
-	camera().CameraType = Enum.CameraType.Custom
+	local cam = camera()
+	cam.CameraType = Enum.CameraType.Custom
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		camera().CameraSubject = humanoid
+		cam.CameraSubject = humanoid
 	end
 end
 
-local function fire()
+local function fire(jetMode)
 	local target = currentTarget()
 	local state = ctx.State.get()
-	if not target or not crosshairPos or not state then
+	if not target or not state then
 		return
 	end
-	if nukeMode and ctx.State.remaining("nukeRemaining") &gt; 0 then
-		return
+	if mode == "nuke" then
+		if ctx.State.remaining("nukeRemaining") &gt; 0 or not crosshairPos then
+			return
+		end
+		Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, true, false)
+	elseif mode == "jet" then
+		if ctx.State.remaining("jetRemaining") &gt; 0 then
+			return
+		end
+		Remotes.Events.RequestJet:FireServer(target.userId, jetMode or "city")
+	elseif mode == "battery" then
+		if ctx.State.remaining("batteryRemaining") &gt; 0 then
+			return
+		end
+		Remotes.Events.RequestBattery:FireServer(target.userId)
+	else
+		if ctx.State.remaining("rocketRemaining") &gt; 0 or not crosshairPos then
+			return
+		end
+		Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, false, useBarrage)
 	end
-	if not nukeMode and ctx.State.remaining("rocketRemaining") &gt; 0 then
-		return
-	end
-	Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, nukeMode, useBarrage)
 	useBarrage = false
 	task.delay(0.4, AttackView.close)
 end
 
 local function onTap(input, gameProcessed)
-	if gameProcessed or not isOpen then
+	if gameProcessed or not isOpen or not needsAim() then
 		return
 	end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -4965,7 +6630,9 @@ local function onTap(input, gameProcessed)
 	if not target then
 		return
 	end
-	local ray = camera():ViewportPointToRay(input.Position.X, input.Position.Y)
+	-- ScreenPointToRay accounts for the top GUI inset, so the crosshair lands
+	-- exactly under the tap on both PC and mobile.
+	local ray = camera():ScreenPointToRay(input.Position.X, input.Position.Y)
 	if math.abs(ray.Direction.Y) &lt; 1e-4 then
 		return
 	end
@@ -4977,7 +6644,7 @@ local function onTap(input, gameProcessed)
 	placeCrosshair(Layout.clampToPlot(target.plotIndex, hit))
 end
 
-function AttackView.open(asNuke)
+function AttackView.open(openMode)
 	local ok, result = pcall(function()
 		return Remotes.Functions.GetTargets:InvokeServer()
 	end)
@@ -4987,15 +6654,18 @@ function AttackView.open(asNuke)
 	end
 	targets = result
 	targetIndex = 1
-	nukeMode = asNuke == true
+	mode = openMode or "rocket"
 	useBarrage = false
 	isOpen = true
 	gui.Enabled = true
 
+	hintLabel.Text = needsAim() and "Tap anywhere on their city to aim!"
+		or (mode == "jet" and "Choose your jet target — no aiming needed!"
+			or "No aiming — missiles rain across their whole city!")
+
 	camera().CameraType = Enum.CameraType.Scriptable
 	focusTarget()
 	updateButtons()
-
 	inputConn = UserInputService.InputBegan:Connect(onTap)
 end
 
@@ -5004,7 +6674,6 @@ function AttackView.init(context)
 	gui = UILib.screen("MVC_AttackView", 20)
 	gui.Enabled = false
 
-	-- Target name banner + cycle arrows (top center).
 	local banner = UILib.frame({
 		Size = UDim2.new(0, 380, 0, 52),
 		Position = UDim2.new(0.5, 0, 0, 18),
@@ -5037,26 +6706,38 @@ function AttackView.init(context)
 		cycle(1)
 	end)
 
-	UILib.text({
-		Size = UDim2.new(0, 420, 0, 24),
+	hintLabel = UILib.text({
+		Size = UDim2.new(0, 460, 0, 24),
 		Position = UDim2.new(0.5, 0, 0, 74),
 		AnchorPoint = Vector2.new(0.5, 0),
-		Text = "Tap anywhere on their city to aim!",
+		Text = "",
 		TextColor3 = Color3.fromRGB(255, 230, 160),
 	}, gui)
 
-	-- BLOW UP / NUKE button.
 	fireButton = UILib.button({
 		Size = UDim2.new(0, 300, 0, 74),
 		Position = UDim2.new(0.5, 0, 1, -170),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Text = "BLOW UP",
 		BackgroundColor3 = UILib.Colors.Red,
-	}, gui, fire)
+	}, gui, function()
+		fire("city")
+	end)
+
+	altButton = UILib.button({
+		Size = UDim2.new(0, 260, 0, 50),
+		Position = UDim2.new(0.5, 0, 1, -232),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "\u{1F680} BOMB SILOS",
+		BackgroundColor3 = UILib.Colors.Purple,
+		Visible = false,
+	}, gui, function()
+		fire("silos")
+	end)
 
 	barrageButton = UILib.button({
 		Size = UDim2.new(0, 240, 0, 44),
-		Position = UDim2.new(0.5, 0, 1, -220),
+		Position = UDim2.new(0.5, 0, 1, -232),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Text = "",
 		BackgroundColor3 = UILib.Colors.Purple,
@@ -5074,7 +6755,6 @@ function AttackView.init(context)
 		BackgroundColor3 = UILib.Colors.Gray,
 	}, gui, AttackView.close)
 
-	-- Keep cooldown text fresh while open.
 	task.spawn(function()
 		while true do
 			task.wait(0.5)
@@ -5092,7 +6772,7 @@ function AttackView.init(context)
 end
 
 return AttackView
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">CashPopups</string><ProtectedString name="Source">-- Floating green "+$" popups above earning buildings, like the reference game.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5171,7 +6851,7 @@ function CashPopups.init()
 end
 
 return CashPopups
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">CharacterShop</string><ProtectedString name="Source">-- Tilly's Character Shop: speed/jump tiers, rainbow trail and titles.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -5257,7 +6937,7 @@ function CharacterShop.init(context)
 end
 
 return CharacterShop
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">ClientState</string><ProtectedString name="Source">-- Client-side mirror of the player's server state, with local countdown helpers.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -5304,7 +6984,7 @@ function ClientState.start()
 end
 
 return ClientState
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">DailyRewardsUI</string><ProtectedString name="Source">-- Daily Rewards calendar: 6 blue day-cards in a grid plus the tall
 -- rainbow Day 7 card (free nuke), just like the reference screenshots.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5348,16 +7028,16 @@ local function makeCard(parent, dayNumber, big)
 		Text = "DAY " .. dayNumber,
 	}, card)
 
-	UILib.text({
+	local emojiLabel = UILib.text({
 		Size = UDim2.new(1, -8, 0, big and 80 or 38),
 		Position = UDim2.new(0, 4, 0, big and 44 or 28),
-		Text = reward.emoji,
+		Text = reward and reward.emoji or "\u{2753}",
 	}, card)
 
-	UILib.text({
+	local nameLabel = UILib.text({
 		Size = UDim2.new(1, -8, 0, big and 30 or 20),
 		Position = UDim2.new(0, 4, 0, big and 130 or 66),
-		Text = reward.label,
+		Text = reward and reward.label or "Mystery",
 		TextColor3 = big and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(235, 250, 255),
 	}, card)
 
@@ -5372,13 +7052,23 @@ local function makeCard(parent, dayNumber, big)
 		end
 	end)
 
-	cards[dayNumber] = { button = statusButton }
+	cards[dayNumber] = { button = statusButton, emoji = emojiLabel, name = nameLabel }
 	return card
 end
 
 local function refresh()
 	if not dailyData then
 		return
+	end
+	-- Paint the randomized rewards the server sent this cycle.
+	if dailyData.rewards then
+		for dayNumber, card in pairs(cards) do
+			local reward = dailyData.rewards[dayNumber]
+			if reward then
+				card.emoji.Text = reward.emoji
+				card.name.Text = reward.label
+			end
+		end
 	end
 	for dayNumber, card in pairs(cards) do
 		local button = card.button
@@ -5459,7 +7149,7 @@ function DailyRewardsUI.init(context)
 end
 
 return DailyRewardsUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Dialogue</string><ProtectedString name="Source">-- NPC dialogue box: typewriter text with blip sounds, Next/Bye buttons,
 -- and an action button on the last line (open shop, view quests, ...).
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -5635,7 +7325,7 @@ function Dialogue.init(context)
 end
 
 return Dialogue
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">FX</string><ProtectedString name="Source">-- All combat visuals: rocket/nuke flights along an arc, explosions,
 -- the full nuke sequence (flash, fireball, mushroom cloud, shockwave),
 -- shield domes and camera shake. Purely cosmetic — damage is server-side.
 
@@ -6020,7 +7710,7 @@ function FX.init()
 end
 
 return FX
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">GameEvents</string><ProtectedString name="Source">-- World event banner (Cash Frenzy, Meteor Shower, ...) with horn fanfare
 -- and a live countdown for timed events.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6033,6 +7723,31 @@ local NumberFormat = require(Shared.NumberFormat)
 local UILib = require(script.Parent.UILib)
 
 local GameEvents = {}
+
+-- Flak burst when air defense intercepts something.
+local function flakBurst(pos)
+	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = 1.5, Volume = 0.6, RollOffMaxDistance = 500 })
+	for _ = 1, 5 do
+		local puff = Instance.new("Part")
+		puff.Anchored = true
+		puff.CanCollide = false
+		puff.CanQuery = false
+		puff.Shape = Enum.PartType.Ball
+		puff.Material = Enum.Material.Neon
+		puff.Color = Color3.fromRGB(60, 60, 60)
+		puff.Size = Vector3.new(3, 3, 3)
+		puff.Position = pos + Vector3.new(math.random(-20, 20), 45 + math.random(-8, 8), math.random(-20, 20))
+		puff.Parent = workspace
+		task.spawn(function()
+			for i = 1, 8 do
+				puff.Size += Vector3.new(1.5, 1.5, 1.5)
+				puff.Transparency = i / 8
+				task.wait(0.04)
+			end
+			puff:Destroy()
+		end)
+	end
+end
 
 local KIND_COLORS = {
 	frenzy = Color3.fromRGB(88, 200, 60),
@@ -6080,7 +7795,14 @@ function GameEvents.init()
 	}, banner)
 
 	Remotes.Events.GameEvent.OnClientEvent:Connect(function(payload)
-		if type(payload) == "table" and type(payload.msg) == "string" then
+		if type(payload) ~= "table" then
+			return
+		end
+		if payload.kind == "intercept" and typeof(payload.pos) == "Vector3" then
+			flakBurst(payload.pos)
+			return
+		end
+		if type(payload.msg) == "string" then
 			show(payload)
 		end
 	end)
@@ -6101,7 +7823,7 @@ function GameEvents.init()
 end
 
 return GameEvents
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">HUD</string><ProtectedString name="Source">-- Top-center HUD: gems, the big comma-formatted cash counter, income/s.
 -- Cash smoothly counts up toward the real value for juice.
 
 local RunService = game:GetService("RunService")
@@ -6202,7 +7924,7 @@ function HUD.init(ctx)
 end
 
 return HUD
-</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX38"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
+</ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX45"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Missiles vs Cities: client bootstrap.
 
 local ClientState = require(script.Parent.ClientState)
 local Notifier = require(script.Parent.Notifier)
@@ -6220,6 +7942,11 @@ local QuestUI = require(script.Parent.QuestUI)
 local CharacterShop = require(script.Parent.CharacterShop)
 local GameEvents = require(script.Parent.GameEvents)
 local RebirthUI = require(script.Parent.RebirthUI)
+local MissileCam = require(script.Parent.MissileCam)
+local PlaneFX = require(script.Parent.PlaneFX)
+local PilotPrompt = require(script.Parent.PilotPrompt)
+local AdminPanel = require(script.Parent.AdminPanel)
+local MilitaryPanel = require(script.Parent.MilitaryPanel)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundBook = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBook"))
@@ -6232,6 +7959,7 @@ local ctx = {
 	DailyUI = DailyRewardsUI,
 	QuestUI = QuestUI,
 	CharShop = CharacterShop,
+	Military = MilitaryPanel,
 	ShopToggle = SidePanel.toggleShop,
 }
 
@@ -6241,6 +7969,8 @@ AttackView.init(ctx)
 DailyRewardsUI.init(ctx)
 QuestUI.init(ctx)
 CharacterShop.init(ctx)
+MilitaryPanel.init(ctx)
+AdminPanel.init(ctx)
 SidePanel.init(ctx)
 RocketPanel.init(ctx)
 Dialogue.init(ctx)
@@ -6249,10 +7979,247 @@ AlarmUI.init()
 FX.init()
 CashPopups.init()
 GameEvents.init()
+MissileCam.init()
+PlaneFX.init()
+PilotPrompt.init()
 MusicPlayer.init()
 
 ClientState.start()
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">MilitaryPanel</string><ProtectedString name="Source">-- War &amp; Economy panel: Auto-Collect, Air Defense, Airport hangars + jets,
+-- and the Missile Battery. Purchases route through existing remotes.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local NumberFormat = require(Shared.NumberFormat)
+local Remotes = require(Shared.Remotes)
+local UILib = require(script.Parent.UILib)
+
+local MilitaryPanel = {}
+
+local ctx
+local gui
+local rows = {}
+
+local function makeRow(content, order, id, color, onClick)
+	local button = UILib.button({
+		Size = UDim2.new(1, -16, 0, 50),
+		Position = UDim2.new(0, 8, 0, 8 + (order - 1) * 58),
+		Text = "",
+		BackgroundColor3 = color or UILib.Colors.Green,
+	}, content, onClick)
+	rows[id] = button
+	return button
+end
+
+local function refresh()
+	local s = ctx.State.get()
+	if not s then
+		return
+	end
+	rows.auto.Text = s.autoCollect and "\u{1F4B0} Auto-Collect: OWNED"
+		or ("\u{1F4B0} Auto-Collect \u{2014} \u{1F4B5} " .. NumberFormat.abbrev(s.autoCollectCost))
+	rows.defense.Text = (s.defenseLevel or 0) &gt;= Config.Defense.MaxLevel
+		and ("\u{1F6E1}\u{FE0F} Air Defense MAX (Lv" .. s.defenseLevel .. ")")
+		or ("\u{1F6E1}\u{FE0F} Air Defense Lv" .. (s.defenseLevel or 0) .. " \u{2192} " .. ((s.defenseLevel or 0) + 1)
+			.. " \u{2014} \u{1F4B5} " .. NumberFormat.abbrev(s.defenseCost))
+
+	if s.hasAirport then
+		rows.hangar.Visible = true
+		rows.jet.Visible = true
+		rows.hangar.Text = (s.nextHangarCost or 0) &gt; 0
+			and ("\u{2708}\u{FE0F} Buy Hangar " .. ((s.hangars or 0) + 1) .. " \u{2014} \u{1F4B5} " .. NumberFormat.abbrev(s.nextHangarCost))
+			or ("\u{2708}\u{FE0F} Hangars MAX (" .. (s.hangars or 0) .. ")")
+		rows.jet.Text = (s.jetCost or 0) &gt; 0
+			and ("\u{2708}\u{FE0F} Upgrade Jets Lv" .. (s.jetLevel or 1) .. " \u{2014} \u{1F4B5} " .. NumberFormat.abbrev(s.jetCost))
+			or "\u{2708}\u{FE0F} Jets MAX LEVEL"
+	else
+		rows.hangar.Visible = false
+		rows.jet.Visible = false
+	end
+
+	if s.batteryUnlocked then
+		rows.battery.Text = "\u{1F680} Battery OWNED (side island)"
+		rows.batteryUp.Visible = true
+		rows.batteryUp.Text = (s.batteryUpgradeCost or 0) &gt; 0
+			and ("\u{1F680} Upgrade Battery Lv" .. (s.batteryLevel or 1) .. " \u{2014} \u{1F4B5} " .. NumberFormat.abbrev(s.batteryUpgradeCost))
+			or "\u{1F680} Battery MAX LEVEL"
+	else
+		rows.battery.Text = "\u{1F680} Buy Missile Battery \u{2014} \u{1F4B5} " .. NumberFormat.abbrev(s.batteryCost)
+		rows.batteryUp.Visible = false
+	end
+end
+
+function MilitaryPanel.toggle()
+	gui.Enabled = not gui.Enabled
+	if gui.Enabled then
+		refresh()
+	end
+end
+
+function MilitaryPanel.init(context)
+	ctx = context
+	local pg, content = UILib.panel("MVC_Military", "\u{2699}\u{FE0F} WAR &amp; ECONOMY", UDim2.new(0, 440, 0, 400), 13)
+	gui = pg
+
+	makeRow(content, 1, "auto", UILib.Colors.Green, function()
+		Remotes.Events.ShopBuy:FireServer("auto_collect")
+	end)
+	makeRow(content, 2, "defense", UILib.Colors.Blue, function()
+		Remotes.Events.ShopBuy:FireServer("buy_defense")
+	end)
+	makeRow(content, 3, "hangar", UILib.Colors.LightBlue, function()
+		Remotes.Events.ShopBuy:FireServer("buy_hangar")
+	end)
+	makeRow(content, 4, "jet", UILib.Colors.LightBlue, function()
+		Remotes.Events.ShopBuy:FireServer("upgrade_jet")
+	end)
+	makeRow(content, 5, "battery", UILib.Colors.Purple, function()
+		Remotes.Events.ShopBuy:FireServer("buy_battery")
+	end)
+	makeRow(content, 6, "batteryUp", UILib.Colors.Purple, function()
+		Remotes.Events.UpgradeBattery:FireServer()
+	end)
+
+	ctx.State.changed.Event:Connect(function()
+		if gui.Enabled then
+			refresh()
+		end
+	end)
+end
+
+return MilitaryPanel
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">MissileCam</string><ProtectedString name="Source">-- Preview camera: when YOU launch a missile/nuke, the camera rides behind it
+-- and watches it strike. A SKIP button returns to normal instantly.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+local UILib = require(script.Parent.UILib)
+
+local MissileCam = {}
+
+local player = Players.LocalPlayer
+local active = false
+local gui
+local skipButton
+
+local function camera()
+	return workspace.CurrentCamera
+end
+
+local function quadBezier(p0, p1, p2, t)
+	local a = p0:Lerp(p1, t)
+	local b = p1:Lerp(p2, t)
+	return a:Lerp(b, t)
+end
+
+local function stop()
+	if not active then
+		return
+	end
+	active = false
+	gui.Enabled = false
+	local cam = camera()
+	cam.CameraType = Enum.CameraType.Custom
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		cam.CameraSubject = hum
+	end
+end
+
+local function ride(payload)
+	if active then
+		return -- one preview at a time
+	end
+	active = true
+	gui.Enabled = true
+
+	local isNuke = payload.kind == "nuke"
+	local from = payload.from
+	local to = payload.to
+	local flight = payload.flight or 8
+	local riseTime = isNuke and 2.4 or 1.6
+	local riseHeight = isNuke and 110 or 70
+	local liftTop = from + Vector3.new(0, riseHeight, 0)
+	local apex = (liftTop + to) / 2 + Vector3.new(0, isNuke and 340 or 190, 0)
+
+	local cam = camera()
+	cam.CameraType = Enum.CameraType.Scriptable
+
+	SoundBook.play("Launch", UILib.playerGui(), { PlaybackSpeed = isNuke and 0.75 or 1 })
+
+	local start = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		if not active then
+			conn:Disconnect()
+			return
+		end
+		local elapsed = os.clock() - start
+		local pos, ahead
+		if elapsed &lt; riseTime then
+			local tt = elapsed / riseTime
+			pos = from:Lerp(liftTop, tt * tt)
+			ahead = pos + Vector3.new(0, 8, 0)
+		else
+			local t = math.min((elapsed - riseTime) / math.max(flight - riseTime, 0.1), 1)
+			pos = quadBezier(liftTop, apex, to, t)
+			ahead = quadBezier(liftTop, apex, to, math.min(t + 0.03, 1))
+			if t &gt;= 1 then
+				-- Hold on the impact for a beat, then return.
+				cam.CFrame = CFrame.lookAt(to + Vector3.new(30, 40, 30), to)
+				task.delay(isNuke and 2.5 or 1.2, stop)
+				conn:Disconnect()
+				return
+			end
+		end
+		-- Chase camera just behind and above the warhead.
+		local dir = (ahead - pos)
+		if dir.Magnitude &lt; 0.01 then
+			dir = Vector3.new(0, 1, 0)
+		end
+		local behind = pos - dir.Unit * 22 + Vector3.new(0, 8, 0)
+		cam.CFrame = CFrame.lookAt(behind, pos + dir.Unit * 10)
+	end)
+end
+
+function MissileCam.init()
+	gui = UILib.screen("MVC_MissileCam", 40)
+	gui.Enabled = false
+
+	local hint = UILib.text({
+		Size = UDim2.new(0, 320, 0, 30),
+		Position = UDim2.new(0.5, 0, 0, 20),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "\u{1F4F9} MISSILE CAM",
+		TextColor3 = Color3.fromRGB(255, 90, 90),
+	}, gui)
+
+	skipButton = UILib.button({
+		Size = UDim2.new(0, 150, 0, 50),
+		Position = UDim2.new(1, -24, 1, -90),
+		AnchorPoint = Vector2.new(1, 1),
+		Text = "SKIP \u{23ED}\u{FE0F}",
+		BackgroundColor3 = UILib.Colors.DarkGray,
+	}, gui, stop)
+
+	Remotes.Events.MissileEvent.OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" and payload.previewFor == player.UserId
+			and typeof(payload.from) == "Vector3" and typeof(payload.to) == "Vector3" then
+			ride(payload)
+		end
+	end)
+end
+
+return MissileCam
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">MusicPlayer</string><ProtectedString name="Source">-- Chill background music: finds the first track id that actually loads,
 -- then loops it forever. Mute toggle bottom-right.
 
 local SoundService = game:GetService("SoundService")
@@ -6311,7 +8278,9 @@ function MusicPlayer.init()
 end
 
 return MusicPlayer
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications (top-right stack) + per-kind sounds.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Notifier</string><ProtectedString name="Source">-- Toast notifications: redesigned as rounded cards with a colored side stripe,
+-- an emoji badge, drop-in bounce and auto-dismiss. Stacks bottom-left so it
+-- never collides with the right-side buttons or the top HUD.
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6324,11 +8293,11 @@ local UILib = require(script.Parent.UILib)
 local Notifier = {}
 
 local KIND_STYLE = {
-	good = { color = UILib.Colors.Green, sound = "Good" },
-	bad = { color = UILib.Colors.Red, sound = "Bad" },
-	buy = { color = UILib.Colors.Green, sound = "Buy" },
-	victory = { color = UILib.Colors.Gold, sound = "Victory" },
-	info = { color = UILib.Colors.Blue, sound = "Click" },
+	good = { color = Color3.fromRGB(80, 200, 90), sound = "Good", badge = "\u{2705}" },
+	bad = { color = Color3.fromRGB(235, 70, 70), sound = "Bad", badge = "\u{26A0}\u{FE0F}" },
+	buy = { color = Color3.fromRGB(90, 200, 120), sound = "Buy", badge = "\u{1F6D2}" },
+	victory = { color = Color3.fromRGB(250, 200, 60), sound = "Victory", badge = "\u{1F389}" },
+	info = { color = Color3.fromRGB(80, 160, 240), sound = "Click", badge = "\u{2139}\u{FE0F}" },
 }
 
 local gui
@@ -6337,28 +8306,58 @@ local holder
 function Notifier.show(msg, kind)
 	local style = KIND_STYLE[kind] or KIND_STYLE.info
 
-	local toast = UILib.frame({
-		Size = UDim2.new(1, 0, 0, 52),
-		BackgroundColor3 = style.color,
-		BackgroundTransparency = 0.05,
-	}, holder)
-	UILib.text({
-		Size = UDim2.new(1, -16, 1, -12),
-		Position = UDim2.new(0, 8, 0, 6),
-		Text = msg,
-		TextWrapped = true,
-	}, toast)
+	local toast = Instance.new("Frame")
+	toast.Size = UDim2.new(1, 0, 0, 56)
+	toast.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+	toast.BackgroundTransparency = 0.08
+	toast.BorderSizePixel = 0
+	UILib.corner(toast, 8)
+	UILib.stroke(toast, 2, Color3.new(0, 0, 0))
+	toast.Parent = holder
+
+	-- Colored side stripe.
+	local stripe = Instance.new("Frame")
+	stripe.Size = UDim2.new(0, 7, 1, -10)
+	stripe.Position = UDim2.new(0, 5, 0, 5)
+	stripe.BackgroundColor3 = style.color
+	stripe.BorderSizePixel = 0
+	UILib.corner(stripe, 3)
+	stripe.Parent = toast
+
+	-- Emoji badge.
+	local badge = Instance.new("TextLabel")
+	badge.Size = UDim2.new(0, 34, 0, 34)
+	badge.Position = UDim2.new(0, 16, 0.5, -17)
+	badge.BackgroundTransparency = 1
+	badge.Font = UILib.Font
+	badge.TextScaled = true
+	badge.Text = style.badge
+	badge.Parent = toast
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1, -64, 1, -10)
+	text.Position = UDim2.new(0, 56, 0, 5)
+	text.BackgroundTransparency = 1
+	text.Font = UILib.Font
+	text.TextScaled = true
+	text.TextWrapped = true
+	text.TextXAlignment = Enum.TextXAlignment.Left
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.TextStrokeColor3 = Color3.new(0, 0, 0)
+	text.TextStrokeTransparency = 0.4
+	text.Text = msg
+	text.Parent = toast
 
 	SoundBook.play(style.sound, UILib.playerGui())
 
-	toast.Position = UDim2.new(1, 40, 0, 0)
-	TweenService:Create(toast, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	toast.Position = UDim2.new(-1, -40, 0, 0)
+	TweenService:Create(toast, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0, 0, 0, 0),
 	}):Play()
 
 	task.delay(4.5, function()
 		local out = TweenService:Create(toast, TweenInfo.new(0.3), {
-			Position = UDim2.new(1, 60, 0, 0),
+			Position = UDim2.new(-1, -60, 0, 0),
 			BackgroundTransparency = 1,
 		})
 		out:Play()
@@ -6372,14 +8371,16 @@ function Notifier.init()
 	gui = UILib.screen("MVC_Toasts", 50)
 	holder = Instance.new("Frame")
 	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = Vector2.new(1, 0)
-	holder.Position = UDim2.new(1, -12, 0, 70)
-	holder.Size = UDim2.new(0, 320, 1, -90)
+	holder.AnchorPoint = Vector2.new(0, 1)
+	holder.Position = UDim2.new(0, 108, 1, -20)
+	holder.Size = UDim2.new(0, 340, 0, 400)
 	holder.Parent = gui
+	UILib.autoScale(holder)
 
 	local list = Instance.new("UIListLayout")
 	list.Padding = UDim.new(0, 8)
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Parent = holder
 
@@ -6391,7 +8392,285 @@ function Notifier.init()
 end
 
 return Notifier
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">PilotPrompt</string><ProtectedString name="Source">-- The old pilot's radio call: ACCEPT (payout, he lands) or DECLINE (he flies
+-- on, runs out of fuel and may crash into your city). Auto-declines on timeout.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local NumberFormat = require(Shared.NumberFormat)
+local SoundBook = require(Shared.SoundBook)
+local UILib = require(script.Parent.UILib)
+
+local PilotPrompt = {}
+
+local gui
+local timerLabel
+local deadline = 0
+local open = false
+
+local function answer(accepted)
+	if not open then
+		return
+	end
+	open = false
+	gui.Enabled = false
+	Remotes.Events.PilotAnswer:FireServer(accepted)
+end
+
+function PilotPrompt.init()
+	local panelGui, content = UILib.panel("MVC_Pilot", "\u{1F4FB} INCOMING RADIO", UDim2.new(0, 460, 0, 260), 30)
+	gui = panelGui
+
+	UILib.text({
+		Size = UDim2.new(1, -20, 0, 96),
+		Position = UDim2.new(0, 10, 0, 6),
+		Text = "\u{1F468}\u{200D}\u{2708}\u{FE0F} \"Mayday... this here's an old cropduster, low on fuel."
+			.. " Requestin' permission to land at your airport, over.\"",
+		TextWrapped = true,
+		TextSize = 20,
+		TextScaled = false,
+	}, content)
+
+	timerLabel = UILib.text({
+		Size = UDim2.new(1, -20, 0, 24),
+		Position = UDim2.new(0, 10, 0, 104),
+		Text = "",
+		TextColor3 = Color3.fromRGB(255, 220, 120),
+	}, content)
+
+	UILib.button({
+		Size = UDim2.new(0.5, -16, 0, 60),
+		Position = UDim2.new(0, 10, 1, -70),
+		Text = "\u{2705} ACCEPT",
+		BackgroundColor3 = UILib.Colors.Green,
+	}, content, function()
+		answer(true)
+	end)
+
+	UILib.button({
+		Size = UDim2.new(0.5, -16, 0, 60),
+		Position = UDim2.new(0.5, 6, 1, -70),
+		Text = "\u{274C} DECLINE",
+		BackgroundColor3 = UILib.Colors.Red,
+	}, content, function()
+		answer(false)
+	end)
+
+	Remotes.Events.PilotOffer.OnClientEvent:Connect(function(payload)
+		if type(payload) ~= "table" then
+			return
+		end
+		open = true
+		deadline = os.clock() + (payload.seconds or 25)
+		gui.Enabled = true
+		SoundBook.play("Ding", UILib.playerGui())
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.3)
+			if open then
+				local left = deadline - os.clock()
+				if left &lt;= 0 then
+					answer(false)
+				else
+					timerLabel.Text = "Reward if you accept: \u{1F4B5} big payout   \u{2022}   Auto-decline in "
+						.. NumberFormat.clock(left)
+				end
+			end
+		end
+	end)
+end
+
+return PilotPrompt
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">PlaneFX</string><ProtectedString name="Source">-- Flight FX for the pilot's cropduster (PlaneEvent) and jet strikes (JetEvent).
+-- Builds a little plane/jet, flies it along the path with engine + radio SFX,
+-- and handles landing / takeoff / crash-explosion visuals.
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local SoundBook = require(Shared.SoundBook)
+
+local PlaneFX = {}
+
+local function anchoredPart(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent or workspace
+	return p
+end
+
+local function buildPlane(cropduster)
+	local model = Instance.new("Model")
+	model.Name = "MVC_Plane"
+	local bodyColor = cropduster and Color3.fromRGB(220, 180, 70) or Color3.fromRGB(90, 100, 120)
+	local body = anchoredPart({
+		Name = "Body",
+		Size = Vector3.new(2.4, 2, cropduster and 9 or 11),
+		Color = bodyColor,
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	anchoredPart({
+		Name = "Wing",
+		Size = Vector3.new(cropduster and 14 or 12, 0.5, 3),
+		Color = bodyColor,
+		Parent = model,
+	})
+	anchoredPart({
+		Name = "Tail",
+		Size = Vector3.new(0.5, 2.4, 2),
+		Color = bodyColor,
+		Parent = model,
+	})
+	local prop = anchoredPart({
+		Name = "Prop",
+		Size = Vector3.new(cropduster and 5 or 3, 0.4, 0.4),
+		Color = Color3.fromRGB(40, 40, 40),
+		Parent = model,
+	})
+	model.PrimaryPart = body
+	return model, body, prop
+end
+
+-- Flies a model from -&gt; to over flight seconds, nose pointed along travel.
+local function flyPath(model, body, prop, from, to, flight, onDone)
+	local start = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = math.min((os.clock() - start) / flight, 1)
+		local pos = from:Lerp(to, t)
+		local ahead = from:Lerp(to, math.min(t + 0.02, 1))
+		local look = (ahead - pos).Magnitude &gt; 0.01 and CFrame.lookAt(pos, ahead) or CFrame.new(pos)
+		model:PivotTo(look)
+		if prop then
+			prop.CFrame = body.CFrame * CFrame.new(0, 0, -(body.Size.Z / 2 + 0.3))
+				* CFrame.Angles(0, 0, os.clock() * 40)
+		end
+		if t &gt;= 1 then
+			conn:Disconnect()
+			if onDone then
+				onDone()
+			end
+		end
+	end)
+end
+
+local function explosion(pos)
+	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = 0.7, RollOffMaxDistance = 600 })
+	local boom = Instance.new("Explosion")
+	boom.Position = pos
+	boom.BlastPressure = 0
+	boom.BlastRadius = 0
+	boom.DestroyJointRadiusPercent = 0
+	boom.Parent = workspace
+	local flash = anchoredPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(8, 8, 8),
+		Position = pos + Vector3.new(0, 4, 0),
+		Color = Color3.fromRGB(255, 180, 60),
+		Material = Enum.Material.Neon,
+	})
+	task.spawn(function()
+		for i = 1, 12 do
+			flash.Size += Vector3.new(4, 4, 4)
+			flash.Transparency = i / 12
+			task.wait(0.03)
+		end
+		flash:Destroy()
+	end)
+end
+
+local function radio(text)
+	-- Static burst then the message plays via the notifier already; here we
+	-- just add a short radio blip sound.
+	SoundBook.play("Blip", workspace.CurrentCamera and game.Players.LocalPlayer:WaitForChild("PlayerGui"), { PlaybackSpeed = 0.7 })
+	local _ = text
+end
+
+local function handlePlane(payload)
+	local phase = payload.phase
+	local cropduster = true
+	local model, body, prop = buildPlane(cropduster)
+	model.Parent = workspace
+
+	local engine = SoundBook.make("BigRumble", { Looped = true, PlaybackSpeed = 0.7, Volume = 0.5 })
+	if engine then
+		engine.Parent = body
+		engine:Play()
+	end
+
+	local function cleanup()
+		if engine then
+			engine:Stop()
+		end
+		model:Destroy()
+	end
+
+	if phase == "crash" then
+		flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
+			explosion(payload.to)
+			cleanup()
+		end)
+		-- Trailing smoke while it goes down.
+		local smoke = Instance.new("ParticleEmitter")
+		smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		smoke.Rate = 30
+		smoke.Lifetime = NumberRange.new(0.8, 1.4)
+		smoke.Color = ColorSequence.new(Color3.fromRGB(60, 60, 60))
+		smoke.Parent = body
+	elseif phase == "land" then
+		flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
+			task.delay(9, cleanup) -- sit on the runway a bit, then despawn
+		end)
+	elseif phase == "takeoff" then
+		flyPath(model, body, prop, payload.from, payload.to, payload.flight, cleanup)
+	else -- approach
+		flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
+			-- Circle-hold: keep it visible until land/crash/takeoff arrives.
+			task.delay(30, cleanup)
+		end)
+	end
+	radio(phase)
+end
+
+local function handleJet(payload)
+	local model, body, prop = buildPlane(false)
+	model.Parent = workspace
+	SoundBook.playAt("Launch", payload.from, { PlaybackSpeed = 1.2, RollOffMaxDistance = 1200 })
+	flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
+		explosion(payload.to)
+		model:Destroy()
+	end)
+end
+
+function PlaneFX.init()
+	Remotes.Events.PlaneEvent.OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" and typeof(payload.from) == "Vector3" then
+			handlePlane(payload)
+		end
+	end)
+	Remotes.Events.JetEvent.OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" and typeof(payload.from) == "Vector3" then
+			handleJet(payload)
+		end
+	end)
+end
+
+return PlaneFX
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">QuestUI</string><ProtectedString name="Source">-- Quest tracker panel: one card per quest chain with progress bars.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -6505,7 +8784,7 @@ function QuestUI.init(context)
 end
 
 return QuestUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">RebirthUI</string><ProtectedString name="Source">-- Rebirth confirmation panel, opened from the golden shrine in the lobby.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6574,7 +8853,7 @@ function RebirthUI.init(context)
 end
 
 return RebirthUI
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">RocketPanel</string><ProtectedString name="Source">-- "Rocket N · Lv X" panel (opened at your silo): Launch + Upgrade buttons.
 -- Also routes the Nuke Island silo prompt into nuke attack mode.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -6658,7 +8937,7 @@ function RocketPanel.init(context)
 			return
 		end
 		gui.Enabled = false
-		ctx.AttackView.open(false)
+		ctx.AttackView.open("rocket")
 	end)
 
 	upgradeButton = UILib.button({
@@ -6686,7 +8965,7 @@ function RocketPanel.init(context)
 		elseif prompt.Name == "NukePrompt" then
 			local state = ctx.State.get()
 			if state and (state.nukeOwned or (state.nukeCharges or 0) &gt; 0) then
-				ctx.AttackView.open(true)
+				ctx.AttackView.open("nuke")
 			else
 				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad next to your silo ("
 					.. "\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. ") or claim the Day 7 daily reward.", "bad")
@@ -6710,7 +8989,7 @@ function RocketPanel.init(context)
 end
 
 return RocketPanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">SidePanel</string><ProtectedString name="Source">-- Left-side button column (Gift / Rewards / Shop / Attack + 2X passes),
 -- and the gem shop panel.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6812,10 +9091,19 @@ function SidePanel.init(context)
 		shopGui.Enabled = not shopGui.Enabled
 	end)
 	sideButton(holder, 4, "bomb", "Attack", UILib.Colors.Purple, function()
-		ctx.AttackView.open(false)
+		ctx.AttackView.open("rocket")
 	end)
-	sideButton(holder, 5, "scroll", "Quests", UILib.Colors.Gold, function()
+	sideButton(holder, 5, "jet", "Jets", UILib.Colors.LightBlue, function()
+		ctx.AttackView.open("jet")
+	end)
+	sideButton(holder, 6, "bomb", "Battery", UILib.Colors.Red, function()
+		ctx.AttackView.open("battery")
+	end)
+	sideButton(holder, 7, "scroll", "Quests", UILib.Colors.Gold, function()
 		ctx.QuestUI.toggle()
+	end)
+	sideButton(holder, 8, "gem", "War", UILib.Colors.DarkGray, function()
+		ctx.Military.toggle()
 	end)
 
 	-- Compact 2X gamepass buttons under the main column.
@@ -6826,7 +9114,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_cash")
 	end)
-	passCash.LayoutOrder = 6
+	passCash.LayoutOrder = 9
 	passCash.Parent = holder
 
 	local passDmg = UILib.button({
@@ -6836,7 +9124,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_damage")
 	end)
-	passDmg.LayoutOrder = 7
+	passDmg.LayoutOrder = 10
 	passDmg.Parent = holder
 
 	-- Gift countdown shows in the caption under the icon.
@@ -6855,7 +9143,7 @@ function SidePanel.init(context)
 end
 
 return SidePanel
-</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
+</ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">UILib</string><ProtectedString name="Source">-- Chunky cartoon UI toolkit: rounded frames, thick black outlines,
 -- bright colors, FredokaOne everywhere. All panels share this look.
 
 local TweenService = game:GetService("TweenService")
@@ -6903,6 +9191,23 @@ function UILib.corner(parent, radius)
 	c.CornerRadius = UDim.new(0, radius or 6) -- blockier, old-Roblox feel
 	c.Parent = parent
 	return c
+end
+
+-- Adds a UIScale that keeps UI a sensible size on phones, tablets, TVs.
+-- Baselined to a ~900px-tall window; shrinks on small screens.
+function UILib.autoScale(frame)
+	local scaleObj = Instance.new("UIScale")
+	scaleObj.Parent = frame
+	local function update()
+		local cam = workspace.CurrentCamera
+		local vh = cam and cam.ViewportSize.Y or 900
+		scaleObj.Scale = math.clamp(vh / 900, 0.55, 1.15)
+	end
+	update()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+	end
+	return scaleObj
 end
 
 function UILib.stroke(parent, thickness, color)
@@ -7077,6 +9382,29 @@ function UILib.icon(kind, parent)
 		outer.Rotation = 45
 		local inner = shape({ Size = UDim2.fromScale(0.32, 0.32), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(225, 160, 255), Round = 4 })
 		inner.Rotation = 45
+	elseif kind == "admin" then
+		-- Gold shield badge with a star.
+		local shield = shape({ Size = UDim2.fromScale(0.66, 0.74), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(240, 190, 50), Round = 6 })
+		shape({ Size = UDim2.fromScale(0.44, 0.5), Position = UDim2.fromScale(0.5, 0.46), BackgroundColor3 = Color3.fromRGB(255, 225, 120), Round = 5 })
+		local star = Instance.new("TextLabel")
+		star.AnchorPoint = Vector2.new(0.5, 0.5)
+		star.Position = UDim2.fromScale(0.5, 0.48)
+		star.Size = UDim2.fromScale(0.6, 0.6)
+		star.BackgroundTransparency = 1
+		star.Font = UILib.Font
+		star.TextScaled = true
+		star.Text = "\u{2605}"
+		star.TextColor3 = Color3.fromRGB(180, 120, 20)
+		star.Parent = box
+		local _ = shield
+	elseif kind == "jet" then
+		local body = shape({ Size = UDim2.fromScale(0.2, 0.6), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(120, 140, 170), Round = 4 })
+		shape({ Size = UDim2.fromScale(0.8, 0.16), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(150, 170, 200), Round = 3 })
+		shape({ Size = UDim2.fromScale(0.34, 0.12), Position = UDim2.fromScale(0.5, 0.78), BackgroundColor3 = Color3.fromRGB(150, 170, 200), Round = 3 })
+		local _ = body
+	elseif kind == "shield" then
+		shape({ Size = UDim2.fromScale(0.66, 0.74), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(90, 180, 255), Round = 6 })
+		shape({ Size = UDim2.fromScale(0.4, 0.46), Position = UDim2.fromScale(0.5, 0.46), BackgroundColor3 = Color3.fromRGB(150, 210, 255), Round = 5 })
 	elseif kind == "cash" then
 		shape({ Size = UDim2.fromScale(0.82, 0.52), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(88, 190, 70), Round = 5 })
 		shape({ Size = UDim2.fromScale(0.66, 0.36), Position = UDim2.fromScale(0.5, 0.52), BackgroundColor3 = Color3.fromRGB(120, 215, 95), Round = 4 })
@@ -7116,6 +9444,7 @@ function UILib.panel(name, title, size, displayOrder)
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 	}, gui)
+	UILib.autoScale(frame) -- keep panels usable on phones/tablets/TVs
 
 	local header = UILib.frame({
 		Name = "Header",
@@ -7167,4 +9496,4 @@ function UILib.panel(name, title, size, displayOrder)
 end
 
 return UILib
-</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX53"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>
+</ProtectedString></Properties></Item></Item></Item></Item><Item class="Players" referent="RBX64"><Properties><string name="Name">Players</string><int name="MaxPlayersInternal">5</int><int name="PreferredPlayersInternal">5</int></Properties></Item></roblox>

@@ -1,6 +1,8 @@
--- Top-down attack view: cycle through other players' cities with arrows,
--- tap anywhere on their plot to move the target crosshair, then BLOW UP.
--- Also handles nuke mode (☢ button) and the barrage toggle.
+-- Top-down attack view. Modes:
+--   rocket / nuke : aim a crosshair (tap to place), then BLOW UP.
+--   jet           : no aiming; choose BOMB CITY or BOMB SILOS.
+--   battery       : no aiming; BLOW UP rains a random volley.
+-- Works on PC, mobile and console (ScreenPointToRay handles the GUI inset).
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -18,23 +20,28 @@ local AttackView = {}
 local ctx
 local player = Players.LocalPlayer
 
--- CurrentCamera can be recreated on respawn; always fetch it fresh.
 local function camera()
 	return workspace.CurrentCamera
 end
 
 local gui
 local nameLabel
+local hintLabel
 local fireButton
+local altButton -- "Bomb Silos" in jet mode
 local barrageButton
 local isOpen = false
-local nukeMode = false
+local mode = "rocket"
 local useBarrage = false
 local targets = {}
 local targetIndex = 1
 local crosshairPos = nil
 local crosshair = nil
 local inputConn = nil
+
+local function needsAim()
+	return mode == "rocket" or mode == "nuke"
+end
 
 local function destroyCrosshair()
 	if crosshair then
@@ -46,9 +53,11 @@ end
 local function placeCrosshair(pos)
 	destroyCrosshair()
 	crosshairPos = pos
+	if not needsAim() then
+		return
+	end
 	local model = Instance.new("Model")
 	model.Name = "MVC_Crosshair"
-
 	local ring = Instance.new("Part")
 	ring.Anchored = true
 	ring.CanCollide = false
@@ -61,7 +70,6 @@ local function placeCrosshair(pos)
 	ring.Material = Enum.Material.Neon
 	ring.Transparency = 0.25
 	ring.Parent = model
-
 	local dot = Instance.new("Part")
 	dot.Anchored = true
 	dot.CanCollide = false
@@ -73,7 +81,6 @@ local function placeCrosshair(pos)
 	dot.Color = Color3.fromRGB(255, 40, 40)
 	dot.Material = Enum.Material.Neon
 	dot.Parent = model
-
 	model.Parent = workspace
 	crosshair = model
 end
@@ -108,21 +115,27 @@ local function updateButtons()
 	if not state then
 		return
 	end
-	if nukeMode then
+	barrageButton.Visible = false
+	altButton.Visible = false
+
+	if mode == "nuke" then
 		local remaining = ctx.State.remaining("nukeRemaining")
-		if remaining > 0 then
-			fireButton.Text = "\u{2622}\u{FE0F} " .. NumberFormat.clock(remaining)
-		else
-			fireButton.Text = "\u{2622}\u{FE0F} NUKE"
-		end
-		barrageButton.Visible = false
-	else
+		fireButton.Text = remaining > 0 and ("\u{2622}\u{FE0F} " .. NumberFormat.clock(remaining)) or "\u{2622}\u{FE0F} NUKE"
+		fireButton.BackgroundColor3 = UILib.Colors.Purple
+	elseif mode == "jet" then
+		local remaining = ctx.State.remaining("jetRemaining")
+		fireButton.Text = remaining > 0 and ("\u{2708}\u{FE0F} " .. NumberFormat.clock(remaining)) or "\u{2708}\u{FE0F} BOMB CITY"
+		fireButton.BackgroundColor3 = UILib.Colors.Blue
+		altButton.Visible = true
+		altButton.Text = "\u{1F680} BOMB SILOS"
+	elseif mode == "battery" then
+		local remaining = ctx.State.remaining("batteryRemaining")
+		fireButton.Text = remaining > 0 and ("\u{1F680} " .. NumberFormat.clock(remaining)) or "\u{1F680} BLOW UP"
+		fireButton.BackgroundColor3 = UILib.Colors.Red
+	else -- rocket
 		local remaining = ctx.State.remaining("rocketRemaining")
-		if remaining > 0 then
-			fireButton.Text = "\u{23F3} " .. NumberFormat.clock(remaining)
-		else
-			fireButton.Text = "BLOW UP"
-		end
+		fireButton.Text = remaining > 0 and ("\u{23F3} " .. NumberFormat.clock(remaining)) or ("BLOW UP x" .. (state.siloCount or 1))
+		fireButton.BackgroundColor3 = UILib.Colors.Red
 		local barrage = state.barrage or 0
 		barrageButton.Visible = barrage > 0
 		barrageButton.Text = (useBarrage and "\u{2705} " or "") .. "\u{1F680}x3 Barrage (" .. barrage .. ")"
@@ -140,33 +153,48 @@ function AttackView.close()
 		inputConn:Disconnect()
 		inputConn = nil
 	end
-	camera().CameraType = Enum.CameraType.Custom
+	local cam = camera()
+	cam.CameraType = Enum.CameraType.Custom
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		camera().CameraSubject = humanoid
+		cam.CameraSubject = humanoid
 	end
 end
 
-local function fire()
+local function fire(jetMode)
 	local target = currentTarget()
 	local state = ctx.State.get()
-	if not target or not crosshairPos or not state then
+	if not target or not state then
 		return
 	end
-	if nukeMode and ctx.State.remaining("nukeRemaining") > 0 then
-		return
+	if mode == "nuke" then
+		if ctx.State.remaining("nukeRemaining") > 0 or not crosshairPos then
+			return
+		end
+		Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, true, false)
+	elseif mode == "jet" then
+		if ctx.State.remaining("jetRemaining") > 0 then
+			return
+		end
+		Remotes.Events.RequestJet:FireServer(target.userId, jetMode or "city")
+	elseif mode == "battery" then
+		if ctx.State.remaining("batteryRemaining") > 0 then
+			return
+		end
+		Remotes.Events.RequestBattery:FireServer(target.userId)
+	else
+		if ctx.State.remaining("rocketRemaining") > 0 or not crosshairPos then
+			return
+		end
+		Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, false, useBarrage)
 	end
-	if not nukeMode and ctx.State.remaining("rocketRemaining") > 0 then
-		return
-	end
-	Remotes.Events.RequestLaunch:FireServer(target.userId, crosshairPos.X, crosshairPos.Z, nukeMode, useBarrage)
 	useBarrage = false
 	task.delay(0.4, AttackView.close)
 end
 
 local function onTap(input, gameProcessed)
-	if gameProcessed or not isOpen then
+	if gameProcessed or not isOpen or not needsAim() then
 		return
 	end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -177,7 +205,9 @@ local function onTap(input, gameProcessed)
 	if not target then
 		return
 	end
-	local ray = camera():ViewportPointToRay(input.Position.X, input.Position.Y)
+	-- ScreenPointToRay accounts for the top GUI inset, so the crosshair lands
+	-- exactly under the tap on both PC and mobile.
+	local ray = camera():ScreenPointToRay(input.Position.X, input.Position.Y)
 	if math.abs(ray.Direction.Y) < 1e-4 then
 		return
 	end
@@ -189,7 +219,7 @@ local function onTap(input, gameProcessed)
 	placeCrosshair(Layout.clampToPlot(target.plotIndex, hit))
 end
 
-function AttackView.open(asNuke)
+function AttackView.open(openMode)
 	local ok, result = pcall(function()
 		return Remotes.Functions.GetTargets:InvokeServer()
 	end)
@@ -199,15 +229,18 @@ function AttackView.open(asNuke)
 	end
 	targets = result
 	targetIndex = 1
-	nukeMode = asNuke == true
+	mode = openMode or "rocket"
 	useBarrage = false
 	isOpen = true
 	gui.Enabled = true
 
+	hintLabel.Text = needsAim() and "Tap anywhere on their city to aim!"
+		or (mode == "jet" and "Choose your jet target — no aiming needed!"
+			or "No aiming — missiles rain across their whole city!")
+
 	camera().CameraType = Enum.CameraType.Scriptable
 	focusTarget()
 	updateButtons()
-
 	inputConn = UserInputService.InputBegan:Connect(onTap)
 end
 
@@ -216,7 +249,6 @@ function AttackView.init(context)
 	gui = UILib.screen("MVC_AttackView", 20)
 	gui.Enabled = false
 
-	-- Target name banner + cycle arrows (top center).
 	local banner = UILib.frame({
 		Size = UDim2.new(0, 380, 0, 52),
 		Position = UDim2.new(0.5, 0, 0, 18),
@@ -249,26 +281,38 @@ function AttackView.init(context)
 		cycle(1)
 	end)
 
-	UILib.text({
-		Size = UDim2.new(0, 420, 0, 24),
+	hintLabel = UILib.text({
+		Size = UDim2.new(0, 460, 0, 24),
 		Position = UDim2.new(0.5, 0, 0, 74),
 		AnchorPoint = Vector2.new(0.5, 0),
-		Text = "Tap anywhere on their city to aim!",
+		Text = "",
 		TextColor3 = Color3.fromRGB(255, 230, 160),
 	}, gui)
 
-	-- BLOW UP / NUKE button.
 	fireButton = UILib.button({
 		Size = UDim2.new(0, 300, 0, 74),
 		Position = UDim2.new(0.5, 0, 1, -170),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Text = "BLOW UP",
 		BackgroundColor3 = UILib.Colors.Red,
-	}, gui, fire)
+	}, gui, function()
+		fire("city")
+	end)
+
+	altButton = UILib.button({
+		Size = UDim2.new(0, 260, 0, 50),
+		Position = UDim2.new(0.5, 0, 1, -232),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Text = "\u{1F680} BOMB SILOS",
+		BackgroundColor3 = UILib.Colors.Purple,
+		Visible = false,
+	}, gui, function()
+		fire("silos")
+	end)
 
 	barrageButton = UILib.button({
 		Size = UDim2.new(0, 240, 0, 44),
-		Position = UDim2.new(0.5, 0, 1, -220),
+		Position = UDim2.new(0.5, 0, 1, -232),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Text = "",
 		BackgroundColor3 = UILib.Colors.Purple,
@@ -286,7 +330,6 @@ function AttackView.init(context)
 		BackgroundColor3 = UILib.Colors.Gray,
 	}, gui, AttackView.close)
 
-	-- Keep cooldown text fresh while open.
 	task.spawn(function()
 		while true do
 			task.wait(0.5)

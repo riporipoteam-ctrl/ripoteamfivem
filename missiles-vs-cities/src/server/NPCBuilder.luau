@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local NPCDefs = require(Shared.NPCDefs)
+local RigUtil = require(script.Parent.RigUtil)
 
 local NPCBuilder = {}
 
@@ -61,15 +62,6 @@ local function loadAvatarBase(def)
 		end
 	end
 	return blockyFallback(def), false
-end
-
-local function anchorRig(model)
-	for _, piece in ipairs(model:GetDescendants()) do
-		if piece:IsA("BasePart") then
-			piece.Anchored = true
-			piece.CanCollide = false
-		end
-	end
 end
 
 local function decorate(model, def)
@@ -136,18 +128,11 @@ function NPCBuilder.build(world)
 			if anchor then
 				local model = bases[def.id]:Clone()
 				model.Name = "NPC_" .. def.id .. "_" .. slot.index
-				anchorRig(model)
 				model.Parent = folder
-
-				-- Snap the rig's feet to the ground using its real bounding
-				-- box (rig pivots vary between avatars and the fallback).
-				local bbCF, bbSize = model:GetBoundingBox()
-				local pivotY = model:GetPivot().Position.Y
-				local feetOffset = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
-				local pos = Vector3.new(anchor.X, anchor.Y + feetOffset + 0.1, anchor.Z)
-				local lookAt = Vector3.new(slot.npcLookAt.X, pos.Y, slot.npcLookAt.Z)
-				model:PivotTo(CFrame.lookAt(pos, lookAt))
-
+				-- Weld everything to the root and anchor only the root so
+				-- heads and hats never drift off.
+				RigUtil.freeze(model)
+				RigUtil.placeOnGround(model, anchor, anchor.Y, slot.npcLookAt)
 				decorate(model, def)
 				playIdle(model)
 			end

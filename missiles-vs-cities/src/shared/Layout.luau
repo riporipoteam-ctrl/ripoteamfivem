@@ -51,6 +51,28 @@ function Layout.nukePadPos(plotIndex)
 	return Vector3.new(c.X - 38, Config.GroundY, c.Z + Config.PlotSize / 2 + 36)
 end
 
+-- Small missile-battery island floating beside each player island.
+function Layout.batteryIslandCenter(plotIndex)
+	local c = Layout.plotCenter(plotIndex)
+	return Vector3.new(c.X - Config.PlotSize / 2 - 90, 0, c.Z + 40)
+end
+
+-- Air-defense turret corner spots (up to 4).
+function Layout.defensePos(plotIndex, turretIndex)
+	local c = Layout.plotCenter(plotIndex)
+	local half = Config.PlotSize / 2 - 10
+	local corners = {
+		Vector3.new(c.X - half, Config.GroundY, c.Z - half),
+		Vector3.new(c.X + half, Config.GroundY, c.Z - half),
+		Vector3.new(c.X - half, Config.GroundY, c.Z + half),
+		Vector3.new(c.X + half, Config.GroundY, c.Z + half),
+	}
+	return corners[((turretIndex - 1) % 4) + 1]
+end
+
+-- The airport zone (jets take off from here).
+Layout.AirportZoneIndex = 9
+
 function Layout.plotSpawn(plotIndex)
 	local c = Layout.plotCenter(plotIndex)
 	return Vector3.new(c.X, Config.GroundY + 4, c.Z + 152)

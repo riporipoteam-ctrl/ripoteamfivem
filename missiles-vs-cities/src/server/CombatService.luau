@@ -67,7 +67,16 @@ local function impactRocket(attackerUserId, targetUserId, pos, damage)
 		return
 	end
 
-	local worth, count = ctx.Plot.applyBlast(slot, pos, damage)
+	-- Air defense may shoot the missile down before impact.
+	if ctx.Defense and ctx.Defense.tryIntercept(slot, "missile", pos) then
+		notify(target, "\u{1F6E1}\u{FE0F} Your air defense intercepted an incoming missile!", "good")
+		if attacker then
+			notify(attacker, "\u{1F6E1}\u{FE0F} " .. target.DisplayName .. "'s air defense shot down your missile!", "bad")
+		end
+		return
+	end
+
+	local worth, count, popLost = ctx.Plot.applyBlast(slot, pos, damage)
 	if count > 0 and attacker then
 		ctx.Economy.addCash(attacker, worth)
 		local aProfile = ctx.Data.get(attacker)
@@ -80,7 +89,7 @@ local function impactRocket(attackerUserId, targetUserId, pos, damage)
 		notify(attacker, "\u{1F4A5} Destroyed " .. count .. " buildings! +\u{1F4B5} "
 			.. NumberFormat.abbrev(worth), "victory")
 		notify(target, "\u{1F4A5} " .. attacker.DisplayName .. "'s missile destroyed "
-			.. count .. " of your buildings!", "bad")
+			.. count .. " buildings! \u{1F465} -" .. NumberFormat.abbrev(popLost) .. " people", "bad")
 		ctx.Economy.pushState(attacker)
 	elseif attacker then
 		notify(attacker, "\u{1F4A8} Missile hit, but nothing was destroyed...", "info")
@@ -170,6 +179,7 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 			to = pos,
 			flight = flight,
 			attacker = player.DisplayName,
+			previewFor = player.UserId,
 		})
 		Remotes.Events.Alarm:FireClient(target, { kind = "nuke", pos = pos, eta = flight })
 		notifyAll("\u{2622}\u{FE0F} " .. player.DisplayName .. " has launched a NUKE at "
@@ -185,6 +195,11 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 			ctx.Quests.onEvent(player, "nuke", 1)
 		end
 	else
+		if now() < (session.siloDisabledUntil or 0) then
+			notify(player, "\u{2708}\u{FE0F} Your silos were bombed! Rockets offline for "
+				.. NumberFormat.clock((session.siloDisabledUntil or 0) - now()), "bad")
+			return
+		end
 		if now() < (session.rocketReadyAt or 0) then
 			notify(player, "\u{1F680} Rocket reloading! "
 				.. NumberFormat.clock((session.rocketReadyAt or 0) - now()), "bad")
@@ -210,6 +225,7 @@ local function onRequestLaunch(player, targetUserId, x, z, useNuke, useBarrage)
 				to = hitPos,
 				flight = flight,
 				attacker = player.DisplayName,
+				previewFor = (s == 1) and player.UserId or nil, -- first rocket = camera
 			})
 			task.delay(flight, impactRocket, player.UserId, target.UserId, hitPos, damage)
 		end
@@ -250,7 +266,15 @@ local function onUpgradeRocket(player)
 		return
 	end
 	profile.rocketLevel += 1
-	notify(player, "\u{1F680} Rocket upgraded to Lv" .. profile.rocketLevel .. "!", "buy")
+	local slot = ctx.Plot.getSlot(player)
+	if slot then
+		ctx.Plot.updateRocketVisual(slot, profile.rocketLevel)
+	end
+	if ctx.Quests then
+		ctx.Quests.onEvent(player, "rocket_upgrade", 1)
+	end
+	notify(player, "\u{1F680} Rocket upgraded to Lv" .. profile.rocketLevel
+		.. "! It's bigger and hits harder.", "buy")
 	ctx.Economy.pushState(player)
 end
 

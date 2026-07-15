@@ -100,10 +100,19 @@ function SidePanel.init(context)
 		shopGui.Enabled = not shopGui.Enabled
 	end)
 	sideButton(holder, 4, "bomb", "Attack", UILib.Colors.Purple, function()
-		ctx.AttackView.open(false)
+		ctx.AttackView.open("rocket")
 	end)
-	sideButton(holder, 5, "scroll", "Quests", UILib.Colors.Gold, function()
+	sideButton(holder, 5, "jet", "Jets", UILib.Colors.LightBlue, function()
+		ctx.AttackView.open("jet")
+	end)
+	sideButton(holder, 6, "bomb", "Battery", UILib.Colors.Red, function()
+		ctx.AttackView.open("battery")
+	end)
+	sideButton(holder, 7, "scroll", "Quests", UILib.Colors.Gold, function()
 		ctx.QuestUI.toggle()
+	end)
+	sideButton(holder, 8, "gem", "War", UILib.Colors.DarkGray, function()
+		ctx.Military.toggle()
 	end)
 
 	-- Compact 2X gamepass buttons under the main column.
@@ -114,7 +123,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_cash")
 	end)
-	passCash.LayoutOrder = 6
+	passCash.LayoutOrder = 9
 	passCash.Parent = holder
 
 	local passDmg = UILib.button({
@@ -124,7 +133,7 @@ function SidePanel.init(context)
 	}, nil, function()
 		Remotes.Events.ShopBuy:FireServer("pass_damage")
 	end)
-	passDmg.LayoutOrder = 7
+	passDmg.LayoutOrder = 10
 	passDmg.Parent = holder
 
 	-- Gift countdown shows in the caption under the icon.

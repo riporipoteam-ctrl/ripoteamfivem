@@ -12,6 +12,31 @@ local UILib = require(script.Parent.UILib)
 
 local GameEvents = {}
 
+-- Flak burst when air defense intercepts something.
+local function flakBurst(pos)
+	SoundBook.playAt("Explosion", pos, { PlaybackSpeed = 1.5, Volume = 0.6, RollOffMaxDistance = 500 })
+	for _ = 1, 5 do
+		local puff = Instance.new("Part")
+		puff.Anchored = true
+		puff.CanCollide = false
+		puff.CanQuery = false
+		puff.Shape = Enum.PartType.Ball
+		puff.Material = Enum.Material.Neon
+		puff.Color = Color3.fromRGB(60, 60, 60)
+		puff.Size = Vector3.new(3, 3, 3)
+		puff.Position = pos + Vector3.new(math.random(-20, 20), 45 + math.random(-8, 8), math.random(-20, 20))
+		puff.Parent = workspace
+		task.spawn(function()
+			for i = 1, 8 do
+				puff.Size += Vector3.new(1.5, 1.5, 1.5)
+				puff.Transparency = i / 8
+				task.wait(0.04)
+			end
+			puff:Destroy()
+		end)
+	end
+end
+
 local KIND_COLORS = {
 	frenzy = Color3.fromRGB(88, 200, 60),
 	gems = Color3.fromRGB(190, 90, 240),
@@ -58,7 +83,14 @@ function GameEvents.init()
 	}, banner)
 
 	Remotes.Events.GameEvent.OnClientEvent:Connect(function(payload)
-		if type(payload) == "table" and type(payload.msg) == "string" then
+		if type(payload) ~= "table" then
+			return
+		end
+		if payload.kind == "intercept" and typeof(payload.pos) == "Vector3" then
+			flakBurst(payload.pos)
+			return
+		end
+		if type(payload.msg) == "string" then
 			show(payload)
 		end
 	end)

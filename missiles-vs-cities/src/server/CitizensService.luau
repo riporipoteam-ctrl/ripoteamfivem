@@ -10,13 +10,44 @@ local Layout = require(Shared.Layout)
 
 local CitizensService = {}
 
-local CITIZENS_PER_ISLAND = 4
 local WALK_ANIM = "rbxassetid://507777826" -- Roblox default R15 walk
+local MAX_CITIZENS = 12
+local MAX_CARS = 6
+
+local CAR_COLORS = {
+	Color3.fromRGB(220, 60, 60), Color3.fromRGB(60, 110, 220), Color3.fromRGB(240, 200, 60),
+	Color3.fromRGB(90, 90, 100), Color3.fromRGB(230, 230, 235), Color3.fromRGB(80, 180, 90),
+}
 
 local ctx
 local rng = Random.new()
 local folder
+local carFolder
 local citizens = {} -- [slotIndex] = { {model, alive}, ... }
+local cars = {} -- [slotIndex] = { {model, alive}, ... }
+
+-- Population/citizen/car counts scale with how many buildings the city has.
+local function builtZones(slot)
+	local n = 0
+	for _, zone in pairs(slot.zones) do
+		if zone.level > 0 and not zone.destroyed then
+			n += 1
+		end
+	end
+	return n
+end
+
+local function targetCitizens(slot)
+	return math.clamp(2 + builtZones(slot), 2, MAX_CITIZENS)
+end
+
+local function targetCars(slot)
+	local n = builtZones(slot)
+	if n < 3 then
+		return 0
+	end
+	return math.clamp(math.floor(n / 2), 1, MAX_CARS)
+end
 
 local SHIRT_COLORS = {
 	Color3.fromRGB(235, 60, 60), Color3.fromRGB(60, 150, 240), Color3.fromRGB(88, 200, 60),
@@ -116,14 +147,92 @@ end
 
 local function clearIsland(slotIndex)
 	local list = citizens[slotIndex]
-	if not list then
-		return
+	if list then
+		for _, record in ipairs(list) do
+			record.alive = false
+			record.model:Destroy()
+		end
+		citizens[slotIndex] = nil
 	end
-	for _, record in ipairs(list) do
-		record.alive = false
-		record.model:Destroy()
+	local clist = cars[slotIndex]
+	if clist then
+		for _, record in ipairs(clist) do
+			record.alive = false
+			record.model:Destroy()
+		end
+		cars[slotIndex] = nil
 	end
-	citizens[slotIndex] = nil
+end
+
+-- Simple blocky car that drives the road grid.
+local function makeCar()
+	local model = Instance.new("Model")
+	local color = CAR_COLORS[rng:NextInteger(1, #CAR_COLORS)]
+	local function p(name, size, off, c)
+		local piece = Instance.new("Part")
+		piece.Name = name
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.Size = size
+		piece.Color = c
+		piece.Material = Enum.Material.SmoothPlastic
+		piece.Parent = model
+		piece.CFrame = CFrame.new(off)
+		return piece
+	end
+	local body = p("Body", Vector3.new(4, 1.6, 8), Vector3.new(0, 1.2, 0), color)
+	p("Cabin", Vector3.new(3.4, 1.4, 4), Vector3.new(0, 2.5, -0.5), color)
+	p("Glass", Vector3.new(3.5, 1.1, 4.1), Vector3.new(0, 2.6, -0.5), Color3.fromRGB(120, 180, 220))
+	for _, wx in ipairs({ -1.8, 1.8 }) do
+		for _, wz in ipairs({ -2.6, 2.6 }) do
+			local w = p("Wheel", Vector3.new(0.7, 1.4, 1.4), Vector3.new(wx, 0.7, wz), Color3.fromRGB(30, 30, 30))
+			w.Shape = Enum.PartType.Cylinder
+			w.CFrame = CFrame.new(wx, 0.7, wz) * CFrame.Angles(0, 0, math.rad(90))
+		end
+	end
+	model.PrimaryPart = body
+	return model
+end
+
+local function driveCar(record, slotIndex)
+	task.spawn(function()
+		local model = record.model
+		local ix = rng:NextInteger(1, #Layout.RoadXs)
+		local iz = rng:NextInteger(1, #Layout.RoadZs)
+		local pos = Layout.intersection(slotIndex, ix, iz) + Vector3.new(0, 1.5, 0)
+		while record.alive and model.Parent do
+			if rng:NextNumber() < 0.5 then
+				ix = math.clamp(ix + (rng:NextNumber() < 0.5 and -1 or 1), 1, #Layout.RoadXs)
+			else
+				iz = math.clamp(iz + (rng:NextNumber() < 0.5 and -1 or 1), 1, #Layout.RoadZs)
+			end
+			local target = Layout.intersection(slotIndex, ix, iz) + Vector3.new(0, 1.5, 0)
+			local dist = (target - pos).Magnitude
+			local speed = 22
+			local dur = math.max(dist / speed, 0.2)
+			local t0 = os.clock()
+			local startPos = pos
+			while record.alive and os.clock() - t0 < dur do
+				local a = (os.clock() - t0) / dur
+				local p = startPos:Lerp(target, a)
+				model:PivotTo(CFrame.lookAt(p, target))
+				task.wait()
+			end
+			pos = target
+			task.wait(rng:NextNumber(0.1, 0.5))
+		end
+	end)
+end
+
+local function spawnCar(slot)
+	local model = makeCar()
+	model.Name = "Car_" .. slot.index
+	model.Parent = carFolder
+	local start = Layout.intersection(slot.index, rng:NextInteger(1, #Layout.RoadXs), rng:NextInteger(1, #Layout.RoadZs))
+	model:PivotTo(CFrame.new(start + Vector3.new(0, 1.5, 0)))
+	local record = { model = model, alive = true }
+	driveCar(record, slot.index)
+	return record
 end
 
 function CitizensService.init(context)
@@ -131,30 +240,62 @@ function CitizensService.init(context)
 	folder = Instance.new("Folder")
 	folder.Name = "Citizens"
 	folder.Parent = workspace
+	carFolder = Instance.new("Folder")
+	carFolder.Name = "Cars"
+	carFolder.Parent = workspace
 
 	task.spawn(function()
 		while true do
 			task.wait(5)
 			for _, slot in ipairs(ctx.Plot.slots()) do
 				if slot.owner then
+					-- Citizens scale with city size.
 					local list = citizens[slot.index]
 					if not list then
 						list = {}
 						citizens[slot.index] = list
 					end
-					-- Cull dead entries, top up to target population.
 					for i = #list, 1, -1 do
 						if not list[i].model.Parent then
 							table.remove(list, i)
 						end
 					end
-					if #list < CITIZENS_PER_ISLAND then
+					local wantP = targetCitizens(slot)
+					if #list < wantP then
 						local record = spawnCitizen(slot)
 						if record then
 							list[#list + 1] = record
 						end
+					elseif #list > wantP then
+						local rec = table.remove(list)
+						if rec then
+							rec.alive = false
+							rec.model:Destroy()
+						end
 					end
-				elseif citizens[slot.index] then
+
+					-- Cars appear once the city has a few buildings.
+					local clist = cars[slot.index]
+					if not clist then
+						clist = {}
+						cars[slot.index] = clist
+					end
+					for i = #clist, 1, -1 do
+						if not clist[i].model.Parent then
+							table.remove(clist, i)
+						end
+					end
+					local wantC = targetCars(slot)
+					if #clist < wantC then
+						clist[#clist + 1] = spawnCar(slot)
+					elseif #clist > wantC then
+						local rec = table.remove(clist)
+						if rec then
+							rec.alive = false
+							rec.model:Destroy()
+						end
+					end
+				elseif citizens[slot.index] or cars[slot.index] then
 					clearIsland(slot.index)
 				end
 			end

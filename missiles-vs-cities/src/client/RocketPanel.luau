@@ -82,7 +82,7 @@ function RocketPanel.init(context)
 			return
 		end
 		gui.Enabled = false
-		ctx.AttackView.open(false)
+		ctx.AttackView.open("rocket")
 	end)
 
 	upgradeButton = UILib.button({
@@ -110,7 +110,7 @@ function RocketPanel.init(context)
 		elseif prompt.Name == "NukePrompt" then
 			local state = ctx.State.get()
 			if state and (state.nukeOwned or (state.nukeCharges or 0) > 0) then
-				ctx.AttackView.open(true)
+				ctx.AttackView.open("nuke")
 			else
 				ctx.Notifier.show("\u{2622}\u{FE0F} You need Nuke Access! Step on the purple pad next to your silo ("
 					.. "\u{1F4B5} " .. NumberFormat.abbrev(Config.Nuke.IslandCost) .. ") or claim the Day 7 daily reward.", "bad")
