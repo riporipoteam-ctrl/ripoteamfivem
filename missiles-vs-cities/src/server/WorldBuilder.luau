@@ -669,9 +669,10 @@ function WorldBuilder.build()
 	sunRays.Parent = Lighting
 
 	local grade = Instance.new("ColorCorrectionEffect")
-	grade.Saturation = 0.14
-	grade.Contrast = 0.07
-	grade.Brightness = 0.015
+	grade.Saturation = 0.28 -- punchy, saturated colors like the reference
+	grade.Contrast = 0.1
+	grade.Brightness = 0.02
+	grade.TintColor = Color3.fromRGB(255, 252, 245)
 	grade.Parent = Lighting
 
 	return {

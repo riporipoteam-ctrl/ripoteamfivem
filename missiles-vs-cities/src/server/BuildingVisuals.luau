@@ -149,15 +149,65 @@ local function renderHouses(model, def, level, center, rng)
 			Material = Enum.Material.Wood,
 			Parent = model,
 		})
-		part({
-			Name = "Window",
-			Size = Vector3.new(2.2, 2, 0.3),
-			CFrame = cf * CFrame.new(w / 4 + 0.6, h - 1.6, w / 2 + 0.12),
-			Color = WINDOW_COLOR,
-			Material = Enum.Material.Neon,
-			Transparency = 0.15,
+		for _, wx in ipairs({ -w / 4 - 0.4, w / 4 + 0.6 }) do
+			part({
+				Name = "Window",
+				Size = Vector3.new(2.2, 2, 0.3),
+				CFrame = cf * CFrame.new(wx, h - 1.6, w / 2 + 0.12),
+				Color = WINDOW_COLOR,
+				Material = Enum.Material.Neon,
+				Smooth = true,
+				Transparency = 0.1,
+				Parent = model,
+			})
+		end
+		-- Brick chimney with a little smoke.
+		local chim = part({
+			Name = "Chimney",
+			Size = Vector3.new(1.6, 3.5, 1.6),
+			CFrame = cf * CFrame.new(w / 3, h + 2.5, -w / 4),
+			Color = darken(def.color, 0.15),
 			Parent = model,
 		})
+		local smoke = Instance.new("ParticleEmitter")
+		smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		smoke.Rate = 3
+		smoke.Lifetime = NumberRange.new(1, 2)
+		smoke.Size = NumberSequence.new(1.5)
+		smoke.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.5),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		smoke.Speed = NumberRange.new(2, 4)
+		smoke.Color = ColorSequence.new(Color3.fromRGB(210, 210, 210))
+		smoke.Parent = chim
+	end
+end
+
+-- Adds a grid of glowing window squares up a tower face. Random lit/dark
+-- windows give the "real city building" look from the reference.
+local function windowGrid(model, base, h, faceCF, faceWidth, rng)
+	local floorH = 3.2
+	-- Cap floors so tall towers don't spawn thousands of window parts.
+	local floors = math.clamp(math.floor((h - 2) / floorH), 1, 8)
+	local cols = 2
+	local winW = faceWidth / (cols + 1)
+	for f = 0, floors - 1 do
+		local y = 2 + f * floorH + floorH / 2 - h / 2
+		for c = 1, cols do
+			local x = -faceWidth / 2 + c * (faceWidth / (cols + 1))
+			local lit = rng:NextNumber() > 0.35
+			local win = part({
+				Name = "Win",
+				Size = Vector3.new(winW * 0.7, floorH * 0.6, 0.3),
+				CFrame = CFrame.new(base + Vector3.new(0, h / 2, 0)) * faceCF * CFrame.new(x, y, 0),
+				Color = lit and WINDOW_COLOR or Color3.fromRGB(70, 90, 120),
+				Material = lit and Enum.Material.Neon or Enum.Material.Glass,
+				Smooth = true,
+				Parent = model,
+			})
+			win.Transparency = lit and 0.05 or 0.35
+		end
 	end
 end
 
@@ -165,54 +215,64 @@ local function renderTowers(model, def, level, center, rng)
 	local count = math.clamp(1 + math.floor(level / 15), 1, 4)
 	for i = 1, count do
 		local off = SUB_OFFSETS[i]
-		local h = 9 + math.min(level, Config.BuildingMaxLevel) * 0.5 * (0.8 + rng:NextNumber() * 0.4)
+		local h = math.min(12 + math.min(level, Config.BuildingMaxLevel) * 0.7 * (0.85 + rng:NextNumber() * 0.3), 44)
 		local base = Vector3.new(center.X + off.X, Config.GroundY, center.Z + off.Z)
+		local w = 15
 
 		studBrick(part({
 			Name = "Tower",
-			Size = Vector3.new(15, h, 15),
+			Size = Vector3.new(w, h, w),
 			Position = base + Vector3.new(0, h / 2, 0),
 			Color = def.color,
 			Material = materialOf(def),
 			Reflectance = def.material == "Glass" and 0.15 or 0,
 			Parent = model,
 		}), true)
-		-- Glowing window strips on two faces.
-		for _, face in ipairs({ CFrame.new(0, 0, 7.7), CFrame.new(7.7, 0, 0) * CFrame.Angles(0, math.rad(90), 0) }) do
-			part({
-				Name = "Windows",
-				Size = Vector3.new(9, math.max(h - 4, 2), 0.3),
-				CFrame = CFrame.new(base + Vector3.new(0, h / 2, 0)) * face,
-				Color = WINDOW_COLOR,
-				Material = Enum.Material.Neon,
-				Transparency = 0.35,
-				Parent = model,
-			})
+
+		-- Window grid on all four faces.
+		local faces = {
+			CFrame.new(0, 0, w / 2 + 0.16),
+			CFrame.new(0, 0, -w / 2 - 0.16) * CFrame.Angles(0, math.pi, 0),
+			CFrame.new(w / 2 + 0.16, 0, 0) * CFrame.Angles(0, math.rad(90), 0),
+			CFrame.new(-w / 2 - 0.16, 0, 0) * CFrame.Angles(0, math.rad(-90), 0),
+		}
+		for _, fcf in ipairs(faces) do
+			windowGrid(model, base, h, fcf, w, rng)
 		end
-		-- Roof trim + details.
+
+		-- Colored roof trim (parapet) around the top.
 		part({
 			Name = "Trim",
-			Size = Vector3.new(15.8, 1, 15.8),
-			Position = base + Vector3.new(0, h + 0.5, 0),
-			Color = lighten(def.color, 0.22),
-			Material = level >= 30 and Enum.Material.Neon or Enum.Material.SmoothPlastic,
+			Size = Vector3.new(w + 0.8, 1.2, w + 0.8),
+			Position = base + Vector3.new(0, h + 0.6, 0),
+			Color = lighten(def.color, 0.25),
+			Material = level >= 30 and Enum.Material.Neon or Enum.Material.Plastic,
+			Parent = model,
+		})
+		-- Rooftop details.
+		part({
+			Name = "RoofBox",
+			Size = Vector3.new(4, 2.4, 4),
+			Position = base + Vector3.new(3, h + 2.4, 3),
+			Color = Color3.fromRGB(120, 120, 128),
+			Material = Enum.Material.Metal,
+			Parent = model,
+		})
+		part({
+			Name = "WaterTank",
+			Size = Vector3.new(3, 3, 3),
+			Position = base + Vector3.new(-3.5, h + 2.7, -3),
+			Color = Color3.fromRGB(150, 120, 90),
 			Parent = model,
 		})
 		if i == 1 then
 			part({
-				Name = "RoofBox",
-				Size = Vector3.new(4, 2.4, 4),
-				Position = base + Vector3.new(3, h + 2.2, 3),
-				Color = Color3.fromRGB(120, 120, 128),
-				Material = Enum.Material.Metal,
-				Parent = model,
-			})
-			part({
 				Name = "Antenna",
-				Size = Vector3.new(0.4, 7, 0.4),
-				Position = base + Vector3.new(-4, h + 4.5, -4),
+				Size = Vector3.new(0.4, 8, 0.4),
+				Position = base + Vector3.new(-4, h + 5.5, -4),
 				Color = Color3.fromRGB(200, 60, 60),
 				Material = Enum.Material.Neon,
+				Smooth = true,
 				Parent = model,
 			})
 		end
