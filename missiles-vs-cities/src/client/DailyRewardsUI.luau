@@ -49,11 +49,19 @@ local function makeCard(parent, dayNumber, big)
 		Text = "DAY " .. dayNumber,
 	}, card)
 
+	-- Holder for a 3D reward icon (populated in refresh from the reward kind).
+	local iconHolder = Instance.new("Frame")
+	iconHolder.Name = "IconHolder"
+	iconHolder.BackgroundTransparency = 1
+	iconHolder.Size = UDim2.new(1, -8, 0, big and 80 or 46)
+	iconHolder.Position = UDim2.new(0, 4, 0, big and 44 or 26)
+	iconHolder.Parent = card
+
 	local emojiLabel = UILib.text({
-		Size = UDim2.new(1, -8, 0, big and 80 or 38),
-		Position = UDim2.new(0, 4, 0, big and 44 or 28),
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0, 0),
 		Text = reward and reward.emoji or "\u{2753}",
-	}, card)
+	}, iconHolder)
 
 	local nameLabel = UILib.text({
 		Size = UDim2.new(1, -8, 0, big and 30 or 20),
@@ -73,9 +81,15 @@ local function makeCard(parent, dayNumber, big)
 		end
 	end)
 
-	cards[dayNumber] = { button = statusButton, emoji = emojiLabel, name = nameLabel }
+	cards[dayNumber] = { button = statusButton, emoji = emojiLabel, name = nameLabel, iconHolder = iconHolder }
 	return card
 end
+
+-- Reward kind -> 3D icon builder kind.
+local REWARD_ICON = {
+	gems = "gem", cash_minutes = "cash", shield = "shield",
+	barrage = "rocket", nuke_charge = "rocket",
+}
 
 local function refresh()
 	if not dailyData then
@@ -86,8 +100,26 @@ local function refresh()
 		for dayNumber, card in pairs(cards) do
 			local reward = dailyData.rewards[dayNumber]
 			if reward then
-				card.emoji.Text = reward.emoji
 				card.name.Text = reward.label
+				-- Swap in a 3D model icon for this reward, or keep the emoji.
+				local iconKind = REWARD_ICON[reward.kind]
+				local existing = card.iconHolder:FindFirstChild("Icon3D")
+				if existing then
+					existing:Destroy()
+				end
+				if iconKind then
+					card.emoji.Visible = false
+					local vp = UILib.viewportIcon(iconKind, card.iconHolder)
+					if vp then
+						vp.Name = "Icon3D"
+					else
+						card.emoji.Visible = true
+						card.emoji.Text = reward.emoji
+					end
+				else
+					card.emoji.Visible = true
+					card.emoji.Text = reward.emoji
+				end
 			end
 		end
 	end

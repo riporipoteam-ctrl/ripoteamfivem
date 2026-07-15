@@ -226,14 +226,123 @@ function UILib.button(props, parent, onClick)
 	return b
 end
 
--- Cartoon icons. Prefer a real image harvested from a Store UI kit; otherwise
--- draw the icon from UI shapes. Returns a square Frame you size/position.
+-- ===== 3D rendered icons (ViewportFrame) — the reference game's "3D icon" look
+local function vpart(model, size, cf, color, material, shape)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = model
+	return p
+end
+
+-- Each builder fills a Model with parts centred near the origin (~2-stud tall).
+local ICON_MODELS = {
+	gem = function(m)
+		local top = vpart(m, Vector3.new(1.4, 1.4, 1.4), CFrame.new(0, 0.2, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), Color3.fromRGB(190, 90, 240), Enum.Material.Neon)
+		top.Reflectance = 0.2
+	end,
+	cash = function(m)
+		for i = 0, 2 do
+			vpart(m, Vector3.new(2.2, 0.4, 1.3), CFrame.new(0, -0.4 + i * 0.42, 0) * CFrame.Angles(0, math.rad(8 * i), 0), Color3.fromRGB(96, 200, 90))
+		end
+		vpart(m, Vector3.new(0.7, 0.7, 0.05), CFrame.new(0, 0.02, 0.7), Color3.fromRGB(240, 220, 120))
+	end,
+	coin = function(m)
+		vpart(m, Vector3.new(0.4, 2, 2), CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(245, 205, 70), Enum.Material.Metal, Enum.PartType.Cylinder)
+	end,
+	rocket = function(m)
+		vpart(m, Vector3.new(0.9, 2, 0.9), CFrame.new(0, 0, 0), Color3.fromRGB(240, 240, 245))
+		vpart(m, Vector3.new(0.7, 0.7, 0.7), CFrame.new(0, 1.2, 0) * CFrame.Angles(0, 0, math.rad(45)), Color3.fromRGB(235, 70, 70), Enum.Material.Neon)
+		vpart(m, Vector3.new(0.3, 0.7, 0.3), CFrame.new(-0.55, -0.8, 0), Color3.fromRGB(235, 70, 70))
+		vpart(m, Vector3.new(0.3, 0.7, 0.3), CFrame.new(0.55, -0.8, 0), Color3.fromRGB(235, 70, 70))
+	end,
+	bomb = function(m)
+		vpart(m, Vector3.new(1.7, 1.7, 1.7), CFrame.new(0, -0.1, 0), Color3.fromRGB(50, 54, 66), Enum.Material.Metal, Enum.PartType.Ball)
+		vpart(m, Vector3.new(0.35, 0.7, 0.35), CFrame.new(0.3, 1, 0) * CFrame.Angles(0, 0, math.rad(-25)), Color3.fromRGB(200, 160, 90))
+		vpart(m, Vector3.new(0.5, 0.5, 0.5), CFrame.new(0.6, 1.4, 0), Color3.fromRGB(255, 170, 40), Enum.Material.Neon, Enum.PartType.Ball)
+	end,
+	gift = function(m)
+		vpart(m, Vector3.new(1.8, 1.5, 1.8), CFrame.new(0, -0.2, 0), Color3.fromRGB(235, 70, 70))
+		vpart(m, Vector3.new(1.9, 0.4, 0.5), CFrame.new(0, 0, 0), Color3.fromRGB(255, 220, 90))
+		vpart(m, Vector3.new(0.5, 0.4, 1.9), CFrame.new(0, 0, 0), Color3.fromRGB(255, 220, 90))
+		vpart(m, Vector3.new(0.6, 0.6, 0.6), CFrame.new(0, 0.7, 0) * CFrame.Angles(0, math.rad(45), 0), Color3.fromRGB(255, 220, 90))
+	end,
+	shield = function(m)
+		local s = vpart(m, Vector3.new(1.7, 2, 0.4), CFrame.new(0, 0, 0), Color3.fromRGB(90, 180, 255))
+		s.Reflectance = 0.15
+		vpart(m, Vector3.new(0.9, 1.1, 0.5), CFrame.new(0, 0.1, 0.05), Color3.fromRGB(150, 210, 255))
+	end,
+	plane = function(m)
+		vpart(m, Vector3.new(0.7, 0.6, 2.2), CFrame.new(0, 0, 0), Color3.fromRGB(120, 140, 170), Enum.Material.Metal)
+		vpart(m, Vector3.new(2.4, 0.2, 0.7), CFrame.new(0, 0, 0.1), Color3.fromRGB(150, 170, 200))
+		vpart(m, Vector3.new(0.15, 0.7, 0.6), CFrame.new(0, 0.35, 0.9), Color3.fromRGB(150, 170, 200))
+	end,
+	star = function(m)
+		vpart(m, Vector3.new(1.6, 1.6, 0.4), CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(45)), Color3.fromRGB(250, 205, 60), Enum.Material.Neon)
+		vpart(m, Vector3.new(1.6, 1.6, 0.4), CFrame.new(0, 0, 0.02), Color3.fromRGB(250, 205, 60), Enum.Material.Neon)
+	end,
+}
+
+-- Which drawn-icon kinds map to a 3D model builder.
+local ICON_3D = {
+	gem = "gem", cash = "cash", gift = "gift", bomb = "bomb",
+	jet = "plane", admin = "star", shield = "shield",
+}
+
+-- Builds a spinning-free 3D icon in a ViewportFrame.
+function UILib.viewportIcon(kind, parent)
+	local builder = ICON_MODELS[ICON_3D[kind] or kind]
+	if not builder then
+		return nil
+	end
+	local vpf = Instance.new("ViewportFrame")
+	vpf.Name = "Icon3D_" .. kind
+	vpf.BackgroundTransparency = 1
+	vpf.Size = UDim2.fromScale(1, 1)
+	vpf.LightColor = Color3.fromRGB(255, 255, 255)
+	vpf.Ambient = Color3.fromRGB(180, 180, 190)
+
+	local world = Instance.new("Model")
+	world.Parent = vpf
+	builder(world)
+
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 40
+	cam.CFrame = CFrame.lookAt(Vector3.new(3.2, 2.4, 4.2), Vector3.new(0, 0, 0))
+	cam.Parent = vpf
+	vpf.CurrentCamera = cam
+
+	if parent then
+		vpf.Parent = parent
+	end
+	return vpf
+end
+
+-- Cartoon icons. Prefer a 3D ViewportFrame model, then a Store-kit image,
+-- then a drawn shape. Returns a square Frame/Viewport you size/position.
 function UILib.icon(kind, parent)
+	-- 1) Real 3D rendered icon (reliable, reference-style).
+	if ICON_3D[kind] then
+		local vp = UILib.viewportIcon(kind, parent)
+		if vp then
+			return vp
+		end
+	end
+
 	local box = Instance.new("Frame")
 	box.Name = "Icon_" .. kind
 	box.BackgroundTransparency = 1
 
-	-- Try a Store-kit image for this icon first (no distortion: ScaleType Fit).
+	-- 2) Store-kit image (no distortion: ScaleType Fit).
 	local kw = ICON_KEYWORDS[kind]
 	local kitImage = kw and UIKit.icon(kw) or nil
 	if kitImage then
