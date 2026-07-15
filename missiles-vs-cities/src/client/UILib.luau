@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local SoundBook = require(Shared.SoundBook)
+local Config = require(Shared.Config)
 local UIKit = require(script.Parent.UIKit)
 
 local UILib = {}
@@ -346,70 +347,134 @@ function UILib.icon(kind, parent)
 	return box
 end
 
--- Standard panel with the red header bar + X close button from the screenshots.
+-- Tiled stud-texture overlay (the dotted grid on reference panels). Rounds to
+-- match its parent. If the texture fails to load it's simply invisible.
+function UILib.studOverlay(frame, transparency, radius)
+	local overlay = Instance.new("ImageLabel")
+	overlay.Name = "Studs"
+	overlay.BackgroundTransparency = 1
+	overlay.Image = Config.StudTexture
+	overlay.ScaleType = Enum.ScaleType.Tile
+	overlay.TileSize = UDim2.new(0, 44, 0, 44)
+	overlay.ImageTransparency = transparency or 0.82
+	overlay.Size = UDim2.fromScale(1, 1)
+	overlay.ZIndex = frame.ZIndex
+	UILib.corner(overlay, radius or 14)
+	overlay.Parent = frame
+	return overlay
+end
+
+-- A reference-style card: colored, rounded, thick black outline, stud overlay,
+-- and a subtle top-light gradient. Used by daily rewards, shop, etc.
+function UILib.card(props, parent)
+	local card = Instance.new("Frame")
+	card.BorderSizePixel = 0
+	card.BackgroundColor3 = props.BackgroundColor3 or UILib.Colors.LightBlue
+	for k, v in pairs(props) do
+		if k ~= "Parent" then
+			card[k] = v
+		end
+	end
+	UILib.corner(card, 10)
+	UILib.stroke(card, 3)
+	UILib.studOverlay(card, 0.86, 10)
+	local grad = Instance.new("UIGradient")
+	grad.Rotation = 90
+	grad.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(210, 220, 235))
+	grad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.75),
+		NumberSequenceKeypoint.new(1, 0.9),
+	})
+	grad.Parent = card
+	card.Parent = parent
+	return card
+end
+
+-- Reference-style panel: dark navy body + stud overlay + chunky outline, red
+-- stud header bar, glossy X close button. This is the shared look for the
+-- WHOLE game's menus.
 function UILib.panel(name, title, size, displayOrder)
 	local gui = UILib.screen(name, displayOrder or 10)
 	gui.Enabled = false
 
-	-- Whoosh whenever any panel opens.
 	gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 		if gui.Enabled then
 			SoundBook.play("PanelOpen", UILib.playerGui())
 		end
 	end)
 
-	local frame = UILib.frame({
-		Name = "Panel",
-		Size = size,
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-	}, gui)
-	UILib.autoScale(frame) -- keep panels usable on phones/tablets/TVs
+	local frame = Instance.new("Frame")
+	frame.Name = "Panel"
+	frame.Size = size
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.BackgroundColor3 = Color3.fromRGB(40, 44, 58)
+	frame.BorderSizePixel = 0
+	frame.Parent = gui
+	UILib.corner(frame, 16)
+	UILib.stroke(frame, 4)
+	UILib.studOverlay(frame, 0.86, 16)
+	UILib.autoScale(frame)
 
-	local header = UILib.frame({
-		Name = "Header",
-		Size = UDim2.new(1, 0, 0, 46),
-		Position = UDim2.new(0, 0, 0, -23),
-		BackgroundColor3 = UILib.Colors.Red,
-	}, frame)
+	-- Soft drop shadow behind the whole panel.
+	local shadow = Instance.new("ImageLabel")
+	shadow.Name = "PanelShadow"
+	shadow.BackgroundTransparency = 1
+	shadow.Image = "rbxassetid://5028857084"
+	shadow.ImageColor3 = Color3.new(0, 0, 0)
+	shadow.ImageTransparency = 0.5
+	shadow.ScaleType = Enum.ScaleType.Slice
+	shadow.SliceCenter = Rect.new(24, 24, 276, 276)
+	shadow.Size = UDim2.new(1, 40, 1, 40)
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 10)
+	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadow.ZIndex = 0
+	shadow.Parent = frame
+
+	local header = Instance.new("Frame")
+	header.Name = "Header"
+	header.Size = UDim2.new(1, 8, 0, 50)
+	header.Position = UDim2.new(0.5, 0, 0, -20)
+	header.AnchorPoint = Vector2.new(0.5, 0)
+	header.BackgroundColor3 = UILib.Colors.Red
+	header.BorderSizePixel = 0
+	header.ZIndex = 2
+	header.Parent = frame
+	UILib.corner(header, 12)
+	UILib.stroke(header, 4)
+	local hstuds = UILib.studOverlay(header, 0.8, 12)
+	hstuds.ZIndex = 2
 
 	UILib.text({
 		Name = "Title",
-		Size = UDim2.new(1, -70, 1, -14),
-		Position = UDim2.new(0, 14, 0, 7),
+		Size = UDim2.new(1, -80, 1, -16),
+		Position = UDim2.new(0, 18, 0, 8),
 		Text = title,
 		Font = UILib.TitleFont,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 3,
 	}, header)
 
-	-- Stud dots along the header, like classic brick UI.
-	for i = 1, 5 do
-		local stud = Instance.new("Frame")
-		stud.Size = UDim2.new(0, 7, 0, 7)
-		stud.Position = UDim2.new(1, -60 - i * 14, 0, 4)
-		stud.BackgroundColor3 = Color3.new(1, 1, 1)
-		stud.BackgroundTransparency = 0.75
-		stud.BorderSizePixel = 0
-		UILib.corner(stud, 3)
-		stud.Parent = header
-	end
-
-	UILib.button({
+	local close = UILib.button({
 		Name = "Close",
-		Size = UDim2.new(0, 38, 0, 34),
-		Position = UDim2.new(1, -46, 0, 6),
+		Size = UDim2.new(0, 40, 0, 40),
+		Position = UDim2.new(1, -50, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
 		Text = "X",
-		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-		TextColor3 = UILib.Colors.Red,
+		BackgroundColor3 = Color3.fromRGB(235, 70, 70),
+		TextColor3 = Color3.new(1, 1, 1),
+		ZIndex = 3,
 	}, header, function()
 		gui.Enabled = false
 	end)
+	local _ = close
 
 	local content = Instance.new("Frame")
 	content.Name = "Content"
 	content.BackgroundTransparency = 1
-	content.Size = UDim2.new(1, -20, 1, -46)
-	content.Position = UDim2.new(0, 10, 0, 32)
+	content.Size = UDim2.new(1, -24, 1, -54)
+	content.Position = UDim2.new(0, 12, 0, 42)
+	content.ZIndex = 2
 	content.Parent = frame
 
 	return gui, content

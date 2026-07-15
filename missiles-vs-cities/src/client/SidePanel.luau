@@ -55,8 +55,8 @@ local function makeShop()
 	pad.Parent = scroll
 
 	for i, item in ipairs(items) do
-		local card = UILib.frame({
-			BackgroundColor3 = Color3.fromRGB(236, 244, 255),
+		local card = UILib.card({
+			BackgroundColor3 = Color3.fromRGB(130, 200, 235),
 			LayoutOrder = i,
 		}, scroll)
 
@@ -69,13 +69,13 @@ local function makeShop()
 			Size = UDim2.new(1, -8, 0, 24),
 			Position = UDim2.new(0, 4, 0, 58),
 			Text = item.name,
-			TextColor3 = Color3.fromRGB(30, 40, 70),
+			TextColor3 = Color3.new(1, 1, 1),
 		}, card)
 		UILib.text({
 			Size = UDim2.new(1, -8, 0, 18),
 			Position = UDim2.new(0, 4, 0, 82),
 			Text = item.desc,
-			TextColor3 = Color3.fromRGB(90, 100, 130),
+			TextColor3 = Color3.fromRGB(225, 240, 255),
 		}, card)
 
 		local priceText = item.cur == "gem" and ("\u{1F48E} " .. item.price)

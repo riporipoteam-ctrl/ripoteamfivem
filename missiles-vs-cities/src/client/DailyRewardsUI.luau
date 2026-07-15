@@ -18,12 +18,14 @@ local dailyData = nil
 
 local function makeCard(parent, dayNumber, big)
 	local reward = Config.DailyRewards[dayNumber]
-	local card = UILib.frame({
-		Size = big and UDim2.new(0, 150, 0, 268) or UDim2.new(0, 118, 0, 128),
-		BackgroundColor3 = UILib.Colors.LightBlue,
-	}, parent)
-
+	local card
 	if big then
+		-- Rainbow Day 7 card (its own gradient, so not UILib.card).
+		card = UILib.frame({
+			Size = UDim2.new(0, 150, 0, 268),
+			BackgroundColor3 = UILib.Colors.LightBlue,
+		}, parent)
+		UILib.studOverlay(card, 0.84, 10)
 		local rainbow = Instance.new("UIGradient")
 		rainbow.Rotation = 90
 		rainbow.Color = ColorSequence.new({
@@ -34,6 +36,11 @@ local function makeCard(parent, dayNumber, big)
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 90, 240)),
 		})
 		rainbow.Parent = card
+	else
+		card = UILib.card({
+			Size = UDim2.new(0, 118, 0, 128),
+			BackgroundColor3 = Color3.fromRGB(130, 200, 235),
+		}, parent)
 	end
 
 	UILib.text({
