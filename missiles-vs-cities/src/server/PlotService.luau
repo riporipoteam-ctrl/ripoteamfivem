@@ -41,18 +41,48 @@ local function renderZone(slot, zi)
 	ctx.Visuals.render(slot.zoneData[zi].buildings, def, zone.level, slot.index, zi, center, zone.destroyed)
 end
 
--- Locked areas look like flat sand; unlocked areas get grass + sidewalk.
-local function setZoneGround(slot, zi, locked)
+local C_GRASS = Color3.fromRGB(96, 186, 78)
+local C_SAND = Color3.fromRGB(226, 200, 140)
+local C_ZONE = Color3.fromRGB(116, 202, 94)
+
+-- Island GROWTH: shows unlocked zone tiles as grass, the next-to-unlock tile
+-- as sand (with its unlock pad), and hides everything further out (ocean).
+-- So a new player starts tiny (just the house) and the island grows tile by
+-- tile as they buy new areas.
+local function applyZoneState(slot, zi)
 	local data = slot.zoneData[zi]
-	if locked then
-		data.plate.Color = Color3.fromRGB(226, 200, 140)
+	if not data then
+		return
+	end
+	local profile = slot.owner and ctx.Data.get(slot.owner)
+	if not slot.owner or not profile then
+		data.tile.Parent = nil
+		return
+	end
+	local unlocked = profile.unlocked or 1
+	if zi <= unlocked then
+		data.tile.Parent = slot.folder
+		data.ground.Color = C_GRASS
+		data.ground.Material = Enum.Material.Grass
+		data.plate.Color = C_ZONE
+		data.plate.Material = Enum.Material.Grass
+		data.sidewalk.Transparency = 0
+	elseif zi == unlocked + 1 then
+		data.tile.Parent = slot.folder
+		data.ground.Color = C_SAND
+		data.ground.Material = Enum.Material.Sand
+		data.plate.Color = C_SAND
 		data.plate.Material = Enum.Material.Sand
 		data.sidewalk.Transparency = 1
 	else
-		data.plate.Color = Color3.fromRGB(116, 202, 94)
-		data.plate.Material = Enum.Material.Grass
-		data.sidewalk.Transparency = 0
+		data.tile.Parent = nil -- not yet reachable; ocean
 	end
+end
+
+-- Back-compat: old call sites pass a `locked` flag we now ignore (state is
+-- derived from the profile's unlocked count).
+local function setZoneGround(slot, zi)
+	applyZoneState(slot, zi)
 end
 
 function PlotService.updatePad(slot, zi)
@@ -151,12 +181,13 @@ local function onPadTouched(slot, zi, hit)
 		end
 		profile.unlocked = zi
 		zone.locked = false
-		setZoneGround(slot, zi, false)
+		applyZoneState(slot, zi) -- this tile becomes grass
 		PlotService.updatePad(slot, zi)
 		if slot.zones[zi + 1] then
+			applyZoneState(slot, zi + 1) -- reveal the next sand tile + its pad
 			PlotService.updatePad(slot, zi + 1)
 		end
-		notify(player, "\u{1F513} NEW AREA UNLOCKED! You can now build " .. def.name .. " here.", "victory")
+		notify(player, "\u{1F513} NEW AREA UNLOCKED! The island grew \u{2014} build " .. def.name .. " here.", "victory")
 		ctx.Economy.pushState(player)
 		return
 	end

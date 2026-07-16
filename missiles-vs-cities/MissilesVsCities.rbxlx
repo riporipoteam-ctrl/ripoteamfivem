@@ -81,8 +81,8 @@ Config.MaxPlayers = 5
 -- Visual style switches. The default look is classic blocky "stud brick"
 -- (like the reference game / old Roblox). Flip these to true to use inserted
 -- Creator Store mesh models instead.
-Config.UseStoreDecor = false -- Store trees/benches/fountains vs blocky ones
-Config.UseStoreBuildings = false -- Store buildings vs stud-brick towers
+Config.UseStoreDecor = true -- Store trees/benches/fountains vs blocky ones
+Config.UseStoreBuildings = true -- real Store mesh buildings for every zone
 Config.UseStoreSky = true -- community skybox (9.7k upvotes)
 
 -- Classic stud overlay texture (transparent, tints with the brick color).
@@ -808,6 +808,8 @@ return SoundBook
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MessagingService = game:GetService("MessagingService")
+local DataStoreService = game:GetService("DataStoreService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -817,6 +819,27 @@ local Remotes = require(Shared.Remotes)
 local AdminService = {}
 
 local ctx
+local CROSS_TOPIC = "MVC_AdminCross"
+
+local banStore
+do
+	local ok, s = pcall(function()
+		return DataStoreService:GetDataStore("MVC_Bans_v1")
+	end)
+	if ok then
+		banStore = s
+	end
+end
+
+function AdminService.isBanned(userId)
+	if not banStore then
+		return false
+	end
+	local ok, v = pcall(function()
+		return banStore:GetAsync("ban_" .. userId)
+	end)
+	return ok and v == true
+end
 
 local function isAdmin(player)
 	-- In Studio playtests everyone is an admin, so you can always see the panel.
@@ -902,14 +925,124 @@ local function onAdminAction(player, action, arg)
 		if slot and ctx.Pilot then
 			ctx.Pilot.trigger(slot)
 		end
+	elseif action == "nuke_server" then
+		AdminService.nukeServer(player.DisplayName)
+	elseif action == "nuke_all_servers" then
+		pcall(function()
+			MessagingService:PublishAsync(CROSS_TOPIC, { kind = "nuke", by = player.DisplayName })
+		end)
+		AdminService.nukeServer(player.DisplayName)
+		notify(player, "\u{1F6E0}\u{FE0F} Nuking ALL servers!", "victory")
+	elseif action == "announce_server" then
+		AdminService.announce(tostring(arg), player.DisplayName)
+	elseif action == "announce_all" then
+		pcall(function()
+			MessagingService:PublishAsync(CROSS_TOPIC, { kind = "announce", text = tostring(arg), by = player.DisplayName })
+		end)
+		AdminService.announce(tostring(arg), player.DisplayName)
+	elseif action == "kick" then
+		local target = Players:GetPlayerByUserId(tonumber(arg) or 0)
+		if target then
+			target:Kick("Kicked by an admin.")
+			notify(player, "\u{1F6E0}\u{FE0F} Kicked " .. target.DisplayName, "info")
+		end
+	elseif action == "ban" then
+		local id = tonumber(arg) or 0
+		if banStore then
+			pcall(function()
+				banStore:SetAsync("ban_" .. id, true)
+			end)
+		end
+		local target = Players:GetPlayerByUserId(id)
+		if target then
+			target:Kick("You are banned from this game.")
+		end
+		notify(player, "\u{1F6E0}\u{FE0F} Banned user " .. id, "bad")
+	elseif action == "unban" then
+		local id = tonumber(arg) or 0
+		if banStore then
+			pcall(function()
+				banStore:RemoveAsync("ban_" .. id)
+			end)
+		end
+		notify(player, "\u{1F6E0}\u{FE0F} Unbanned user " .. id, "good")
+	elseif action == "take_cash" then
+		local target = Players:GetPlayerByUserId(tonumber(arg) or 0)
+		local tp = target and ctx.Data.get(target)
+		if tp then
+			tp.cash = 0
+			ctx.Economy.pushState(target)
+			notify(player, "\u{1F6E0}\u{FE0F} Wiped " .. target.DisplayName .. "'s cash", "info")
+		end
+	elseif action == "take_gems" then
+		local target = Players:GetPlayerByUserId(tonumber(arg) or 0)
+		local tp = target and ctx.Data.get(target)
+		if tp then
+			tp.gems = 0
+			ctx.Economy.pushState(target)
+			notify(player, "\u{1F6E0}\u{FE0F} Wiped " .. target.DisplayName .. "'s gems", "info")
+		end
+	elseif action == "nuke_player" then
+		local target = Players:GetPlayerByUserId(tonumber(arg) or 0)
+		local slot = target and ctx.Plot.getSlot(target)
+		if slot then
+			ctx.Plot.nukeSlot(slot)
+			notify(target, "\u{2622}\u{FE0F} An admin nuked your city!", "bad")
+			ctx.Economy.pushState(target)
+		end
 	end
 	ctx.Economy.pushState(player)
+end
+
+-- Nukes every owned city in THIS server.
+function AdminService.nukeServer(byName)
+	for _, slot in ipairs(ctx.Plot.slots()) do
+		if slot.owner then
+			ctx.Plot.nukeSlot(slot)
+			ctx.Economy.pushState(slot.owner)
+		end
+	end
+	Remotes.Events.Notify:FireAllClients({
+		msg = "\u{2622}\u{FE0F} ADMIN " .. (byName or "") .. " NUKED THE ENTIRE SERVER!",
+		kind = "bad",
+	})
+end
+
+function AdminService.announce(text, byName)
+	Remotes.Events.Notify:FireAllClients({
+		msg = "\u{1F4E2} [ADMIN" .. (byName and " " .. byName or "") .. "] " .. text,
+		kind = "victory",
+	})
 end
 
 function AdminService.init(context)
 	ctx = context
 	ctx.isAdmin = isAdmin
 	Remotes.Events.AdminAction.OnServerEvent:Connect(onAdminAction)
+
+	-- Cross-server admin commands.
+	pcall(function()
+		MessagingService:SubscribeAsync(CROSS_TOPIC, function(message)
+			local data = message.Data
+			if type(data) ~= "table" then
+				return
+			end
+			if data.kind == "nuke" then
+				AdminService.nukeServer(data.by)
+			elseif data.kind == "announce" then
+				AdminService.announce(data.text, data.by)
+			end
+		end)
+	end)
+
+	-- Enforce bans on join.
+	Players.PlayerAdded:Connect(function(plr)
+		task.spawn(function()
+			if AdminService.isBanned(plr.UserId) then
+				plr:Kick("You are banned from this game.")
+			end
+		end)
+	end)
 end
 
 return AdminService
@@ -4606,18 +4739,48 @@ local function renderZone(slot, zi)
 	ctx.Visuals.render(slot.zoneData[zi].buildings, def, zone.level, slot.index, zi, center, zone.destroyed)
 end
 
--- Locked areas look like flat sand; unlocked areas get grass + sidewalk.
-local function setZoneGround(slot, zi, locked)
+local C_GRASS = Color3.fromRGB(96, 186, 78)
+local C_SAND = Color3.fromRGB(226, 200, 140)
+local C_ZONE = Color3.fromRGB(116, 202, 94)
+
+-- Island GROWTH: shows unlocked zone tiles as grass, the next-to-unlock tile
+-- as sand (with its unlock pad), and hides everything further out (ocean).
+-- So a new player starts tiny (just the house) and the island grows tile by
+-- tile as they buy new areas.
+local function applyZoneState(slot, zi)
 	local data = slot.zoneData[zi]
-	if locked then
-		data.plate.Color = Color3.fromRGB(226, 200, 140)
+	if not data then
+		return
+	end
+	local profile = slot.owner and ctx.Data.get(slot.owner)
+	if not slot.owner or not profile then
+		data.tile.Parent = nil
+		return
+	end
+	local unlocked = profile.unlocked or 1
+	if zi &lt;= unlocked then
+		data.tile.Parent = slot.folder
+		data.ground.Color = C_GRASS
+		data.ground.Material = Enum.Material.Grass
+		data.plate.Color = C_ZONE
+		data.plate.Material = Enum.Material.Grass
+		data.sidewalk.Transparency = 0
+	elseif zi == unlocked + 1 then
+		data.tile.Parent = slot.folder
+		data.ground.Color = C_SAND
+		data.ground.Material = Enum.Material.Sand
+		data.plate.Color = C_SAND
 		data.plate.Material = Enum.Material.Sand
 		data.sidewalk.Transparency = 1
 	else
-		data.plate.Color = Color3.fromRGB(116, 202, 94)
-		data.plate.Material = Enum.Material.Grass
-		data.sidewalk.Transparency = 0
+		data.tile.Parent = nil -- not yet reachable; ocean
 	end
+end
+
+-- Back-compat: old call sites pass a `locked` flag we now ignore (state is
+-- derived from the profile's unlocked count).
+local function setZoneGround(slot, zi)
+	applyZoneState(slot, zi)
 end
 
 function PlotService.updatePad(slot, zi)
@@ -4716,12 +4879,13 @@ local function onPadTouched(slot, zi, hit)
 		end
 		profile.unlocked = zi
 		zone.locked = false
-		setZoneGround(slot, zi, false)
+		applyZoneState(slot, zi) -- this tile becomes grass
 		PlotService.updatePad(slot, zi)
 		if slot.zones[zi + 1] then
+			applyZoneState(slot, zi + 1) -- reveal the next sand tile + its pad
 			PlotService.updatePad(slot, zi + 1)
 		end
-		notify(player, "\u{1F513} NEW AREA UNLOCKED! You can now build " .. def.name .. " here.", "victory")
+		notify(player, "\u{1F513} NEW AREA UNLOCKED! The island grew \u{2014} build " .. def.name .. " here.", "victory")
 		ctx.Economy.pushState(player)
 		return
 	end
@@ -6136,85 +6300,119 @@ local function buildPark(plotIndex, folder)
 	}), { Enum.NormalId.Top }, 2)
 end
 
+local TILE = 54 -- zone tile footprint (grid spacing is 52, small overlap)
+
+-- One self-contained zone "tile": sand skirt, grass ground, a road cross with
+-- dashes, sidewalk, buy pad, building model. Lives in its own folder so the
+-- island can GROW tile-by-tile as areas unlock.
+local function buildZoneTile(plotIndex, zi, plotFolder)
+	local zc = Layout.zoneCenter(plotIndex, zi)
+	local tile = Instance.new("Folder")
+	tile.Name = "Tile" .. zi
+	tile.Parent = plotFolder
+
+	part({
+		Name = "Skirt",
+		Size = Vector3.new(TILE + 3, 8, TILE + 3),
+		Position = Vector3.new(zc.X, -1.6, zc.Z),
+		Color = COLOR_SAND,
+		Material = Enum.Material.Sand,
+		Parent = tile,
+	})
+	local ground = studs(part({
+		Name = "Ground",
+		Size = Vector3.new(TILE, 10, TILE),
+		Position = Vector3.new(zc.X, -1, zc.Z),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = tile,
+	}), { Enum.NormalId.Top }, 4)
+	-- Road cross with centre dashes.
+	part({ Name = "RoadV", Size = Vector3.new(12, 0.2, TILE), Position = Vector3.new(zc.X, Config.GroundY + 0.1, zc.Z), Color = COLOR_ROAD, Material = Enum.Material.Asphalt, Parent = tile })
+	part({ Name = "RoadH", Size = Vector3.new(TILE, 0.2, 12), Position = Vector3.new(zc.X, Config.GroundY + 0.12, zc.Z), Color = COLOR_ROAD, Material = Enum.Material.Asphalt, Parent = tile })
+	for d = -1, 1 do
+		part({ Name = "Dash", Size = Vector3.new(1.4, 0.05, 5), Position = Vector3.new(zc.X, Config.GroundY + 0.22, zc.Z + d * 16), Color = COLOR_DASH, Material = Enum.Material.Neon, Parent = tile })
+	end
+
+	local sidewalk = part({
+		Name = "Sidewalk",
+		Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
+		Position = Vector3.new(zc.X, Config.GroundY + 0.14, zc.Z),
+		Color = COLOR_SIDEWALK,
+		Material = Enum.Material.Concrete,
+		Parent = tile,
+	})
+	local plate = studs(part({
+		Name = "ZonePlate",
+		Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
+		Position = Vector3.new(zc.X, Config.GroundY + 0.2, zc.Z),
+		Color = COLOR_ZONE,
+		Material = Enum.Material.Grass,
+		Parent = tile,
+	}), { Enum.NormalId.Top }, 4)
+
+	local buildings = Instance.new("Model")
+	buildings.Name = "Buildings" .. zi
+	buildings.Parent = tile
+
+	local padPos = Layout.padPos(plotIndex, zi)
+	local pad = part({
+		Name = "Pad" .. zi,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 9, 9),
+		CFrame = CFrame.new(padPos.X, Config.GroundY + 0.4, padPos.Z) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(80, 235, 90),
+		Material = Enum.Material.Neon,
+		Transparency = 1,
+		Parent = tile,
+	})
+	local padGui, padLabel = billboard(pad, 16, 8, 7, 180)
+	padGui.AlwaysOnTop = false
+
+	return {
+		tile = tile,
+		ground = ground,
+		plate = plate,
+		sidewalk = sidewalk,
+		pad = pad,
+		padLabel = padLabel,
+		buildings = buildings,
+	}
+end
+
 local function buildPlot(plotIndex, root)
 	local center = Layout.plotCenter(plotIndex)
 	local folder = Instance.new("Folder")
 	folder.Name = "Plot" .. plotIndex
 	folder.Parent = root
 
-	local depthZ = Config.PlotSize + Layout.TownDepth
-	local islandCenterZ = center.Z + Layout.TownDepth / 2
-
-	studs(part({
-		Name = "Island",
-		Size = Vector3.new(Config.PlotSize, 10, depthZ),
-		Position = Vector3.new(center.X, -1, islandCenterZ),
-		Color = COLOR_GRASS,
-		Material = Enum.Material.Grass,
-		Parent = folder,
-	}), { Enum.NormalId.Top }, 4)
-	-- Big sandy shelf makes each island feel larger.
+	-- Town square base (always present): the home platform with spawn, silos,
+	-- shop, NPCs, leaderboard and rebirth shrine.
+	local half = Config.PlotSize / 2
+	local townZ = center.Z + half + Layout.TownDepth / 2
 	part({
-		Name = "IslandRim",
-		Size = Vector3.new(Config.PlotSize + 44, 8, depthZ + 44),
-		Position = Vector3.new(center.X, -1.5, islandCenterZ),
+		Name = "TownSkirt",
+		Size = Vector3.new(Config.PlotSize + 30, 8, Layout.TownDepth + 80),
+		Position = Vector3.new(center.X, -1.6, townZ),
 		Color = COLOR_SAND,
 		Material = Enum.Material.Sand,
 		Parent = folder,
 	})
-
-	buildRoads(center, folder)
-	buildFence(center, folder)
-	buildPark(plotIndex, folder)
+	studs(part({
+		Name = "TownGround",
+		Size = Vector3.new(Config.PlotSize + 6, 10, Layout.TownDepth + 70),
+		Position = Vector3.new(center.X, -1, townZ - 20),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = folder,
+	}), { Enum.NormalId.Top }, 4)
 
 	local town = buildTownSquare(plotIndex, folder)
 
+	-- Per-zone tiles (hidden/shown by PlotService as areas unlock).
 	local zoneData = {}
 	for zi = 1, #BuildingDefs.List do
-		local zCenter = Layout.zoneCenter(plotIndex, zi)
-		local sidewalk = part({
-			Name = "Sidewalk",
-			Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
-			Position = Vector3.new(zCenter.X, Config.GroundY + 0.12, zCenter.Z),
-			Color = COLOR_SIDEWALK,
-			Material = Enum.Material.Concrete,
-			Transparency = 1,
-			Parent = folder,
-		})
-		local plate = studs(part({
-			Name = "ZonePlate",
-			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
-			Position = Vector3.new(zCenter.X, Config.GroundY + 0.18, zCenter.Z),
-			Color = COLOR_SAND,
-			Material = Enum.Material.Sand,
-			Parent = folder,
-		}), { Enum.NormalId.Top }, 4)
-
-		local buildings = Instance.new("Model")
-		buildings.Name = "Buildings" .. zi
-		buildings.Parent = folder
-
-		local padPos = Layout.padPos(plotIndex, zi)
-		local pad = part({
-			Name = "Pad" .. zi,
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(0.6, 9, 9),
-			CFrame = CFrame.new(padPos.X, Config.GroundY + 0.4, padPos.Z) * CFrame.Angles(0, 0, math.rad(90)),
-			Color = Color3.fromRGB(80, 235, 90),
-			Material = Enum.Material.Neon,
-			Transparency = 1,
-			Parent = folder,
-		})
-		local padGui, padLabel = billboard(pad, 16, 8, 7, 180)
-		padGui.AlwaysOnTop = false
-
-		zoneData[zi] = {
-			plate = plate,
-			sidewalk = sidewalk,
-			pad = pad,
-			padLabel = padLabel,
-			buildings = buildings,
-		}
+		zoneData[zi] = buildZoneTile(plotIndex, zi, folder)
 	end
 
 	return {
@@ -6328,9 +6526,11 @@ function WorldBuilder.build()
 end
 
 return WorldBuilder
-</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX64"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX59"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX58"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">AdminPanel</string><ProtectedString name="Source">-- Admin Panel: only visible to admins (UserIds in Config.Admins). A gold
--- badge button opens a panel of moderation / testing tools.
+</ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX64"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX59"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX58"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">AdminPanel</string><ProtectedString name="Source">-- Admin Panel: gold badge button (admins only) opening a panel of tools.
+-- Self actions, server/cross-server actions, an announce box, and targeted
+-- actions (kick/ban/wipe/nuke) against a selected player.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -6342,36 +6542,180 @@ local AdminPanel = {}
 local ctx
 local buttonGui
 local panelGui
+local selectedUserId = nil
+local selectedName = "(none)"
+local targetLabel
+local announceBox
 
-local ACTIONS = {
-	{ id = "give_cash", label = "\u{1F4B5} +$1B Cash", arg = 1e9 },
-	{ id = "give_gems", label = "\u{1F48E} +1000 Gems", arg = 1000 },
-	{ id = "max_rockets", label = "\u{1F680} Max Rockets + Silos" },
-	{ id = "give_nuke", label = "\u{2622}\u{FE0F} Nuke Access + Reset" },
-	{ id = "unlock_all", label = "\u{1F513} Unlock All Areas" },
-	{ id = "repair", label = "\u{1F527} Repair City" },
-	{ id = "trigger_event", label = "\u{1F3B2} Trigger Random Event" },
-	{ id = "trigger_pilot", label = "\u{1F468}\u{200D}\u{2708}\u{FE0F} Trigger Pilot Event" },
+local SELF_ACTIONS = {
+	{ id = "give_cash", label = "\u{1F4B5} +$1B", arg = 1e9 },
+	{ id = "give_gems", label = "\u{1F48E} +1000", arg = 1000 },
+	{ id = "max_rockets", label = "\u{1F680} Max Rockets" },
+	{ id = "give_nuke", label = "\u{2622}\u{FE0F} Nuke Access" },
+	{ id = "unlock_all", label = "\u{1F513} Unlock All" },
+	{ id = "repair", label = "\u{1F527} Repair" },
+	{ id = "trigger_event", label = "\u{1F3B2} Event" },
+	{ id = "trigger_pilot", label = "\u{1F468}\u{200D}\u{2708}\u{FE0F} Pilot" },
 }
+
+local SERVER_ACTIONS = {
+	{ id = "nuke_server", label = "\u{2622}\u{FE0F} NUKE SERVER", color = "Red" },
+	{ id = "nuke_all_servers", label = "\u{2622}\u{FE0F} NUKE ALL SERVERS", color = "Red" },
+}
+
+local TARGET_ACTIONS = {
+	{ id = "kick", label = "\u{1F462} Kick" },
+	{ id = "ban", label = "\u{1F6AB} Ban", color = "Red" },
+	{ id = "nuke_player", label = "\u{2622}\u{FE0F} Nuke City" },
+	{ id = "take_cash", label = "\u{1F4B8} Wipe Cash" },
+	{ id = "take_gems", label = "\u{1F48E} Wipe Gems" },
+}
+
+local function refreshTarget()
+	targetLabel.Text = "Target: " .. selectedName
+end
+
+local function buildPlayerList(parent)
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, 0, 0, 90)
+	scroll.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 5
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	UILib.corner(scroll, 6)
+	scroll.Parent = parent
+	local list = Instance.new("UIListLayout")
+	list.Padding = UDim.new(0, 4)
+	list.Parent = scroll
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 4)
+	pad.PaddingLeft = UDim.new(0, 4)
+	pad.Parent = scroll
+
+	local function rebuild()
+		for _, c in ipairs(scroll:GetChildren()) do
+			if c:IsA("TextButton") then
+				c:Destroy()
+			end
+		end
+		for _, plr in ipairs(Players:GetPlayers()) do
+			UILib.button({
+				Size = UDim2.new(1, -12, 0, 30),
+				Text = plr.DisplayName,
+				BackgroundColor3 = UILib.Colors.Blue,
+			}, scroll, function()
+				selectedUserId = plr.UserId
+				selectedName = plr.DisplayName
+				refreshTarget()
+			end)
+		end
+	end
+	rebuild()
+	Players.PlayerAdded:Connect(rebuild)
+	Players.PlayerRemoving:Connect(rebuild)
+end
 
 function AdminPanel.init(context)
 	ctx = context
 
-	local pg, content = UILib.panel("MVC_AdminPanel", "\u{1F6E0}\u{FE0F} ADMIN PANEL", UDim2.new(0, 400, 0, 470), 35)
+	local pg, content = UILib.panel("MVC_AdminPanel", "\u{1F6E0}\u{FE0F} ADMIN", UDim2.new(0, 460, 0, 560), 35)
 	panelGui = pg
 
-	for i, act in ipairs(ACTIONS) do
-		UILib.button({
-			Size = UDim2.new(1, -16, 0, 46),
-			Position = UDim2.new(0, 8, 0, 8 + (i - 1) * 54),
-			Text = act.label,
-			BackgroundColor3 = UILib.Colors.Gold,
-		}, content, function()
-			Remotes.Events.AdminAction:FireServer(act.id, act.arg)
-		end)
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, 0, 1, 0)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 6
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.Parent = content
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 6)
+	layout.Parent = scroll
+
+	local function heading(text)
+		UILib.text({
+			Size = UDim2.new(1, -8, 0, 22),
+			Text = text,
+			TextColor3 = Color3.fromRGB(255, 220, 120),
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}, scroll)
 	end
 
-	-- The launcher button (hidden unless the player is an admin).
+	local function grid(actions)
+		local holder = Instance.new("Frame")
+		holder.BackgroundTransparency = 1
+		holder.Size = UDim2.new(1, 0, 0, math.ceil(#actions / 2) * 42)
+		holder.Parent = scroll
+		local g = Instance.new("UIGridLayout")
+		g.CellSize = UDim2.new(0.5, -6, 0, 38)
+		g.CellPadding = UDim2.new(0, 6, 0, 4)
+		g.Parent = holder
+		for _, act in ipairs(actions) do
+			UILib.button({
+				Size = UDim2.new(0.5, -6, 0, 38),
+				Text = act.label,
+				BackgroundColor3 = act.color and UILib.Colors[act.color] or UILib.Colors.Gold,
+			}, holder, function()
+				Remotes.Events.AdminAction:FireServer(act.id, act.arg or selectedUserId)
+			end)
+		end
+	end
+
+	heading("\u{1F464} Self")
+	grid(SELF_ACTIONS)
+
+	heading("\u{1F310} Server")
+	grid(SERVER_ACTIONS)
+
+	heading("\u{1F4E2} Announce")
+	announceBox = Instance.new("TextBox")
+	announceBox.Size = UDim2.new(1, 0, 0, 34)
+	announceBox.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+	announceBox.TextColor3 = Color3.new(1, 1, 1)
+	announceBox.Font = UILib.Font
+	announceBox.TextSize = 18
+	announceBox.PlaceholderText = "Type an announcement..."
+	announceBox.Text = ""
+	announceBox.ClearTextOnFocus = false
+	announceBox.BorderSizePixel = 0
+	UILib.corner(announceBox, 6)
+	announceBox.Parent = scroll
+
+	local announceHolder = Instance.new("Frame")
+	announceHolder.BackgroundTransparency = 1
+	announceHolder.Size = UDim2.new(1, 0, 0, 40)
+	announceHolder.Parent = scroll
+	local ag = Instance.new("UIGridLayout")
+	ag.CellSize = UDim2.new(0.5, -6, 0, 38)
+	ag.CellPadding = UDim2.new(0, 6, 0, 4)
+	ag.Parent = announceHolder
+	UILib.button({
+		Size = UDim2.new(0.5, -6, 0, 38),
+		Text = "\u{1F4E2} This Server",
+		BackgroundColor3 = UILib.Colors.Gold,
+	}, announceHolder, function()
+		Remotes.Events.AdminAction:FireServer("announce_server", announceBox.Text)
+	end)
+	UILib.button({
+		Size = UDim2.new(0.5, -6, 0, 38),
+		Text = "\u{1F4E2} All Servers",
+		BackgroundColor3 = UILib.Colors.Gold,
+	}, announceHolder, function()
+		Remotes.Events.AdminAction:FireServer("announce_all", announceBox.Text)
+	end)
+
+	heading("\u{1F3AF} Target Player")
+	targetLabel = UILib.text({
+		Size = UDim2.new(1, -8, 0, 20),
+		Text = "Target: (none)",
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, scroll)
+	buildPlayerList(scroll)
+	grid(TARGET_ACTIONS)
+
+	-- Launcher badge button.
 	buttonGui = UILib.screen("MVC_AdminBtn", 34)
 	local frame = Instance.new("Frame")
 	frame.BackgroundTransparency = 1
@@ -6380,7 +6724,6 @@ function AdminPanel.init(context)
 	frame.Size = UDim2.new(0, 76, 0, 88)
 	frame.Visible = false
 	frame.Parent = buttonGui
-
 	local button = UILib.button({
 		Size = UDim2.new(0, 68, 0, 60),
 		Position = UDim2.new(0, 4, 0, 0),
@@ -8724,8 +9067,9 @@ end
 
 return PilotPrompt
 </ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">PlaneFX</string><ProtectedString name="Source">-- Flight FX for the pilot's cropduster (PlaneEvent) and jet strikes (JetEvent).
--- Builds a little plane/jet, flies it along the path with engine + radio SFX,
--- and handles landing / takeoff / crash-explosion visuals.
+-- The pilot uses ONE continuous plane per island that transitions between
+-- phases (approach -&gt; circle/hold -&gt; land or takeoff or crash), so there is
+-- never a second plane and the landing is a smooth lined-up approach.
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8735,6 +9079,8 @@ local Remotes = require(Shared.Remotes)
 local SoundBook = require(Shared.SoundBook)
 
 local PlaneFX = {}
+
+local activePlanes = {} -- [plotIndex] = record
 
 local function anchoredPart(props)
 	local p = Instance.new("Part")
@@ -8753,7 +9099,7 @@ end
 local function buildPlane(cropduster)
 	local model = Instance.new("Model")
 	model.Name = "MVC_Plane"
-	local bodyColor = cropduster and Color3.fromRGB(220, 180, 70) or Color3.fromRGB(90, 100, 120)
+	local bodyColor = cropduster and Color3.fromRGB(220, 170, 60) or Color3.fromRGB(90, 100, 120)
 	local body = anchoredPart({
 		Name = "Body",
 		Size = Vector3.new(2.4, 2, cropduster and 9 or 11),
@@ -8761,21 +9107,15 @@ local function buildPlane(cropduster)
 		Material = Enum.Material.Metal,
 		Parent = model,
 	})
-	anchoredPart({
-		Name = "Wing",
-		Size = Vector3.new(cropduster and 14 or 12, 0.5, 3),
-		Color = bodyColor,
-		Parent = model,
-	})
-	anchoredPart({
-		Name = "Tail",
-		Size = Vector3.new(0.5, 2.4, 2),
-		Color = bodyColor,
-		Parent = model,
-	})
+	anchoredPart({ Name = "Wing", Size = Vector3.new(cropduster and 15 or 12, 0.5, 3), Color = bodyColor, Parent = model })
+	anchoredPart({ Name = "TailWing", Size = Vector3.new(5, 0.4, 1.6), Color = bodyColor, Parent = model })
+	anchoredPart({ Name = "Tail", Size = Vector3.new(0.5, 2.2, 1.6), Color = bodyColor, Parent = model })
+	if cropduster then
+		anchoredPart({ Name = "Cockpit", Size = Vector3.new(1.6, 1.2, 2), Color = Color3.fromRGB(120, 180, 220), Material = Enum.Material.Glass, Parent = model })
+	end
 	local prop = anchoredPart({
 		Name = "Prop",
-		Size = Vector3.new(cropduster and 5 or 3, 0.4, 0.4),
+		Size = Vector3.new(cropduster and 5.5 or 3, 0.4, 0.4),
 		Color = Color3.fromRGB(40, 40, 40),
 		Parent = model,
 	})
@@ -8783,27 +9123,33 @@ local function buildPlane(cropduster)
 	return model, body, prop
 end
 
--- Flies a model from -&gt; to over flight seconds, nose pointed along travel.
-local function flyPath(model, body, prop, from, to, flight, onDone)
-	local start = os.clock()
-	local conn
-	conn = RunService.RenderStepped:Connect(function()
-		local t = math.min((os.clock() - start) / flight, 1)
-		local pos = from:Lerp(to, t)
-		local ahead = from:Lerp(to, math.min(t + 0.02, 1))
-		local look = (ahead - pos).Magnitude &gt; 0.01 and CFrame.lookAt(pos, ahead) or CFrame.new(pos)
-		model:PivotTo(look)
-		if prop then
-			prop.CFrame = body.CFrame * CFrame.new(0, 0, -(body.Size.Z / 2 + 0.3))
-				* CFrame.Angles(0, 0, os.clock() * 40)
+-- Poses the plane at pos facing 'facing' (a look direction), spinning the prop.
+local function poseAt(body, prop, pos, facing, bank)
+	local look = facing.Magnitude &gt; 0.01 and CFrame.lookAt(pos, pos + facing) or CFrame.new(pos)
+	if bank then
+		look = look * CFrame.Angles(0, 0, bank)
+	end
+	body.CFrame = look
+	prop.CFrame = body.CFrame * CFrame.new(0, 0, -(body.Size.Z / 2 + 0.3)) * CFrame.Angles(0, 0, os.clock() * 45)
+end
+
+-- Cancels a record's current motion loop (by bumping its token).
+local function cancelMotion(rec)
+	rec.token = (rec.token or 0) + 1
+end
+
+local function destroyPlane(plotIndex)
+	local rec = activePlanes[plotIndex]
+	if rec then
+		cancelMotion(rec)
+		if rec.engine then
+			rec.engine:Stop()
 		end
-		if t &gt;= 1 then
-			conn:Disconnect()
-			if onDone then
-				onDone()
-			end
+		if rec.model then
+			rec.model:Destroy()
 		end
-	end)
+		activePlanes[plotIndex] = nil
+	end
 end
 
 local function explosion(pos)
@@ -8831,72 +9177,143 @@ local function explosion(pos)
 	end)
 end
 
-local function radio(text)
-	-- Static burst then the message plays via the notifier already; here we
-	-- just add a short radio blip sound.
-	SoundBook.play("Blip", workspace.CurrentCamera and game.Players.LocalPlayer:WaitForChild("PlayerGui"), { PlaybackSpeed = 0.7 })
-	local _ = text
+-- Flies the plane from its current position to 'to' over 'flight' seconds,
+-- along a smooth arc, then runs onDone. Cancellable via token.
+local function flyTo(rec, to, flight, arcHeight, onDone)
+	cancelMotion(rec)
+	local token = rec.token
+	task.spawn(function()
+		local body, prop = rec.body, rec.prop
+		local from = body.Position
+		local mid = (from + to) / 2 + Vector3.new(0, arcHeight or 0, 0)
+		local t0 = os.clock()
+		while rec.token == token do
+			local a = math.min((os.clock() - t0) / flight, 1)
+			-- Quadratic bezier for a smooth curved path.
+			local p1 = from:Lerp(mid, a)
+			local p2 = mid:Lerp(to, a)
+			local pos = p1:Lerp(p2, a)
+			local ahead1 = from:Lerp(mid, math.min(a + 0.03, 1))
+			local ahead2 = mid:Lerp(to, math.min(a + 0.03, 1))
+			local ahead = ahead1:Lerp(ahead2, math.min(a + 0.03, 1))
+			poseAt(body, prop, pos, (ahead - pos), math.sin(a * math.pi) * 0.15)
+			if a &gt;= 1 then
+				break
+			end
+			RunService.RenderStepped:Wait()
+		end
+		if rec.token == token and onDone then
+			onDone()
+		end
+	end)
 end
 
-local function handlePlane(payload)
-	local phase = payload.phase
-	local cropduster = true
-	local model, body, prop = buildPlane(cropduster)
-	model.Parent = workspace
+-- Circles the plane around a center point until interrupted (hold pattern).
+local function orbit(rec, center, radius, height)
+	cancelMotion(rec)
+	local token = rec.token
+	task.spawn(function()
+		local body, prop = rec.body, rec.prop
+		local angle = 0
+		while rec.token == token do
+			angle += 0.012
+			local pos = center + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+			local ahead = center + Vector3.new(math.cos(angle + 0.1) * radius, height, math.sin(angle + 0.1) * radius)
+			poseAt(body, prop, pos, (ahead - pos), 0.35) -- banked turn
+			RunService.RenderStepped:Wait()
+		end
+	end)
+end
 
+local function ensurePlane(plotIndex, startPos)
+	local rec = activePlanes[plotIndex]
+	if rec and rec.model.Parent then
+		return rec
+	end
+	local model, body, prop = buildPlane(true)
+	model.Parent = workspace
+	body.CFrame = CFrame.new(startPos or Vector3.new(0, 100, 0))
 	local engine = SoundBook.make("BigRumble", { Looped = true, PlaybackSpeed = 0.7, Volume = 0.5 })
 	if engine then
 		engine.Parent = body
 		engine:Play()
 	end
+	rec = { model = model, body = body, prop = prop, engine = engine, token = 0 }
+	activePlanes[plotIndex] = rec
+	return rec
+end
 
-	local function cleanup()
-		if engine then
-			engine:Stop()
-		end
-		model:Destroy()
-	end
+local function handlePlane(payload)
+	local plotIndex = payload.plotIndex or 0
+	local phase = payload.phase
 
-	if phase == "crash" then
-		flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
-			explosion(payload.to)
-			cleanup()
+	if phase == "approach" then
+		destroyPlane(plotIndex) -- clear any stale plane first (no doubles)
+		local rec = ensurePlane(plotIndex, payload.from)
+		-- Fly in, then hold in a circle above the airport until we're told
+		-- whether to land, take off, or crash.
+		flyTo(rec, payload.to, payload.flight or 8, 20, function()
+			orbit(rec, payload.to, 60, 0)
 		end)
-		-- Trailing smoke while it goes down.
+	elseif phase == "land" then
+		local rec = ensurePlane(plotIndex, payload.from)
+		-- Line up and descend smoothly onto the runway, then taxi to a stop.
+		local lineup = payload.to + Vector3.new(0, 40, 90)
+		flyTo(rec, lineup, 2.5, 10, function()
+			flyTo(rec, payload.to, (payload.flight or 6), -6, function()
+				-- Sit on the runway; despawn later (server sends takeoff).
+			end)
+		end)
+	elseif phase == "takeoff" then
+		local rec = activePlanes[plotIndex]
+		if not rec or not rec.model.Parent then
+			return
+		end
+		flyTo(rec, payload.to, payload.flight or 9, 60, function()
+			destroyPlane(plotIndex)
+		end)
+	elseif phase == "crash" then
+		local rec = ensurePlane(plotIndex, payload.from)
 		local smoke = Instance.new("ParticleEmitter")
 		smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
 		smoke.Rate = 30
 		smoke.Lifetime = NumberRange.new(0.8, 1.4)
 		smoke.Color = ColorSequence.new(Color3.fromRGB(60, 60, 60))
-		smoke.Parent = body
-	elseif phase == "land" then
-		flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
-			task.delay(9, cleanup) -- sit on the runway a bit, then despawn
-		end)
-	elseif phase == "takeoff" then
-		flyPath(model, body, prop, payload.from, payload.to, payload.flight, cleanup)
-	else -- approach
-		flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
-			-- Circle-hold: keep it visible until land/crash/takeoff arrives.
-			task.delay(30, cleanup)
+		smoke.Parent = rec.body
+		flyTo(rec, payload.to, payload.flight or 7, 10, function()
+			explosion(payload.to)
+			destroyPlane(plotIndex)
 		end)
 	end
-	radio(phase)
 end
 
 local function handleJet(payload)
 	local model, body, prop = buildPlane(false)
 	model.Parent = workspace
+	body.CFrame = CFrame.new(payload.from)
 	SoundBook.playAt("Launch", payload.from, { PlaybackSpeed = 1.2, RollOffMaxDistance = 1200 })
-	flyPath(model, body, prop, payload.from, payload.to, payload.flight, function()
-		explosion(payload.to)
-		model:Destroy()
+	local from = payload.from
+	local to = payload.to
+	local flight = payload.flight or 8
+	local t0 = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local a = math.min((os.clock() - t0) / flight, 1)
+		local mid = (from + to) / 2 + Vector3.new(0, 40, 0)
+		local pos = from:Lerp(mid, a):Lerp(mid:Lerp(to, a), a)
+		local ahead = from:Lerp(mid, math.min(a + 0.03, 1)):Lerp(mid:Lerp(to, math.min(a + 0.03, 1)), math.min(a + 0.03, 1))
+		poseAt(body, prop, pos, (ahead - pos))
+		if a &gt;= 1 then
+			conn:Disconnect()
+			explosion(to)
+			model:Destroy()
+		end
 	end)
 end
 
 function PlaneFX.init()
 	Remotes.Events.PlaneEvent.OnClientEvent:Connect(function(payload)
-		if type(payload) == "table" and typeof(payload.from) == "Vector3" then
+		if type(payload) == "table" and typeof(payload.to) == "Vector3" then
 			handlePlane(payload)
 		end
 	end)

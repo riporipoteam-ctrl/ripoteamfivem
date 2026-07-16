@@ -8,8 +8,8 @@ Config.MaxPlayers = 5
 -- Visual style switches. The default look is classic blocky "stud brick"
 -- (like the reference game / old Roblox). Flip these to true to use inserted
 -- Creator Store mesh models instead.
-Config.UseStoreDecor = false -- Store trees/benches/fountains vs blocky ones
-Config.UseStoreBuildings = false -- Store buildings vs stud-brick towers
+Config.UseStoreDecor = true -- Store trees/benches/fountains vs blocky ones
+Config.UseStoreBuildings = true -- real Store mesh buildings for every zone
 Config.UseStoreSky = true -- community skybox (9.7k upvotes)
 
 -- Classic stud overlay texture (transparent, tints with the brick color).

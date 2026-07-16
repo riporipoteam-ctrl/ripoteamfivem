@@ -490,85 +490,119 @@ local function buildPark(plotIndex, folder)
 	}), { Enum.NormalId.Top }, 2)
 end
 
+local TILE = 54 -- zone tile footprint (grid spacing is 52, small overlap)
+
+-- One self-contained zone "tile": sand skirt, grass ground, a road cross with
+-- dashes, sidewalk, buy pad, building model. Lives in its own folder so the
+-- island can GROW tile-by-tile as areas unlock.
+local function buildZoneTile(plotIndex, zi, plotFolder)
+	local zc = Layout.zoneCenter(plotIndex, zi)
+	local tile = Instance.new("Folder")
+	tile.Name = "Tile" .. zi
+	tile.Parent = plotFolder
+
+	part({
+		Name = "Skirt",
+		Size = Vector3.new(TILE + 3, 8, TILE + 3),
+		Position = Vector3.new(zc.X, -1.6, zc.Z),
+		Color = COLOR_SAND,
+		Material = Enum.Material.Sand,
+		Parent = tile,
+	})
+	local ground = studs(part({
+		Name = "Ground",
+		Size = Vector3.new(TILE, 10, TILE),
+		Position = Vector3.new(zc.X, -1, zc.Z),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = tile,
+	}), { Enum.NormalId.Top }, 4)
+	-- Road cross with centre dashes.
+	part({ Name = "RoadV", Size = Vector3.new(12, 0.2, TILE), Position = Vector3.new(zc.X, Config.GroundY + 0.1, zc.Z), Color = COLOR_ROAD, Material = Enum.Material.Asphalt, Parent = tile })
+	part({ Name = "RoadH", Size = Vector3.new(TILE, 0.2, 12), Position = Vector3.new(zc.X, Config.GroundY + 0.12, zc.Z), Color = COLOR_ROAD, Material = Enum.Material.Asphalt, Parent = tile })
+	for d = -1, 1 do
+		part({ Name = "Dash", Size = Vector3.new(1.4, 0.05, 5), Position = Vector3.new(zc.X, Config.GroundY + 0.22, zc.Z + d * 16), Color = COLOR_DASH, Material = Enum.Material.Neon, Parent = tile })
+	end
+
+	local sidewalk = part({
+		Name = "Sidewalk",
+		Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
+		Position = Vector3.new(zc.X, Config.GroundY + 0.14, zc.Z),
+		Color = COLOR_SIDEWALK,
+		Material = Enum.Material.Concrete,
+		Parent = tile,
+	})
+	local plate = studs(part({
+		Name = "ZonePlate",
+		Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
+		Position = Vector3.new(zc.X, Config.GroundY + 0.2, zc.Z),
+		Color = COLOR_ZONE,
+		Material = Enum.Material.Grass,
+		Parent = tile,
+	}), { Enum.NormalId.Top }, 4)
+
+	local buildings = Instance.new("Model")
+	buildings.Name = "Buildings" .. zi
+	buildings.Parent = tile
+
+	local padPos = Layout.padPos(plotIndex, zi)
+	local pad = part({
+		Name = "Pad" .. zi,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 9, 9),
+		CFrame = CFrame.new(padPos.X, Config.GroundY + 0.4, padPos.Z) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(80, 235, 90),
+		Material = Enum.Material.Neon,
+		Transparency = 1,
+		Parent = tile,
+	})
+	local padGui, padLabel = billboard(pad, 16, 8, 7, 180)
+	padGui.AlwaysOnTop = false
+
+	return {
+		tile = tile,
+		ground = ground,
+		plate = plate,
+		sidewalk = sidewalk,
+		pad = pad,
+		padLabel = padLabel,
+		buildings = buildings,
+	}
+end
+
 local function buildPlot(plotIndex, root)
 	local center = Layout.plotCenter(plotIndex)
 	local folder = Instance.new("Folder")
 	folder.Name = "Plot" .. plotIndex
 	folder.Parent = root
 
-	local depthZ = Config.PlotSize + Layout.TownDepth
-	local islandCenterZ = center.Z + Layout.TownDepth / 2
-
-	studs(part({
-		Name = "Island",
-		Size = Vector3.new(Config.PlotSize, 10, depthZ),
-		Position = Vector3.new(center.X, -1, islandCenterZ),
-		Color = COLOR_GRASS,
-		Material = Enum.Material.Grass,
-		Parent = folder,
-	}), { Enum.NormalId.Top }, 4)
-	-- Big sandy shelf makes each island feel larger.
+	-- Town square base (always present): the home platform with spawn, silos,
+	-- shop, NPCs, leaderboard and rebirth shrine.
+	local half = Config.PlotSize / 2
+	local townZ = center.Z + half + Layout.TownDepth / 2
 	part({
-		Name = "IslandRim",
-		Size = Vector3.new(Config.PlotSize + 44, 8, depthZ + 44),
-		Position = Vector3.new(center.X, -1.5, islandCenterZ),
+		Name = "TownSkirt",
+		Size = Vector3.new(Config.PlotSize + 30, 8, Layout.TownDepth + 80),
+		Position = Vector3.new(center.X, -1.6, townZ),
 		Color = COLOR_SAND,
 		Material = Enum.Material.Sand,
 		Parent = folder,
 	})
-
-	buildRoads(center, folder)
-	buildFence(center, folder)
-	buildPark(plotIndex, folder)
+	studs(part({
+		Name = "TownGround",
+		Size = Vector3.new(Config.PlotSize + 6, 10, Layout.TownDepth + 70),
+		Position = Vector3.new(center.X, -1, townZ - 20),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = folder,
+	}), { Enum.NormalId.Top }, 4)
 
 	local town = buildTownSquare(plotIndex, folder)
 
+	-- Per-zone tiles (hidden/shown by PlotService as areas unlock).
 	local zoneData = {}
 	for zi = 1, #BuildingDefs.List do
-		local zCenter = Layout.zoneCenter(plotIndex, zi)
-		local sidewalk = part({
-			Name = "Sidewalk",
-			Size = Vector3.new(Config.ZoneSize + 4, 0.24, Config.ZoneSize + 4),
-			Position = Vector3.new(zCenter.X, Config.GroundY + 0.12, zCenter.Z),
-			Color = COLOR_SIDEWALK,
-			Material = Enum.Material.Concrete,
-			Transparency = 1,
-			Parent = folder,
-		})
-		local plate = studs(part({
-			Name = "ZonePlate",
-			Size = Vector3.new(Config.ZoneSize, 0.3, Config.ZoneSize),
-			Position = Vector3.new(zCenter.X, Config.GroundY + 0.18, zCenter.Z),
-			Color = COLOR_SAND,
-			Material = Enum.Material.Sand,
-			Parent = folder,
-		}), { Enum.NormalId.Top }, 4)
-
-		local buildings = Instance.new("Model")
-		buildings.Name = "Buildings" .. zi
-		buildings.Parent = folder
-
-		local padPos = Layout.padPos(plotIndex, zi)
-		local pad = part({
-			Name = "Pad" .. zi,
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(0.6, 9, 9),
-			CFrame = CFrame.new(padPos.X, Config.GroundY + 0.4, padPos.Z) * CFrame.Angles(0, 0, math.rad(90)),
-			Color = Color3.fromRGB(80, 235, 90),
-			Material = Enum.Material.Neon,
-			Transparency = 1,
-			Parent = folder,
-		})
-		local padGui, padLabel = billboard(pad, 16, 8, 7, 180)
-		padGui.AlwaysOnTop = false
-
-		zoneData[zi] = {
-			plate = plate,
-			sidewalk = sidewalk,
-			pad = pad,
-			padLabel = padLabel,
-			buildings = buildings,
-		}
+		zoneData[zi] = buildZoneTile(plotIndex, zi, folder)
 	end
 
 	return {
