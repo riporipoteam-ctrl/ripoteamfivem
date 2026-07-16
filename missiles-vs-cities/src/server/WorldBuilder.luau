@@ -137,62 +137,77 @@ local function buildLamp(pos, parent)
 	light.Parent = bulb
 end
 
-local function buildRoads(center, folder)
+-- Grass-over-sand land slab (the island physically grows one of these per
+-- unlocked row).
+local function buildSlab(centerX, centerZ, width, depth, folder)
+	part({
+		Name = "SlabGrass",
+		Size = Vector3.new(width, 4, depth),
+		Position = Vector3.new(centerX, Config.GroundY - 2, centerZ),
+		Color = COLOR_GRASS,
+		Material = Enum.Material.Grass,
+		Parent = folder,
+	})
+	part({
+		Name = "SlabSand",
+		Size = Vector3.new(width + 18, 6, depth),
+		Position = Vector3.new(centerX, Config.GroundY - 6.4, centerZ),
+		Color = COLOR_SAND,
+		Material = Enum.Material.Sand,
+		Parent = folder,
+	})
+end
+
+-- One city row's land + roads (row 1..4). Zones get parented in later.
+local ROW_DEPTH = 52
+local function buildRow(center, rowIndex, folder)
+	local rowZ = Layout.RoadZs and nil
+	local rowCenterZ = center.Z + ({ 104, 52, 0, -52 })[rowIndex]
+	buildSlab(center.X, rowCenterZ, Config.PlotSize, ROW_DEPTH, folder)
+
 	local dashLimit = Config.PlotSize / 2 - 16
-	for _, x in ipairs(Layout.RoadXs) do
+	-- The horizontal road along this row's front edge.
+	local roadZ = rowCenterZ + 26
+	part({
+		Name = "RoadH",
+		Size = Vector3.new(Config.PlotSize, 0.2, 12),
+		Position = Vector3.new(center.X, Config.GroundY + 0.14, roadZ),
+		Color = COLOR_ROAD,
+		Material = Enum.Material.Asphalt,
+		Parent = folder,
+	})
+	local x = -dashLimit
+	while x <= dashLimit do
+		part({
+			Name = "Dash",
+			Size = Vector3.new(6, 0.05, 1.6),
+			Position = Vector3.new(center.X + x, Config.GroundY + 0.26, roadZ),
+			Color = COLOR_DASH,
+			Material = Enum.Material.Neon,
+			Parent = folder,
+		})
+		x += 24
+	end
+	-- Vertical road segments through this row.
+	for _, rx in ipairs(Layout.RoadXs) do
 		part({
 			Name = "RoadV",
-			Size = Vector3.new(12, 0.2, Config.PlotSize),
-			Position = Vector3.new(center.X + x, Config.GroundY + 0.1, center.Z),
+			Size = Vector3.new(12, 0.2, ROW_DEPTH),
+			Position = Vector3.new(center.X + rx, Config.GroundY + 0.1, rowCenterZ),
 			Color = COLOR_ROAD,
 			Material = Enum.Material.Asphalt,
 			Parent = folder,
 		})
-		local zDash = -dashLimit
-		while zDash <= dashLimit do
-			part({
-				Name = "DashV",
-				Size = Vector3.new(1.6, 0.05, 6),
-				Position = Vector3.new(center.X + x, Config.GroundY + 0.22, center.Z + zDash),
-				Color = COLOR_DASH,
-				Material = Enum.Material.Neon,
-				Parent = folder,
-			})
-			zDash += 24
-		end
-	end
-	for _, z in ipairs(Layout.RoadZs) do
 		part({
-			Name = "RoadH",
-			Size = Vector3.new(Config.PlotSize, 0.2, 12),
-			Position = Vector3.new(center.X, Config.GroundY + 0.14, center.Z + z),
-			Color = COLOR_ROAD,
-			Material = Enum.Material.Asphalt,
-			Parent = folder,
-		})
-		local x = -dashLimit
-		while x <= dashLimit do
-			part({
-				Name = "Dash",
-				Size = Vector3.new(6, 0.05, 1.6),
-				Position = Vector3.new(center.X + x, Config.GroundY + 0.26, center.Z + z),
-				Color = COLOR_DASH,
-				Material = Enum.Material.Neon,
-				Parent = folder,
-			})
-			x += 24
-		end
-	end
-	-- Zebra crosswalk into the town square.
-	for i = 0, 5 do
-		part({
-			Name = "Zebra",
-			Size = Vector3.new(10, 0.05, 1.4),
-			Position = Vector3.new(center.X, Config.GroundY + 0.3, center.Z + Config.PlotSize / 2 + 4 + i * 2.6),
-			Color = Color3.fromRGB(240, 240, 245),
+			Name = "DashV",
+			Size = Vector3.new(1.6, 0.05, 6),
+			Position = Vector3.new(center.X + rx, Config.GroundY + 0.22, rowCenterZ - 8),
+			Color = COLOR_DASH,
+			Material = Enum.Material.Neon,
 			Parent = folder,
 		})
 	end
+	local _ = rowZ
 end
 
 local function buildFence(center, folder)

@@ -96,17 +96,15 @@ local function startWalking(record, slotIndex)
 			track:Play()
 		end)
 
-		-- Random walk over the road intersection grid.
-		local ix = rng:NextInteger(1, #Layout.RoadXs)
-		local iz = rng:NextInteger(1, #Layout.RoadZs)
+		-- Random walk over the UNLOCKED zone tiles only (the island grows
+		-- tile by tile, so locked tiles are open ocean).
 		while record.alive and model.Parent do
-			-- Step to a random adjacent intersection.
-			if rng:NextNumber() < 0.5 then
-				ix = math.clamp(ix + (rng:NextNumber() < 0.5 and -1 or 1), 1, #Layout.RoadXs)
-			else
-				iz = math.clamp(iz + (rng:NextNumber() < 0.5 and -1 or 1), 1, #Layout.RoadZs)
-			end
-			local target = Layout.intersection(slotIndex, ix, iz)
+			local slot = ctx.Plot.slots()[slotIndex]
+			local profile = slot and slot.owner and ctx.Data.get(slot.owner)
+			local unlocked = profile and profile.unlocked or 1
+			local zi = rng:NextInteger(1, math.max(unlocked, 1))
+			local zc = Layout.zoneCenter(slotIndex, zi)
+			local target = zc + Vector3.new(rng:NextNumber(-14, 14), 0, rng:NextNumber(-14, 14))
 			humanoid:MoveTo(target)
 			local reached = false
 			local conn = humanoid.MoveToFinished:Once(function()
@@ -129,7 +127,9 @@ local function spawnCitizen(slot)
 		return nil
 	end
 	model.Name = "Citizen_" .. slot.index
-	local spawnPos = Layout.intersection(slot.index, rng:NextInteger(1, #Layout.RoadXs), rng:NextInteger(1, #Layout.RoadZs))
+	local profile = slot.owner and ctx.Data.get(slot.owner)
+	local unlocked = profile and profile.unlocked or 1
+	local spawnPos = Layout.zoneCenter(slot.index, rng:NextInteger(1, math.max(unlocked, 1)))
 	model.Parent = folder
 	model:PivotTo(CFrame.new(spawnPos + Vector3.new(0, 4, 0)))
 
@@ -197,16 +197,13 @@ end
 local function driveCar(record, slotIndex)
 	task.spawn(function()
 		local model = record.model
-		local ix = rng:NextInteger(1, #Layout.RoadXs)
-		local iz = rng:NextInteger(1, #Layout.RoadZs)
-		local pos = Layout.intersection(slotIndex, ix, iz) + Vector3.new(0, 1.5, 0)
+		local pos = model:GetPivot().Position
 		while record.alive and model.Parent do
-			if rng:NextNumber() < 0.5 then
-				ix = math.clamp(ix + (rng:NextNumber() < 0.5 and -1 or 1), 1, #Layout.RoadXs)
-			else
-				iz = math.clamp(iz + (rng:NextNumber() < 0.5 and -1 or 1), 1, #Layout.RoadZs)
-			end
-			local target = Layout.intersection(slotIndex, ix, iz) + Vector3.new(0, 1.5, 0)
+			local slot = ctx.Plot.slots()[slotIndex]
+			local profile = slot and slot.owner and ctx.Data.get(slot.owner)
+			local unlocked = profile and profile.unlocked or 1
+			local zi = rng:NextInteger(1, math.max(unlocked, 1))
+			local target = Layout.zoneCenter(slotIndex, zi) + Vector3.new(0, 1.5, 0)
 			local dist = (target - pos).Magnitude
 			local speed = 22
 			local dur = math.max(dist / speed, 0.2)
@@ -228,7 +225,9 @@ local function spawnCar(slot)
 	local model = makeCar()
 	model.Name = "Car_" .. slot.index
 	model.Parent = carFolder
-	local start = Layout.intersection(slot.index, rng:NextInteger(1, #Layout.RoadXs), rng:NextInteger(1, #Layout.RoadZs))
+	local carProfile = slot.owner and ctx.Data.get(slot.owner)
+	local carUnlocked = carProfile and carProfile.unlocked or 1
+	local start = Layout.zoneCenter(slot.index, rng:NextInteger(1, math.max(carUnlocked, 1)))
 	model:PivotTo(CFrame.new(start + Vector3.new(0, 1.5, 0)))
 	local record = { model = model, alive = true }
 	driveCar(record, slot.index)

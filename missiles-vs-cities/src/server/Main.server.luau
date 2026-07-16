@@ -28,6 +28,7 @@ local JetService = require(script.Parent.JetService)
 local BatteryService = require(script.Parent.BatteryService)
 local PilotService = require(script.Parent.PilotService)
 local AdminService = require(script.Parent.AdminService)
+local FXTemplates = require(script.Parent.FXTemplates)
 
 StarterPlayer.CameraMaxZoomDistance = 500
 Players.RespawnTime = 3
@@ -41,6 +42,12 @@ task.spawn(function()
 	-- cities from part visuals to the real models.
 	BuildingVisuals.preload()
 	PlotService.rerenderAll()
+end)
+task.spawn(function()
+	-- Load FX vehicle/rocket models + UI kit art, then swap the decorative
+	-- silo rockets and nuke displays to the real models.
+	FXTemplates.init()
+	PlotService.applyStoreRockets()
 end)
 
 local ctx = {

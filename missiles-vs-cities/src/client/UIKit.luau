@@ -1,12 +1,8 @@
--- Loads free Creator Store UI packs at runtime and harvests their real image
--- assets (icons, button/panel textures) so the GUI uses designed art instead
--- of code-drawn shapes. Everything is best-effort with graceful fallback: if a
--- pack fails to load or an image isn't found, the caller keeps its drawn look.
---
--- InsertService:LoadAsset works in Studio AND live for public free assets
--- (it does NOT need API Services enabled), so these load during playtests too.
+-- Reads UI-kit image assets harvested by the SERVER (FXTemplates) from
+-- ReplicatedStorage.UIKitImages. InsertService only works server-side, so the
+-- client never loads assets itself — it just reads the results. Graceful:
+-- if nothing was harvested, callers keep their drawn fallback icons.
 
-local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -15,51 +11,43 @@ local Config = require(Shared.Config)
 local UIKit = {}
 
 UIKit.ready = false
-local images = {} -- lowercased name -> image asset id (string)
-local buttonImages = {} -- images whose name looks like a button
-local panelImages = {} -- images whose name looks like a panel/frame
+local images = {} -- lowercased name -> image id
+local buttonImages = {}
+local panelImages = {}
 
 local function record(name, id)
-	if not id or id == "" or id == "rbxassetid://0" then
-		return
+	images[name] = id
+	if name:find("button") or name:find("btn") then
+		buttonImages[#buttonImages + 1] = { name = name, id = id }
 	end
-	local lname = string.lower(name or "")
-	images[lname] = id
-	if lname:find("button") or lname:find("btn") then
-		buttonImages[#buttonImages + 1] = { name = lname, id = id }
-	end
-	if lname:find("panel") or lname:find("frame") or lname:find("bg") or lname:find("window") then
-		panelImages[#panelImages + 1] = { name = lname, id = id }
-	end
-end
-
-local function harvest(root)
-	for _, obj in ipairs(root:GetDescendants()) do
-		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-			record(obj.Name, obj.Image)
-		elseif obj:IsA("Decal") or obj:IsA("Texture") then
-			record(obj.Name, obj.Texture)
-		end
+	if name:find("panel") or name:find("frame") or name:find("bg") or name:find("window") then
+		panelImages[#panelImages + 1] = { name = name, id = id }
 	end
 end
 
 function UIKit.load()
 	if not Config.UseStoreUIKit then
+		UIKit.ready = true
 		return
 	end
-	for _, packId in ipairs(Config.UIKitPacks or {}) do
-		local ok, asset = pcall(function()
-			return InsertService:LoadAsset(packId)
-		end)
-		if ok and asset then
-			harvest(asset)
-			asset:Destroy()
+	local folder = ReplicatedStorage:WaitForChild("UIKitImages", 8)
+	if folder then
+		for _, v in ipairs(folder:GetChildren()) do
+			if v:IsA("StringValue") then
+				record(v.Name, v.Value)
+			end
 		end
+		-- Late arrivals (server still harvesting).
+		folder.ChildAdded:Connect(function(v)
+			if v:IsA("StringValue") then
+				record(v.Name, v.Value)
+			end
+		end)
 	end
 	UIKit.ready = true
 end
 
--- Returns the first harvested image id whose name contains any keyword.
+-- First harvested image whose name contains any keyword.
 function UIKit.icon(keywords)
 	if not Config.UseStoreUIKit then
 		return nil
@@ -74,9 +62,8 @@ function UIKit.icon(keywords)
 	return nil
 end
 
--- Best-guess button texture, preferring one whose name hints the colour.
 function UIKit.button(colorHint)
-	if not Config.UseStoreUIKit or #buttonImages == 0 then
+	if #buttonImages == 0 then
 		return nil
 	end
 	if colorHint then
@@ -90,7 +77,7 @@ function UIKit.button(colorHint)
 end
 
 function UIKit.panel()
-	if not Config.UseStoreUIKit or #panelImages == 0 then
+	if #panelImages == 0 then
 		return nil
 	end
 	return panelImages[1].id

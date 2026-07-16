@@ -529,12 +529,69 @@ end
 -- Hide/show a silo's decorative rocket (during launches).
 function PlotService.setSiloRocket(slot, siloIndex, visible)
 	local group = slot.siloGroups[siloIndex]
-	if not group then
+	if not group or not group.rocketModel then
 		return
 	end
-	for _, p in ipairs(group.rocketModel:GetChildren()) do
+	for _, p in ipairs(group.rocketModel:GetDescendants()) do
 		if p:IsA("BasePart") then
-			p.Transparency = visible and 0 or 1
+			p.Transparency = visible and (p:GetAttribute("BaseTransparency") or 0) or 1
+		end
+	end
+end
+
+-- Swaps every silo's part-built rocket for the Store rocket model, and stands
+-- a big Store nuke beside each nuke pad. Called once the FX templates load.
+function PlotService.applyStoreRockets()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local fx = ReplicatedStorage:FindFirstChild("FXModels")
+	if not fx then
+		return
+	end
+	local rocketTemplate = fx:FindFirstChild("SiloRocket")
+	local nukeTemplate = fx:FindFirstChild("NukeRocket")
+
+	for _, slot in ipairs(slots) do
+		if rocketTemplate and rocketTemplate.PrimaryPart then
+			for _, group in ipairs(slot.siloGroups) do
+				local clone = rocketTemplate:Clone()
+				clone.Name = "RocketModel"
+				-- Remember authored transparency for hide/show cycles.
+				for _, p in ipairs(clone:GetDescendants()) do
+					if p:IsA("BasePart") then
+						p:SetAttribute("BaseTransparency", p.Transparency)
+					end
+				end
+				clone.Parent = group.model
+				-- Ground-snap onto the silo pad.
+				local bbCF, bbSize = clone:GetBoundingBox()
+				local pivotY = clone:GetPivot().Position.Y
+				local feet = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+				clone:PivotTo(CFrame.new(group.basePos + Vector3.new(0, feet + 0.4, 0)))
+				if group.rocketModel then
+					group.rocketModel:Destroy()
+				end
+				group.rocketModel = clone
+				group.isStore = true
+			end
+			local owner = slot.owner
+			if owner then
+				local profile = ctx.Data.get(owner)
+				if profile then
+					PlotService.updateRocketVisual(slot, profile.rocketLevel or 1)
+				end
+			end
+		end
+		-- Display nuke standing next to the purple access pad.
+		if nukeTemplate and nukeTemplate.PrimaryPart and slot.nukePad and not slot.nukeDisplay then
+			local display = nukeTemplate:Clone()
+			display.Name = "NukeDisplay"
+			display.Parent = slot.folder
+			local bbCF, bbSize = display:GetBoundingBox()
+			local pivotY = display:GetPivot().Position.Y
+			local feet = pivotY - (bbCF.Position.Y - bbSize.Y / 2)
+			local padPos = slot.nukePad.Position
+			display:PivotTo(CFrame.new(padPos.X, Config.GroundY + feet, padPos.Z - 14))
+			slot.nukeDisplay = display
 		end
 	end
 end
@@ -558,13 +615,18 @@ function PlotService.updateRocketVisual(slot, level)
 	for _, group in ipairs(slot.siloGroups) do
 		local rm = group.rocketModel
 		if rm and rm.PrimaryPart then
-			-- ScaleTo is absolute relative to the model's build-time size.
+			-- ScaleTo is absolute vs the model's authored size; Store models
+			-- carry a BaseScale attribute from their normalization.
+			local baseScale = rm:GetAttribute("BaseScale") or 1
 			pcall(function()
-				rm:ScaleTo(scale)
+				rm:ScaleTo(baseScale * scale)
 			end)
-			for _, p in ipairs(rm:GetChildren()) do
-				if p:IsA("BasePart") then
-					p.Color = (p.Name == "SiloRocket") and body or nose
+			-- Only recolor our own part-built rockets, not Store models.
+			if not group.isStore then
+				for _, p in ipairs(rm:GetChildren()) do
+					if p:IsA("BasePart") then
+						p.Color = (p.Name == "SiloRocket") and body or nose
+					end
 				end
 			end
 		end

@@ -222,6 +222,33 @@ local function quadBezier(p0, p1, p2, t)
 end
 
 local function buildRocketModel(isNuke)
+	-- Prefer a Store rocket model (loaded server-side into FXModels).
+	local fx = ReplicatedStorage:FindFirstChild("FXModels")
+	local template = fx and fx:FindFirstChild(isNuke and "NukeRocket" or "SiloRocket")
+	if template and template.PrimaryPart then
+		local m = template:Clone()
+		m.Name = "MVC_Missile"
+		-- Exhaust trail on the store model too.
+		local att = Instance.new("Attachment")
+		att.Parent = m.PrimaryPart
+		local fire = Instance.new("ParticleEmitter")
+		fire.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		fire.Color = ColorSequence.new(Color3.fromRGB(255, 170, 60), Color3.fromRGB(120, 120, 120))
+		fire.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, isNuke and 6 or 3),
+			NumberSequenceKeypoint.new(1, isNuke and 12 or 6),
+		})
+		fire.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.2),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		fire.Lifetime = NumberRange.new(0.6, 1.1)
+		fire.Rate = 40
+		fire.Speed = NumberRange.new(4, 8)
+		fire.Parent = att
+		return m, m.PrimaryPart, nil, true -- isStoreModel
+	end
+
 	local model = Instance.new("Model")
 	local body = anchoredPart({
 		Name = "Body",
@@ -294,7 +321,7 @@ local function flyMissile(payload)
 	local to = payload.to
 	local flight = payload.flight
 
-	local model, body, nose = buildRocketModel(isNuke)
+	local model, body, nose, isStore = buildRocketModel(isNuke)
 	model.Name = "MVC_Missile"
 	model.Parent = workspace
 
@@ -342,8 +369,14 @@ local function flyMissile(payload)
 		else
 			lookCF = CFrame.new(pos)
 		end
-		body.CFrame = lookCF
-		nose.CFrame = lookCF * CFrame.new(0, 0, -(body.Size.Z / 2 + nose.Size.Z / 2 - 0.4))
+		if isStore then
+			-- Store rockets are authored pointing up (+Y): tilt so their nose
+			-- leads along the flight direction.
+			model:PivotTo(lookCF * CFrame.Angles(math.rad(-90), 0, 0))
+		else
+			body.CFrame = lookCF
+			nose.CFrame = lookCF * CFrame.new(0, 0, -(body.Size.Z / 2 + nose.Size.Z / 2 - 0.4))
+		end
 	end)
 end
 

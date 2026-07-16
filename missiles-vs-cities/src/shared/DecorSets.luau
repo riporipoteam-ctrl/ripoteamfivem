@@ -57,4 +57,13 @@ DecorSets.Buildings = {
 -- Destroyed-building rubble (replaces the part rubble when it loads).
 DecorSets.Rubble = { 8389261449, 95266753561513 }
 
+-- FX vehicle/weapon models (silo rockets, nuke, planes). Loaded server-side
+-- into ReplicatedStorage.FXModels so clients can clone them for flights.
+DecorSets.FX = {
+	rocket = { 11714293744, 126157921427052 }, -- "Rocket" / rocket ship kit
+	nuke = { 2997192982, 11714293744 }, -- big rocketship
+	cropduster = { 4999620514, 28531029 }, -- old-style plane
+	jet = { 88515913, 4999620514 }, -- "jet fighter"
+}
+
 return DecorSets
